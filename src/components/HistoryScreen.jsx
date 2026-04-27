@@ -1,63 +1,49 @@
-import { DownloadSimple, ArrowRight, ClockCounterClockwise, Plus, User } from "@phosphor-icons/react";
+import { useState } from "react";
+import { DownloadSimple, ArrowRight, ClockCounterClockwise, Plus, User, MagnifyingGlass } from "@phosphor-icons/react";
 import { HISTORY_DATA } from "../data/demoData";
 
-// ─── Sidebar ────────────────────────────────────────────────────
-function Sidebar({ username, role, onLogout }) {
-  const label = role === "professor" ? "Professor" : role === "aluno" ? "Aluno" : "Visitante";
+function Sidebar({ username, onLogout }) {
   return (
     <aside className="sidebar" aria-label="Menu lateral">
     <div className="sidebar-avatar" aria-hidden="true">
     <User size={30} weight="regular" color="white" />
     </div>
-    <p className="sidebar-welcome">
-    Bem vindo,<br />{username || label}!
-    </p>
-    <p className="sidebar-role">{label}</p>
-    <button
-    className="sidebar-logout"
-    onClick={onLogout}
-    aria-label="Sair da conta"
-    >
+    <p className="sidebar-welcome">Bem vindo,<br />{username || "Aluno"}!</p>
+    <p className="sidebar-role">Aluno</p>
+    <button className="sidebar-logout" onClick={onLogout} aria-label="Sair da conta">
     Sair
     </button>
     </aside>
   );
 }
 
-// ─── Tela principal ──────────────────────────────────────────────
 export function HistoryScreen({ onNewQuestionnaire, username, onLogout }) {
+  const [search, setSearch] = useState("");
+
+  const filtered = HISTORY_DATA.filter((h) =>
+  h.name.toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
     <div className="auth-layout page-anim">
-    <Sidebar username={username} role="aluno" onLogout={onLogout} />
+    <Sidebar username={username} onLogout={onLogout} />
 
     <div className="sidebar-main">
     <div className="page">
     <div className="page-wide">
 
     {/* Card CTA — Nova Atividade */}
-    <div style={{
-      display: "flex",
-      justifyContent: "flex-end",
-      marginBottom: 32,
-    }}>
+    <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 32 }}>
     <button
-    className="card"
     onClick={onNewQuestionnaire}
-    aria-label="Criar ou responder novo questionário"
+    aria-label="Responder novo questionário"
     style={{
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "flex-start",
-      gap: 12,
-      padding: "28px 32px",
-      width: 260,
+      display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 12,
+      padding: "28px 32px", width: 260,
       cursor: "pointer",
-      border: "1.5px solid var(--border)",
-          borderRadius: "var(--r-lg)",
-          background: "var(--surface)",
-          textAlign: "left",
-          transition: "all .18s",
-          fontFamily: "var(--font)",
+      border: "1.5px solid var(--border)", borderRadius: "var(--r-lg)",
+          background: "var(--surface)", textAlign: "left",
+          transition: "all .18s", fontFamily: "var(--font)",
     }}
     onMouseEnter={(e) => {
       e.currentTarget.style.borderColor = "var(--indigo-200)";
@@ -70,12 +56,9 @@ export function HistoryScreen({ onNewQuestionnaire, username, onLogout }) {
       e.currentTarget.style.boxShadow    = "none";
     }}
     >
-    {/* Ícone "+" */}
     <div style={{
-      width: 40, height: 40,
-      borderRadius: "var(--r-md)",
-          background: "var(--indigo-50)",
-          border: "1px solid var(--indigo-200)",
+      width: 40, height: 40, borderRadius: "var(--r-md)",
+          background: "var(--indigo-50)", border: "1px solid var(--indigo-200)",
           display: "flex", alignItems: "center", justifyContent: "center",
           color: "var(--accent)",
     }}>
@@ -92,11 +75,25 @@ export function HistoryScreen({ onNewQuestionnaire, username, onLogout }) {
     </button>
     </div>
 
-    {/* Histórico */}
+    {/* Header + busca */}
     <div className="section-header">
-    <div>
+    <div className="section-header-left">
     <h2 className="section-title">Histórico de Questionários</h2>
     <p className="section-sub">Atividades respondidas</p>
+    </div>
+    <div className="section-header-right">
+    <div className="search-wrap" role="search">
+    <span className="search-icon" aria-hidden="true">
+    <MagnifyingGlass size={17} weight="regular" />
+    </span>
+    <input
+    className="search-input"
+    type="search"
+    placeholder="Buscar atividade..."
+    value={search}
+    onChange={(e) => setSearch(e.target.value)}
+    aria-label="Buscar no histórico"
+    />
     </div>
     <button
     className="btn btn-outline btn-sm"
@@ -107,14 +104,11 @@ export function HistoryScreen({ onNewQuestionnaire, username, onLogout }) {
     Exportar PDF
     </button>
     </div>
+    </div>
 
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-    {HISTORY_DATA.length > 0 ? (
-      <table
-      className="data-table"
-      role="table"
-      aria-label="Histórico de questionários respondidos"
-      >
+    {filtered.length > 0 ? (
+      <table className="data-table" role="table" aria-label="Histórico de questionários respondidos">
       <thead>
       <tr>
       <th scope="col">Questionário</th>
@@ -124,17 +118,11 @@ export function HistoryScreen({ onNewQuestionnaire, username, onLogout }) {
       </tr>
       </thead>
       <tbody>
-      {HISTORY_DATA.map((h, i) => (
-        <tr
-        key={i}
-        className="data-row"
-        tabIndex={0}
+      {filtered.map((h, i) => (
+        <tr key={i} className="data-row" tabIndex={0}
         aria-label={`${h.name}, concluído em ${h.date}`}
         onClick={() => alert(`Abrindo: ${h.name}`)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ")
-            alert(`Abrindo: ${h.name}`);
-        }}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") alert(`Abrindo: ${h.name}`); }}
         >
         <td>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -152,11 +140,8 @@ export function HistoryScreen({ onNewQuestionnaire, username, onLogout }) {
       </tbody>
       </table>
     ) : (
-      <div
-      style={{ padding: "72px 32px", textAlign: "center", color: "var(--text-3)", fontSize: "0.92rem" }}
-      role="status"
-      >
-      Você ainda não respondeu nenhum questionário.
+      <div style={{ padding: "72px 32px", textAlign: "center", color: "var(--text-3)", fontSize: "0.92rem" }} role="status">
+      {search ? `Nenhum resultado para "${search}".` : "Você ainda não respondeu nenhum questionário."}
       </div>
     )}
     </div>

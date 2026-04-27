@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { ArrowLeft, Waveform } from "@phosphor-icons/react";
+import { ArrowLeft } from "@phosphor-icons/react";
 
 import { LoginScreen }        from "./components/LoginScreen";
 import { CredentialsScreen }  from "./components/CredentialsScreen";
@@ -17,35 +17,30 @@ import { useToast }  from "./hooks/useToast";
 import { DEMO_QUESTIONS } from "./data/demoData";
 import "./App.css";
 
-/*
- * Fluxo por papel:
- * ───────────────────────────────────────────────────────────────
- * login
- *   → professor  → credentials → professor-home (sidebar)
- *   → aluno      → credentials → history/home   (sidebar)
- *                              → upload → extracting → question → done
- *   → visitante  → visitor-name → upload → extracting → question → done
- * ───────────────────────────────────────────────────────────────
- */
+// Logo reutilizável
+function DictaLogo({ height = 38, onClick }) {
+  return (
+    <div className="topbar-logo" onClick={onClick} role={onClick ? "button" : undefined} tabIndex={onClick ? 0 : undefined}
+    onKeyDown={(e) => { if (onClick && (e.key === "Enter" || e.key === " ")) onClick(); }}>
+    <img src="/dicta_logo.png" alt="Dicta" style={{ height }} />
+    </div>
+  );
+}
 
 export default function App() {
-  const [role, setRole]               = useState(null);
-  const [page, setPage]               = useState("login");
-  const [username, setUsername]       = useState("");
-  const [answers, setAnswers]         = useState([]);
+  const [role, setRole]           = useState(null);
+  const [page, setPage]           = useState("login");
+  const [username, setUsername]   = useState("");
+  const [answers, setAnswers]     = useState([]);
 
   const { stopSpeak }               = useSpeech();
   const { toasts, show: showToast } = useToast();
 
-  // ── Browser history ──────────────────────────────────────────
+  // ── Browser history ──────────────────────────────────────────────
   useEffect(() => {
     window.history.replaceState({ page: "login", role: null }, "", "#login");
     const handlePop = (e) => {
-      if (e.state) {
-        stopSpeak();
-        setPage(e.state.page);
-        setRole(e.state.role ?? null);
-      }
+      if (e.state) { stopSpeak(); setPage(e.state.page); setRole(e.state.role ?? null); }
     };
     window.addEventListener("popstate", handlePop);
     return () => window.removeEventListener("popstate", handlePop);
@@ -59,111 +54,83 @@ export default function App() {
     if (novoRole !== null) setRole(novoRole);
   }, [role, stopSpeak]);
 
-    // ── Handlers ─────────────────────────────────────────────────
     const handleRoleSelect = (papel) => {
       if (papel === "visitante") navigate("visitor-name", "visitante");
       else navigate("credentials", papel);
     };
 
-      const handleLogin = () => {
-        navigate(role === "professor" ? "professor-home" : "history");
-      };
+      const handleLogin = () => navigate(role === "professor" ? "professor-home" : "history");
 
-      const handleVisitorName = (nome) => {
-        setUsername(nome);
-        navigate("upload");
-      };
+      const handleVisitorName = (nome) => { setUsername(nome); navigate("upload"); };
 
       const handleLogout = useCallback(() => {
-        stopSpeak();
-        setRole(null);
-        setUsername("");
-        setAnswers([]);
+        stopSpeak(); setRole(null); setUsername(""); setAnswers([]);
         window.history.pushState({ page: "login", role: null }, "", "#login");
         setPage("login");
       }, [stopSpeak]);
 
-      const handleStart = () => {
-        navigate("extracting");
-        setTimeout(() => navigate("question"), 2300);
-      };
-
+      const handleStart    = () => { navigate("extracting"); setTimeout(() => navigate("question"), 2300); };
       const handleComplete = (res) => { setAnswers(res); navigate("done"); };
-
       const handleGenerate = () => {
         showToast("PDF gerado com sucesso!");
         setTimeout(() => navigate(role === "aluno" ? "history" : "upload"), 2600);
       };
 
-      // ── Topbar ───────────────────────────────────────────────────
-      // Nas telas com sidebar (professor-home, history) a topbar é minimalista.
-      // Nas telas de questão (upload, question, etc.) mantém navegação leve.
+      // ── Topbars ──────────────────────────────────────────────────────
       const renderTopbar = () => {
-        // Telas de auth inicial — topbar minimalista
+
+        // Telas de login/auth — logo + nada mais
         if (["login", "credentials", "visitor-name"].includes(page)) {
           return (
             <header className="topbar" role="banner">
-            <div className="logo">
-            <div className="logo-mark" aria-hidden="true">
-            <Waveform size={16} weight="bold" color="white" />
-            </div>
-            ***
-            </div>
+            <DictaLogo height={100} />
             </header>
           );
         }
 
-        // Telas com sidebar — topbar só com título da área
+        // Área do professor
         if (page === "professor-home") {
           return (
             <header className="topbar" role="banner">
+            <DictaLogo height={100} onClick={() => navigate("professor-home")} />
             <div className="topbar-area">
-            <button
-            className="topbar-back-btn"
-            onClick={handleLogout}
-            aria-label="Voltar ao login"
-            >
-            <ArrowLeft size={18} weight="regular" />
-            </button>
-            <div className="topbar-divider" aria-hidden="true" />
             <span className="topbar-area-label">Área do Professor</span>
             </div>
             </header>
           );
         }
 
+        // Home do aluno
         if (page === "history" && role === "aluno") {
           return (
             <header className="topbar" role="banner">
-            <div className="logo">
-            <div className="logo-mark" aria-hidden="true">
-            <Waveform size={16} weight="bold" color="white" />
-            </div>
-            Minha Área
+            <DictaLogo height={100} onClick={() => navigate("history")} />
+            <div className="topbar-area">
+            <span className="topbar-area-label">Minha Área</span>
             </div>
             </header>
           );
         }
 
-        // Telas de fluxo do questionário (aluno / visitante)
+        // Fluxo do questionário — botão voltar explícito + logo
+        const backLabel = role === "aluno" ? "Minha Área" : "Início";
+        const backDest  = role === "aluno" ? "history"    : "upload";
+
         return (
           <header className="topbar" role="banner">
-          <div className="logo">
-          <div className="logo-mark" aria-hidden="true">
-          <Waveform size={16} weight="bold" color="white" />
-          </div>
-          {username ? `Olá, ${username}` : "***"}
-          </div>
+          <DictaLogo
+          height={100}
+          onClick={() => navigate(role === "aluno" ? "history" : "login")}
+          />
           <nav className="nav-btns" aria-label="Navegação">
-          {role === "aluno" && (
-            <button
-            className="nav-btn"
-            onClick={() => navigate("history")}
-            aria-label="Voltar ao início"
-            >
-            Minha Área
-            </button>
-          )}
+          <button
+          className="topbar-back-btn"
+          onClick={() => navigate(backDest)}
+          aria-label={`Voltar para ${backLabel}`}
+          >
+          <ArrowLeft size={16} weight="regular" />
+          {backLabel}
+          </button>
           </nav>
           </header>
         );
@@ -173,30 +140,18 @@ export default function App() {
         <div className="vq-shell">
         {renderTopbar()}
 
-        {page === "login" && (
-          <LoginScreen onSelect={handleRoleSelect} />
-        )}
+        {page === "login" && <LoginScreen onSelect={handleRoleSelect} />}
 
         {page === "credentials" && (role === "professor" || role === "aluno") && (
-          <CredentialsScreen
-          role={role}
-          onLogin={handleLogin}
-          onBack={() => navigate("login", null)}
-          />
+          <CredentialsScreen role={role} onLogin={handleLogin} onBack={() => navigate("login", null)} />
         )}
 
         {page === "visitor-name" && role === "visitante" && (
-          <VisitorNameScreen
-          onContinue={handleVisitorName}
-          onBack={() => navigate("login", null)}
-          />
+          <VisitorNameScreen onContinue={handleVisitorName} onBack={() => navigate("login", null)} />
         )}
 
         {page === "professor-home" && role === "professor" && (
-          <ProfessorScreen
-          username={username || "Professor"}
-          onLogout={handleLogout}
-          />
+          <ProfessorScreen username={username || "Professor"} onLogout={handleLogout} />
         )}
 
         {page === "history" && role === "aluno" && (
@@ -207,15 +162,9 @@ export default function App() {
           />
         )}
 
-        {page === "upload" && (role === "aluno" || role === "visitante") && (
-          <UploadScreen onStart={handleStart} />
-        )}
-
-        {page === "extracting" && (role === "aluno" || role === "visitante") && (
-          <ExtractingScreen />
-        )}
-
-        {page === "question" && (role === "aluno" || role === "visitante") && (
+        {page === "upload"     && (role === "aluno" || role === "visitante") && <UploadScreen onStart={handleStart} />}
+        {page === "extracting" && (role === "aluno" || role === "visitante") && <ExtractingScreen />}
+        {page === "question"   && (role === "aluno" || role === "visitante") && (
           <QuestionScreen questions={DEMO_QUESTIONS} onComplete={handleComplete} />
         )}
 
@@ -230,9 +179,7 @@ export default function App() {
 
         {toasts.length > 0 && (
           <div className="toast-wrap" role="alert" aria-live="assertive">
-          {toasts.map((t) => (
-            <div key={t.id} className="toast">{t.msg}</div>
-          ))}
+          {toasts.map((t) => <div key={t.id} className="toast">{t.msg}</div>)}
           </div>
         )}
         </div>
