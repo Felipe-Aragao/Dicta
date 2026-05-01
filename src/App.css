@@ -2,6 +2,10 @@
 
 /* ─── TOKENS ─────────────────────────────────────────────────────── */
 :root {
+  
+  --primary-color: #A361FF;
+  
+  --primary-color-dark: #8c4be0;
   --zinc-50:  #FAFAFA;
   --zinc-100: #F4F4F5;
   --zinc-200: #E4E4E7;
@@ -35,9 +39,9 @@
   --text-1:    var(--zinc-900);
   --text-2:    var(--zinc-600);
   --text-3:    var(--zinc-400);
-  --accent:    var(--indigo-600);
+  --accent:    var(--primary-color); 
   --accent-bg: var(--indigo-50);
-  --accent-dk: var(--indigo-700);
+  --accent-dk: var(--primary-color-dark); 
 
   --shell-max:   1280px;
   --content-max: 920px;
@@ -58,7 +62,7 @@
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { font-size: 19px; }
+html { font-size: clamp(14px, 1.2vw, 19px);}
 body {
   font-family: var(--font);
   background: var(--bg);
@@ -176,7 +180,7 @@ body {
 }
 
 /* ─── PAGE WRAPPERS ──────────────────────────────────────────────── */
-.page         { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 48px 40px; }
+.page         { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 40px 60px; }
 .page-narrow  { max-width: var(--content-max); width: 100%; margin: 0 auto; }
 .page-wide    { max-width: var(--shell-max);   width: 100%; margin: 0 auto; }
 .page-center  { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 56px 40px; }
@@ -224,7 +228,7 @@ body {
 /* ─── BADGES ─────────────────────────────────────────────────────── */
 .badge        { display: inline-flex; align-items: center; gap: 5px; padding: 6px 14px; border-radius: 99px; font-size: 0.85rem; font-weight: 600; }
 .badge-green  { background: var(--green-100); color: var(--green-700); }
-.badge-indigo { background: var(--indigo-100); color: var(--indigo-700); }
+.badge-indigo { background: var(--indigo-100); color: var(--primary-color-dark); }
 .badge-zinc   { background: var(--zinc-100);   color: var(--zinc-600); }
 
 /* ─── SEARCH INPUT ───────────────────────────────────────────────── */
@@ -253,25 +257,25 @@ body {
 /* ─── LOGIN ──────────────────────────────────────────────────────── */
 .login-bg {
   flex: 1; display: flex; align-items: center; justify-content: center;
-  background: var(--zinc-50); padding: 56px 24px;
+  background: var(--zinc-50); padding: 20px 24px;
 }
 .login-card {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--r-xl); padding: 68px 64px;
+  border-radius: var(--r-xl); padding: 48px 48px;
   width: 100%; max-width: 680px; text-align: center;
 }
-.login-logo { margin-bottom: 36px; display: flex; justify-content: center; }
-.login-logo img { height: 200px; width: auto; object-fit: contain; }
+.login-logo { margin-bottom: 24px; display: flex; justify-content: center; }
+.login-logo img { height: 75px; width: auto; object-fit: contain; }
 .login-title {
   font-size: 2rem; font-weight: 700; color: var(--text-1);
-  margin-bottom: 48px; letter-spacing: -0.4px;
+  margin-bottom: 32px; letter-spacing: -0.4px;
 }
 .role-grid {
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px;
 }
 .role-card {
   display: flex; flex-direction: column; align-items: center;
-  justify-content: center; gap: 18px; padding: 48px 20px;
+  justify-content: center; gap: 18px; padding: 40px 20px;
   border: 1.5px solid var(--border); border-radius: var(--r-lg);
   background: var(--surface); cursor: pointer; transition: all .2s;
   font-family: var(--font); color: var(--text-2); min-height: 190px;
@@ -295,32 +299,32 @@ body {
 /* ─── CREDENTIALS / VISITOR ──────────────────────────────────────── */
 .creds-card {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--r-xl); padding: 60px 56px;
-  width: 100%; max-width: 460px;
+  border-radius: var(--r-xl); padding: 16px 16px;
+  width: 200%; max-width: 460px;
 }
 .creds-back {
   display: flex; align-items: center; gap: 8px;
   background: none; border: none; cursor: pointer;
   font-family: var(--font); font-size: 0.92rem; font-weight: 500; color: var(--text-3);
-  margin-bottom: 40px; padding: 0; transition: color .15s;
+  margin-bottom: 16px; padding: 0; transition: color .15s;
 }
 .creds-back:hover { color: var(--text-1); }
 .creds-role-badge {
   display: inline-flex; align-items: center; gap: 7px;
   background: var(--indigo-50); color: var(--accent);
   border-radius: 99px; padding: 7px 18px;
-  font-size: 0.88rem; font-weight: 600; margin-bottom: 20px;
+  font-size: 0.88rem; font-weight: 600; margin-bottom: 10px;
 }
 .creds-title { font-size: 1.7rem; font-weight: 700; color: var(--text-1); margin-bottom: 8px; letter-spacing: -0.3px; }
-.creds-sub   { font-size: 0.92rem; color: var(--text-3); margin-bottom: 40px; line-height: 1.6; }
-.field-group { display: flex; flex-direction: column; gap: 20px; margin-bottom: 32px; }
+.creds-sub   { font-size: 0.92rem; color: var(--text-3); margin-bottom: 18px; line-height: 1.6; }
+.field-group { display: flex; flex-direction: column; gap: 16px; margin-bottom: 18px; }
 .field-wrap  { display: flex; flex-direction: column; gap: 8px; }
 .field-label { font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: .07em; color: var(--text-3); }
 .text-input {
   width: 100%; border: 1.5px solid var(--border-md); border-radius: var(--r-sm);
-  padding: 15px 18px; font-family: var(--font); font-size: 1.05rem;
+  padding: 12px 16px; font-family: var(--font); font-size: 1.05rem;
   color: var(--text-1); background: var(--surface); outline: none;
-  transition: border-color .15s; min-height: 56px;
+  transition: border-color .15s; min-height: 48px;
 }
 .text-input:focus { border-color: var(--accent); }
 
@@ -366,7 +370,7 @@ body {
 .upload-zone {
   width: 100%; border: 1.5px dashed var(--border-md); border-radius: var(--r-lg);
   background: var(--zinc-50); display: flex; flex-direction: column;
-  align-items: center; padding: 88px 40px; cursor: pointer; text-align: center; transition: all .2s;
+  align-items: center; padding: 15px 15px; cursor: pointer; text-align: center; transition: all .2s;
 }
 .upload-zone:hover, .upload-zone.over { background: var(--indigo-50); border-color: var(--indigo-200); }
 .upload-zone:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }

@@ -5,9 +5,9 @@ export function LoginScreen({ onSelect }) {
     <div className="login-bg">
     <div className="login-card page-anim">
 
-    {/* Logo centralizada */}
+    
     <div className="login-logo">
-    <img src="/dicta_logo.png" alt="Dicta" />
+    <img src="/dicta_logo.svg" alt="Dicta" />
     </div>
 
     <h1 className="login-title">Olá! Eu sou</h1>

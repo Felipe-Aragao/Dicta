@@ -1,6 +1,6 @@
 // VoiceCommandsScreen.jsx
 // Página de instruções de comandos de voz disponíveis no Dicta.
-
+import { useEffect } from "react"; 
 import { ArrowLeft, Microphone, SpeakerHigh, ArrowRight,
          MagnifyingGlass, DownloadSimple, CheckCircle,
          ArrowCounterClockwise } from "@phosphor-icons/react";
@@ -13,9 +13,9 @@ const SECTIONS = [
     color: "#4F46E5",
     bg: "#EEF2FF",
     commands: [
-      { diga: "próxima",              faz: "Avança para a próxima questão" },
-      { diga: "anterior",             faz: "Volta para a questão anterior" },
-      { diga: "repetir",              faz: "Lê a questão atual novamente em voz alta" },
+      { diga: "próxima",            faz: "Avança para a próxima questão" },
+      { diga: "anterior",           faz: "Volta para a questão anterior" },
+      { diga: "repetir",            faz: "Lê a questão atual novamente em voz alta" },
       { diga: "ouvir alternativas",   faz: "Lê todas as alternativas da questão atual" },
     ],
   },
@@ -157,9 +157,16 @@ function SectionCard({ section }) {
 }
 
 // ── Tela principal ───────────────────────────────────────────────
-export function VoiceCommandsScreen({ onClose }) {
+export function VoiceCommandsScreen({ onClose, isIntro, onContinue }) {
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   return (
-    <div className="page page-anim">
+    <div className="page page-anim" style={{ paddingTop: "20px" }}>
+      
+      
+
       <div className="page-wide">
 
         {/* Hero */}
@@ -243,19 +250,32 @@ export function VoiceCommandsScreen({ onClose }) {
           ))}
         </div>
 
-        {/* Botão de fechar */}
+        {/* Botão de fechar ou avançar */}
         <div style={{ display: "flex", justifyContent: "center" }}>
-          <button
-            className="btn btn-primary btn-lg"
-            style={{ minWidth: 240 }}
-            onClick={onClose}
-            aria-label="Fechar e voltar"
-          >
-            <ArrowLeft size={18} weight="regular" />
-            Voltar para o Dicta
-          </button>
+          {isIntro ? (
+            <button
+              className="btn btn-primary btn-lg"
+              style={{ minWidth: 240 }}
+              onClick={onContinue}
+              aria-label="Avançar para a tela inicial"
+            >
+              Avançar
+              <ArrowRight size={18} weight="regular" />
+            </button>
+                
+          ) : (
+            <button
+              className="btn btn-primary btn-lg"
+              style={{ minWidth: 240 }}
+              onClick={onClose}
+              aria-label="Fechar e voltar"
+            >
+              <ArrowLeft size={18} weight="regular" />
+              Voltar 
+            </button>
+          )}
         </div>
-
+        
       </div>
     </div>
   );

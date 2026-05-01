@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { ArrowLeft, SpeakerHigh } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowRight, SpeakerHigh } from "@phosphor-icons/react";
 
 import { LoginScreen }          from "./components/LoginScreen";
 import { CredentialsScreen }    from "./components/CredentialsScreen";
@@ -19,7 +19,7 @@ import { DEMO_QUESTIONS } from "./data/demoData";
 import "./App.css";
 
 // ── Logo reutilizável ────────────────────────────────────────────
-function DictaLogo({ height = 100, onClick }) {
+function DictaLogo({ height = 40  , onClick }) {
   return (
     <div
     className="topbar-logo"
@@ -28,7 +28,7 @@ function DictaLogo({ height = 100, onClick }) {
     tabIndex={onClick ? 0 : undefined}
     onKeyDown={(e) => { if (onClick && (e.key === "Enter" || e.key === " ")) onClick(); }}
     >
-    <img src="/dicta_logo.png" alt="Dicta" style={{ height }} />
+    <img src="/dicta_logo.svg" alt="Dicta" style={{ height }} />
     </div>
   );
 }
@@ -38,7 +38,7 @@ export default function App() {
   const [page, setPage]         = useState("login");
   const [username, setUsername] = useState("");
   const [answers, setAnswers]   = useState([]);
-  // Guarda de onde o usuário veio antes de abrir os comandos de voz
+ 
   const [prevPage, setPrevPage] = useState(null);
 
   const { stopSpeak }               = useSpeech();
@@ -66,7 +66,7 @@ export default function App() {
     if (novoRole !== null) setRole(novoRole);
   }, [role, stopSpeak]);
 
-    // ── Abre a tela de comandos de voz guardando a origem ──────────
+    
     const openVoiceCommands = useCallback(() => {
       setPrevPage(page);
       navigate("voice-commands");
@@ -82,9 +82,9 @@ export default function App() {
       else navigate("credentials", papel);
     };
 
-      const handleLogin = () => navigate(role === "professor" ? "professor-home" : "history");
+      const handleLogin = () => navigate("voice-commands-intro");
 
-      const handleVisitorName = (nome) => { setUsername(nome); navigate("upload"); };
+      const handleVisitorName = (nome) => { setUsername(nome); navigate("voice-commands-intro"); };
 
       const handleLogout = useCallback(() => {
         stopSpeak();
@@ -92,6 +92,13 @@ export default function App() {
         window.history.pushState({ page: "login", role: null }, "", "#login");
         setPage("login");
       }, [stopSpeak]);
+
+     
+      const handleSkipIntro = () => {
+        if (role === "professor") navigate("professor-home");
+        else if (role === "visitante") navigate("upload");
+        else navigate("history");
+      };
 
       // ── Handlers do fluxo de questionário ─────────────────────────
       const handleStart    = () => { navigate("extracting"); setTimeout(() => navigate("question"), 2300); };
@@ -103,16 +110,34 @@ export default function App() {
 
       // ── Topbar ─────────────────────────────────────────────────────
       const renderTopbar = () => {
-        // Telas de auth — só logo
+        
+        // 1. Telas de auth normais — só logo
         if (["login", "credentials", "visitor-name"].includes(page)) {
           return (
             <header className="topbar" role="banner">
-            <DictaLogo />
+              <DictaLogo />
             </header>
           );
         }
 
-        // Tela de comandos de voz — botão fechar
+        // 2. Tela de Introdução aos comandos de voz — Logo + Botão Pular
+        if (page === "voice-commands-intro") {
+          return (
+            <header className="topbar" role="banner">
+              <DictaLogo />
+              <button
+                className="topbar-back-btn"
+                onClick={handleSkipIntro}
+                aria-label="Pular introdução"
+              >
+                Pular
+                <ArrowRight size={16} weight="regular" />
+              </button>
+            </header>
+          );
+        }
+
+        // 3. Tela de comandos de voz (ajuda) — Logo + Botão Voltar
         if (page === "voice-commands") {
           return (
             <header className="topbar" role="banner">
@@ -148,7 +173,7 @@ export default function App() {
             <DictaLogo onClick={() => navigate("history")} />
             <div className="topbar-area">
             <span className="topbar-area-label">Minha Área</span>
-            {/* Atalho para comandos de voz */}
+            
             <button
             className="nav-btn"
             onClick={openVoiceCommands}
@@ -163,20 +188,22 @@ export default function App() {
           );
         }
 
-        // Fluxo do questionário
-        // BUG FIX: visitante deve voltar para "login", não para "upload"
+        
         const backLabel = role === "aluno"      ? "Minha Área"
-        : role === "visitante"  ? "Início"
-        :                         "Início";
+                : role === "visitante"  ? "Início"
+                : role === "professor"  ? "Área do Professor" 
+                : "Início";
+
         const backDest  = role === "aluno"      ? "history"
-        : role === "visitante"  ? "login"     // ← correção
-        :                         "login";
+                : role === "visitante"  ? "login"
+                : role === "professor"  ? "professor-home" 
+                : "login";                      "login";
 
         return (
           <header className="topbar" role="banner">
           <DictaLogo onClick={() => navigate(backDest)} />
           <nav className="nav-btns" aria-label="Navegação">
-          {/* Atalho para comandos de voz no fluxo de questões */}
+          
           {(role === "aluno" || role === "visitante") && (
             <button
             className="nav-btn"
@@ -216,16 +243,23 @@ export default function App() {
         )}
 
         {page === "professor-home" && role === "professor" && (
-          <ProfessorScreen username={username || "Professor"} onLogout={handleLogout} />
+          <ProfessorScreen 
+            username={username || "Professor"} 
+            onLogout={handleLogout} 
+            onOpenActivity={() => navigate("question")} 
+          />
         )}
 
         {page === "history" && role === "aluno" && (
           <HistoryScreen
-          username={username || "Aluno"}
-          onLogout={handleLogout}
-          onNewQuestionnaire={() => navigate("upload")}
+            username={username || "Aluno"}
+            onLogout={handleLogout}
+            onNewQuestionnaire={() => navigate("upload")}
+            onOpenActivity={() => navigate("question")} 
           />
         )}
+
+        
 
         {page === "upload"     && (role === "aluno" || role === "visitante") && <UploadScreen onStart={handleStart} />}
         {page === "extracting" && (role === "aluno" || role === "visitante") && <ExtractingScreen />}
@@ -244,6 +278,13 @@ export default function App() {
 
         {page === "voice-commands" && (
           <VoiceCommandsScreen onClose={closeVoiceCommands} />
+        )}
+
+        {page === "voice-commands-intro" && (
+          <VoiceCommandsScreen 
+            isIntro={true} 
+            onContinue={handleSkipIntro} 
+          />
         )}
 
         {toasts.length > 0 && (

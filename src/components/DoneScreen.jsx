@@ -19,7 +19,7 @@ export function DoneScreen({ role, onEdit, onGenerate, onHome }) {
 
     <div className="done-actions">
 
-    {/* Ação principal */}
+   
     <button
     className="btn btn-primary btn-lg btn-full"
     onClick={onGenerate}
@@ -29,7 +29,7 @@ export function DoneScreen({ role, onEdit, onGenerate, onHome }) {
     Gerar PDF das Respostas
     </button>
 
-    {/* Ação secundária */}
+  
     <button
     className="btn btn-outline btn-lg btn-full"
     onClick={onEdit}

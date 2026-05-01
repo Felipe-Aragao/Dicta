@@ -183,7 +183,7 @@ export function QuestionScreen({ questions, onComplete }) {
                 </div>
               </div>
 
-              {/* Navegação no modo leitura — próximo sempre liberado */}
+              
               <div className="nav-row">
                 <button
                   className="btn btn-outline"
@@ -289,7 +289,7 @@ export function QuestionScreen({ questions, onComplete }) {
                 </div>
               </div>
 
-              {/* Navegação no modo resposta — próximo sempre liberado */}
+              
               <div className="nav-row">
                 <button
                   className="btn btn-outline"

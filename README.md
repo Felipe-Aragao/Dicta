@@ -1,16 +1,33 @@
-# React + Vite
+<div align="center">
+  <img src="public/dicta_logo.svg" alt="Logo Dicta" width="200"/>
+  <h1>🎙️ Dicta</h1>
+  <p><b>Acessibilidade e Inclusão na Resolução de Questionários Educacionais</b></p>
+</div>
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+---
 
-Currently, two official plugins are available:
+## 💡 Sobre o Projeto
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+O **Dicta** é uma plataforma educacional inovadora desenvolvida para democratizar o acesso a provas e atividades. Focada 100% em acessibilidade, a aplicação permite que estudantes com deficiência visual, motora ou dificuldades de leitura respondam a questionários inteiros utilizando apenas **comandos de voz**.
 
-## React Compiler
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🚀 Tecnologias Utilizadas
 
-## Expanding the ESLint configuration
+Este projeto foi construído utilizando as seguintes tecnologias:
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+*   **[React](https://reactjs.org/)** - Biblioteca JavaScript para construção da interface.
+*   **CSS3** - Estilização customizada e responsiva.
+*   **Web Speech API** - Para reconhecimento e síntese de voz nativos do navegador.
+
+## 🛠️ Como Executar o Projeto
+
+Siga os passos abaixo para rodar o Dicta na sua máquina local:
+
+1. Clone este repositório:
+   
+```bash
+git clone https://github.com/M-rcos/frontend-p3-teste
+cd dicta
+npm install
+npm run dev
+```

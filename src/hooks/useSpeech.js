@@ -1,15 +1,6 @@
 import { useRef, useCallback } from "react";
 
-/**
- * useSpeech
- * Encapsula a Web Speech API (síntese de voz + reconhecimento de fala).
- *
- * Retorna:
- *  - speak(text)          → lê o texto em voz alta (pt-BR)
- *  - stopSpeak()          → interrompe a leitura atual
- *  - startRec(onResult, onEnd) → inicia gravação; chama onResult(text) a cada atualização
- *  - stopRec()            → para a gravação manualmente
- */
+
 export function useSpeech() {
   const recRef = useRef(null);
 
@@ -33,15 +24,15 @@ export function useSpeech() {
       window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      // Navegador não suporta (ex: Firefox sem flag)
+      
       alert("Reconhecimento de voz não suportado neste navegador. Use o Chrome.");
       return false;
     }
 
     const rec = new SpeechRecognition();
     rec.lang            = "pt-BR";
-    rec.continuous      = false;   // para automaticamente após silêncio
-    rec.interimResults  = true;    // retorna texto parcial enquanto fala
+    rec.continuous      = false;   
+    rec.interimResults  = true;   
 
     rec.onresult = (event) => {
       let texto = "";
@@ -52,7 +43,7 @@ export function useSpeech() {
     };
 
     rec.onend   = onEnd;
-    rec.onerror = onEnd;   // em caso de erro, trata como fim da gravação
+    rec.onerror = onEnd;   
 
     rec.start();
     recRef.current = rec;
