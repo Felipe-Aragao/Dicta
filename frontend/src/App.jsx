@@ -40,6 +40,8 @@ export default function App() {
   const [page, setPage]         = useState("login");
   const [username, setUsername] = useState("");
   const [answers, setAnswers]   = useState([]);
+  const [uploadStatus, setUploadStatus] = useState("idle");
+  const [uploadError, setUploadError] = useState("");
  
   const [prevPage, setPrevPage] = useState(null);
 
@@ -67,6 +69,15 @@ export default function App() {
     setPage(destino);
     if (novoRole !== null) setRole(novoRole);
   }, [role, stopSpeak]);
+
+  const resetUploadStatus = useCallback(() => {
+    setUploadStatus("idle");
+    setUploadError("");
+  }, []);
+
+  useEffect(() => {
+    if (page === "upload") resetUploadStatus();
+  }, [page, resetUploadStatus]);
 
     
     const openVoiceCommands = useCallback(() => {
@@ -105,11 +116,13 @@ export default function App() {
       // ── Handlers do fluxo de questionário ─────────────────────────
       const handleStart    = async (file) => {
         if (!file) {
-          showToast("Selecione um PDF.");
+          setUploadStatus("error");
+          setUploadError("Selecione um PDF.");
           return;
         }
 
-        navigate("extracting");
+        setUploadStatus("loading");
+        setUploadError("");
 
         const formData = new FormData();
         formData.append("pdf", file);
@@ -132,10 +145,14 @@ export default function App() {
           }
 
           await response.json();
-          navigate("question");
+          setUploadStatus("success");
+          setTimeout(() => {
+            navigate("extracting");
+            setTimeout(() => navigate("question"), 2300);
+          }, 400);
         } catch (error) {
-          showToast(error?.message ?? "Falha ao enviar PDF.");
-          navigate("upload");
+          setUploadStatus("error");
+          setUploadError(error?.message ?? "Falha ao enviar PDF.");
         }
       };
       const handleComplete = (res) => { setAnswers(res); navigate("done"); };
@@ -297,7 +314,14 @@ export default function App() {
 
         
 
-        {page === "upload"     && (role === "aluno" || role === "visitante") && <UploadScreen onStart={handleStart} />}
+        {page === "upload"     && (role === "aluno" || role === "visitante") && (
+          <UploadScreen
+            onStart={handleStart}
+            uploadStatus={uploadStatus}
+            uploadError={uploadError}
+            onFileSelected={resetUploadStatus}
+          />
+        )}
         {page === "extracting" && (role === "aluno" || role === "visitante") && <ExtractingScreen />}
         {page === "question"   && (role === "aluno" || role === "visitante") && (
           <QuestionScreen questions={DEMO_QUESTIONS} onComplete={handleComplete} />

@@ -1,14 +1,26 @@
 import { useState, useRef } from "react";
-import { FilePdf, CheckCircle } from "@phosphor-icons/react";
+import { FilePdf, CheckCircle, XCircle, SpinnerGap } from "@phosphor-icons/react";
 
-export function UploadScreen({ onStart }) {
+export function UploadScreen({
+  onStart,
+  uploadStatus = "idle",
+  uploadError = "",
+  onFileSelected,
+}) {
   const [file, setFile] = useState(null);
   const [over, setOver] = useState(false);
   const inputRef = useRef();
 
   const handleFile = (f) => {
-    if (f?.type === "application/pdf") setFile(f);
+    if (f?.type === "application/pdf") {
+      setFile(f);
+      onFileSelected?.();
+    }
   };
+
+  const isLoading = uploadStatus === "loading";
+  const isSuccess = uploadStatus === "success";
+  const isError = uploadStatus === "error";
 
   return (
     <div className="page page-anim">
@@ -64,9 +76,28 @@ export function UploadScreen({ onStart }) {
 
         {/* Arquivo selecionado */}
         {file && (
-          <div className="file-pill" role="status" aria-live="polite">
-            <CheckCircle size={16} weight="fill" />
-            {file.name}
+          <div>
+            <div
+              className={`file-pill${isLoading ? " loading" : ""}${isSuccess ? " success" : ""}${isError ? " error" : ""}`}
+              role="status"
+              aria-live="polite"
+            >
+              {isLoading ? (
+                <SpinnerGap size={16} weight="bold" className="file-spinner" />
+              ) : isError ? (
+                <XCircle size={16} weight="fill" />
+              ) : isSuccess ? (
+                <CheckCircle size={16} weight="fill" />
+              ) : (
+                <FilePdf size={16} weight="regular" />
+              )}
+              {isLoading ? "Verificando PDF..." : file.name}
+            </div>
+            {isError && uploadError && (
+              <div className="file-error" role="alert">
+                {uploadError}
+              </div>
+            )}
           </div>
         )}
 
@@ -75,7 +106,7 @@ export function UploadScreen({ onStart }) {
           <button
             className="btn btn-primary btn-lg"
             style={{ width: "100%" }}
-            disabled={!file}
+            disabled={!file || isLoading}
             onClick={() => onStart(file)}
             aria-label="Iniciar questionário"
           >
