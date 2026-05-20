@@ -39,6 +39,7 @@ export default function App() {
   const [role, setRole]         = useState(null);
   const [page, setPage]         = useState("login");
   const [username, setUsername] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
   const [answers, setAnswers]   = useState([]);
   const [uploadStatus, setUploadStatus] = useState("idle");
   const [uploadError, setUploadError] = useState("");
@@ -95,7 +96,80 @@ export default function App() {
       else navigate("credentials", papel);
     };
 
-      const handleLogin = () => navigate("voice-commands-intro");
+      const handleLogin = useCallback(async ({ email, password }) => {
+        if (!role) return;
+        setAuthLoading(true);
+        try {
+          const response = await fetch(`${API_BASE_URL}/auth/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
+          });
+
+          if (!response.ok) {
+            let detail = "Falha ao entrar.";
+            try {
+              const data = await response.json();
+              if (data?.detail) detail = data.detail;
+            } catch {
+              
+            }
+            throw new Error(detail);
+          }
+
+          const user = await response.json();
+          if (user.role && user.role !== role) {
+            throw new Error("Perfil selecionado nao corresponde ao usuario.");
+          }
+          setUsername(user.name || "");
+          navigate("voice-commands-intro");
+        } catch (error) {
+          showToast(error?.message ?? "Falha ao entrar.");
+          throw error;
+        } finally {
+          setAuthLoading(false);
+        }
+      }, [navigate, role, showToast]);
+
+      const handleRegister = useCallback(async ({ name, email, password }) => {
+        if (!role) return;
+        setAuthLoading(true);
+        try {
+          const response = await fetch(`${API_BASE_URL}/auth/register`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              role,
+              name,
+              email: email.trim().toLowerCase(),
+              password,
+            }),
+          });
+
+          if (!response.ok) {
+            let detail = "Falha ao cadastrar.";
+            try {
+              const data = await response.json();
+              if (data?.detail) detail = data.detail;
+            } catch {
+              
+            }
+            throw new Error(detail);
+          }
+
+          const user = await response.json();
+          if (user.role && user.role !== role) {
+            throw new Error("Perfil selecionado nao corresponde ao usuario.");
+          }
+          setUsername(user.name || "");
+          navigate("voice-commands-intro");
+        } catch (error) {
+          showToast(error?.message ?? "Falha ao cadastrar.");
+          throw error;
+        } finally {
+          setAuthLoading(false);
+        }
+      }, [navigate, role, showToast]);
 
       const handleVisitorName = (nome) => { setUsername(nome); navigate("voice-commands-intro"); };
 
@@ -288,7 +362,13 @@ export default function App() {
         {page === "login" && <LoginScreen onSelect={handleRoleSelect} />}
 
         {page === "credentials" && (role === "professor" || role === "aluno") && (
-          <CredentialsScreen role={role} onLogin={handleLogin} onBack={() => navigate("login", null)} />
+          <CredentialsScreen
+            role={role}
+            onLogin={handleLogin}
+            onRegister={handleRegister}
+            onBack={() => navigate("login", null)}
+            loading={authLoading}
+          />
         )}
 
         {page === "visitor-name" && role === "visitante" && (

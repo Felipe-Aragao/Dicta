@@ -20,12 +20,31 @@ const ROLE_META = {
   },
 };
 
-export function CredentialsScreen({ role, onLogin, onBack }) {
+export function CredentialsScreen({ role, onLogin, onRegister, onBack, loading = false }) {
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [name, setName] = useState("");
+  const [mode, setMode] = useState("login");
 
   const meta    = ROLE_META[role];
   const canLogin = email.trim().length > 0 && password.length > 0;
+  const canRegister =
+    name.trim().length > 0 &&
+    email.trim().length > 0 &&
+    password.length >= 6 &&
+    confirmPassword.length >= 6 &&
+    password === confirmPassword;
+
+  const handleLogin = async () => {
+    if (!canLogin || loading) return;
+    await onLogin({ email: email.trim(), password });
+  };
+
+  const handleRegister = async () => {
+    if (!canRegister || loading) return;
+    await onRegister({ name: name.trim(), email: email.trim(), password });
+  };
 
   return (
     <div className="login-bg">
@@ -48,8 +67,46 @@ export function CredentialsScreen({ role, onLogin, onBack }) {
         <h1 className="creds-title">{meta.title}</h1>
         <p className="creds-sub">{meta.sub}</p>
 
+        <div className="creds-tabs" role="tablist" aria-label="Selecionar modo">
+          <button
+            type="button"
+            className={`creds-tab${mode === "login" ? " active" : ""}`}
+            onClick={() => setMode("login")}
+            aria-selected={mode === "login"}
+            role="tab"
+          >
+            Entrar
+          </button>
+          <button
+            type="button"
+            className={`creds-tab${mode === "register" ? " active" : ""}`}
+            onClick={() => setMode("register")}
+            aria-selected={mode === "register"}
+            role="tab"
+          >
+            Cadastrar
+          </button>
+        </div>
+
         {/* Campos */}
         <div className="field-group">
+          {mode === "register" && (
+            <div className="field-wrap">
+              <label className="field-label" htmlFor="creds-name">
+                Nome completo
+              </label>
+              <input
+                id="creds-name"
+                className="text-input"
+                type="text"
+                placeholder="Ex: Maria Silva"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && canRegister) handleRegister(); }}
+                autoComplete="name"
+              />
+            </div>
+          )}
           <div className="field-wrap">
             <label className="field-label" htmlFor="creds-email">
               E-mail institucional
@@ -61,7 +118,7 @@ export function CredentialsScreen({ role, onLogin, onBack }) {
               placeholder="nome@instituicao.edu.br"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && canLogin) onLogin(); }}
+              onKeyDown={(e) => { if (e.key === "Enter" && canLogin) handleLogin(); }}
               autoFocus
               autoComplete="email"
             />
@@ -78,19 +135,37 @@ export function CredentialsScreen({ role, onLogin, onBack }) {
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && canLogin) onLogin(); }}
+              onKeyDown={(e) => { if (e.key === "Enter" && canLogin) handleLogin(); }}
               autoComplete="current-password"
             />
           </div>
+
+          {mode === "register" && (
+            <div className="field-wrap">
+              <label className="field-label" htmlFor="creds-confirm">
+                Confirmar senha
+              </label>
+              <input
+                id="creds-confirm"
+                className="text-input"
+                type="password"
+                placeholder="••••••••"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && canRegister) handleRegister(); }}
+                autoComplete="new-password"
+              />
+            </div>
+          )}
         </div>
 
         <button
           className="btn btn-primary btn-lg btn-full"
-          disabled={!canLogin}
-          onClick={onLogin}
+          disabled={(mode === "login" ? !canLogin : !canRegister) || loading}
+          onClick={mode === "login" ? handleLogin : handleRegister}
           aria-label={`Entrar como ${meta.label}`}
         >
-          Entrar
+          {loading ? "Processando..." : mode === "login" ? "Entrar" : "Cadastrar"}
         </button>
 
       </div>

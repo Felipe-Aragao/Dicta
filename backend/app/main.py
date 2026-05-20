@@ -6,6 +6,7 @@ from app.core.database import engine
 from app.routers.pdf import router as pdf_router
 from app.routers.activities import router as activities_router
 from app.routers.users import router as users_router
+from app.routers.auth import router as auth_router
 
 import uvicorn
 
@@ -24,3 +25,4 @@ models.Base.metadata.create_all(bind=engine)
 app.include_router(pdf_router)
 app.include_router(activities_router)
 app.include_router(users_router)
+app.include_router(auth_router)
