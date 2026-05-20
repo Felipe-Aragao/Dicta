@@ -15,7 +15,10 @@ def register(data: RegisterRequest, db: Session = Depends(get_db)):
     service = UserService(db)
     existing = service.get_by_email(str(data.email))
     if existing:
-        raise HTTPException(status_code=409, detail="Email already in use.")
+        raise HTTPException(
+            status_code=409,
+            detail=f"Email already in use for role '{existing.role}'.",
+        )
 
     user = service.create(
         UserCreate(
@@ -34,4 +37,6 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
     user = service.get_by_email(str(data.email))
     if not user or not verify_password(user.password_hash, data.password):
         raise HTTPException(status_code=401, detail="email ou senha inválidos.")
+    if data.role and user.role != data.role:
+        raise HTTPException(status_code=403, detail="email ou senha inválidos.")
     return user

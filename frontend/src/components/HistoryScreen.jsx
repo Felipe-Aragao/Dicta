@@ -1,6 +1,32 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { DownloadSimple, ArrowRight, ClockCounterClockwise, Plus, User, MagnifyingGlass } from "@phosphor-icons/react";
-import { HISTORY_DATA, DEMO_QUESTIONS } from "../data/demoData";
+import { DEMO_QUESTIONS } from "../data/demoData";
+import { ActivityCreateModal, ActivityPreviewModal } from "./ActivityModals";
+
+const formatDate = (value) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString("pt-BR");
+};
+
+const normalizeActivity = (activity, ownerName) => {
+  const statusMap = {
+    ativo: "Ativo",
+    encerrado: "Encerrado",
+    rascunho: "Rascunho",
+  };
+
+  return {
+    id: activity.id,
+    name: activity.name || "Atividade",
+    professor: ownerName || "Aluno",
+    disciplina: activity.discipline || "Geral",
+    criadoem: formatDate(activity.created_at),
+    date: formatDate(activity.created_at),
+    status: statusMap[activity.status] || "Ativo",
+  };
+};
 
 function Sidebar({ username, onLogout }) {
   return (
@@ -17,11 +43,79 @@ function Sidebar({ username, onLogout }) {
   );
 }
 
-export function HistoryScreen({ onNewQuestionnaire, username, onLogout, onOpenActivity }) {
+export function HistoryScreen({ onNewQuestionnaire, username, onLogout, onOpenActivity, userId, apiBaseUrl }) {
   const [search, setSearch] = useState("");
   const [viewingActivity, setViewingActivity] = useState(null);
+  const [activities, setActivities] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [showModal, setShowModal] = useState(false);
+  const [previewData, setPreviewData] = useState(null);
+  const [saving, setSaving] = useState(false);
 
-  const filtered = HISTORY_DATA.filter((h) => {
+  const fetchActivities = useCallback(async () => {
+    if (!userId) return;
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch(`${apiBaseUrl}/activities?owner_id=${userId}`);
+      if (!response.ok) throw new Error("Falha ao carregar atividades.");
+      const data = await response.json();
+      setActivities(data.map((item) => normalizeActivity(item, username)));
+    } catch (err) {
+      setError(err?.message ?? "Falha ao carregar atividades.");
+    } finally {
+      setLoading(false);
+    }
+  }, [apiBaseUrl, userId, username]);
+
+  useEffect(() => {
+    fetchActivities();
+  }, [fetchActivities]);
+
+  const handlePreview = (data) => {
+    setShowModal(false);
+    setPreviewData(data);
+  };
+
+  const handleConfirm = async () => {
+    if (!previewData || !userId) return;
+    setSaving(true);
+    try {
+      const response = await fetch(`${apiBaseUrl}/activities`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          owner_id: userId,
+          name: previewData.name,
+          discipline: previewData.discipline,
+          status: "ativo",
+          is_shareable: true,
+        }),
+      });
+
+      if (!response.ok) {
+        let detail = "Falha ao criar atividade.";
+        try {
+          const data = await response.json();
+          if (data?.detail) detail = data.detail;
+        } catch {
+          
+        }
+        throw new Error(detail);
+      }
+
+      const created = await response.json();
+      setActivities((prev) => [normalizeActivity(created, username), ...prev]);
+      setPreviewData(null);
+    } catch (err) {
+      setError(err?.message ?? "Falha ao criar atividade.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const filtered = activities.filter((h) => {
     const s = search.toLowerCase();
     // Busca robusta em todos os campos
     return (
@@ -75,18 +169,32 @@ export function HistoryScreen({ onNewQuestionnaire, username, onLogout, onOpenAc
                   
                   <button
                     className="btn btn-primary btn-sm"
+                    onClick={() => setShowModal(true)}
+                    aria-label="Criar nova atividade"
+                  >
+                    <Plus size={16} weight="bold" />
+                    Criar Atividade
+                  </button>
+
+                  <button
+                    className="btn btn-outline btn-sm"
                     onClick={onNewQuestionnaire}
                     aria-label="Responder novo questionário"
                   >
                     <Plus size={16} weight="bold" />
-                    Nova Atividade
+                    Responder Atividade
                   </button>
                 </div>
               </div>
             </div>
 
             <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-              {filtered.length > 0 ? (
+              {error && (
+                <div style={{ padding: "14px 22px", color: "var(--red-600)", fontSize: "0.9rem" }} role="status">
+                  {error}
+                </div>
+              )}
+              {!loading && filtered.length > 0 ? (
                 <table className="data-table" role="table" aria-label="Histórico de questionários respondidos">
                   <thead>
                     <tr>
@@ -130,9 +238,13 @@ export function HistoryScreen({ onNewQuestionnaire, username, onLogout, onOpenAc
                     ))}
                   </tbody>
                 </table>
-              ) : (
+              ) : !loading ? (
                 <div style={{ padding: "72px 32px", textAlign: "center", color: "var(--text-3)", fontSize: "0.92rem" }} role="status">
                   {search ? `Nenhum resultado para "${search}".` : "Você ainda não respondeu nenhum questionário."}
+                </div>
+              ) : (
+                <div style={{ padding: "72px 32px", textAlign: "center", color: "var(--text-3)", fontSize: "0.92rem" }} role="status">
+                  Carregando atividades...
                 </div>
               )}
             </div>
@@ -190,6 +302,28 @@ export function HistoryScreen({ onNewQuestionnaire, username, onLogout, onOpenAc
             </div>
           </div>
         </div>
+      )}
+
+      {showModal && (
+        <ActivityCreateModal
+          ownerName={username || "Aluno"}
+          onClose={() => setShowModal(false)}
+          onPreview={handlePreview}
+        />
+      )}
+
+      {previewData && (
+        <ActivityPreviewModal
+          activity={{
+            name: previewData.name,
+            discipline: previewData.discipline,
+            ownerName: username || "Aluno",
+          }}
+          questions={DEMO_QUESTIONS}
+          onBack={() => { setPreviewData(null); setShowModal(true); }}
+          onConfirm={handleConfirm}
+          saving={saving}
+        />
       )}
 
     </div>

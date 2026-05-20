@@ -1,41 +1,37 @@
-import { useState, useRef } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Plus, Users, FilePdf, ArrowRight,
-  CheckCircle, Link, Check, User,
-  MagnifyingGlass, Eye, ArrowLeft,
+  Link, Check, User,
+  MagnifyingGlass,
 } from "@phosphor-icons/react";
+import { ActivityCreateModal, ActivityPreviewModal } from "./ActivityModals";
+import { DEMO_QUESTIONS } from "../data/demoData";
 
-// ─── Questões falsas para preview ───────────────────────────────
-const FAKE_QUESTIONS = [
-  {
-    id: 1, type: "open",
-    text: "Qual a melhor descrição da diferença entre arrays unidimensionais e multidimensionais?",
-  },
-  {
-    id: 2, type: "multiple",
-    text: "Em Java, qual modificador de acesso torna um membro acessível somente dentro da própria classe?",
-    options: ["public", "protected", "private", "default"],
-  },
-  {
-    id: 3, type: "open",
-    text: "Explique o conceito de herança em Programação Orientada a Objetos e dê um exemplo prático.",
-  },
-  {
-    id: 4, type: "multiple",
-    text: "Qual estrutura de dados segue o princípio LIFO (Last In, First Out)?",
-    options: ["Fila (Queue)", "Pilha (Stack)", "Lista ligada", "Árvore binária"],
-  },
-  {
-    id: 5, type: "open",
-    text: "O que é polimorfismo e como ele pode ser implementado em linguagens orientadas a objetos?",
-  },
-];
+const formatDate = (value) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString("pt-BR");
+};
 
-const MOCK_QUESTIONARIOS = [
-  { id: 1, nome: "Atividade 8", professor: "Prof. Ana Lima",    disciplina: "Prog. Orientada a Objetos", status: "Ativo", criadoEm: "12/07/2026", alunos: 4,  link: "https://app.example.com/q/atv8"  },
-  { id: 2, nome: "Atividade 7", professor: "Prof. Ana Lima",    disciplina: "Prog. Orientada a Objetos", status: "Ativo", criadoEm: "19/05/2026", alunos: 8,  link: "https://app.example.com/q/atv7"  },
-  { id: 3, nome: "Prova 8",     professor: "Prof. Carlos Melo", disciplina: "Estrutura de Dados",        status: "Ativo", criadoEm: "04/06/2026", alunos: 7,  link: "https://app.example.com/q/prov8" },
-];
+const normalizeActivity = (activity, ownerName) => {
+  const statusMap = {
+    ativo: "Ativo",
+    encerrado: "Encerrado",
+    rascunho: "Rascunho",
+  };
+
+  return {
+    id: activity.id,
+    nome: activity.name || "Atividade",
+    professor: ownerName || "Professor",
+    disciplina: activity.discipline || "Geral",
+    status: statusMap[activity.status] || "Ativo",
+    criadoEm: formatDate(activity.created_at),
+    alunos: activity.total_responses ?? 0,
+    link: `${window.location.origin}/q/${activity.id}`,
+  };
+};
 
 // ─── Sidebar ─────────────────────────────────────────────────────
 function Sidebar({ username, onLogout }) {
@@ -77,178 +73,36 @@ function CopyLinkButton({ link }) {
   );
 }
 
-// ─── Modal: Preview da prova ──────────────────────────────────────
-function PreviewModal({ nomeAtividade, professor, disciplina, onBack, onConfirm }) {
-  return (
-    <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="preview-h">
-      <div className="modal-card modal-card-wide">
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24 }}>
-          <div>
-            <p style={{ fontSize: "0.78rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em", color: "var(--text-3)", marginBottom: 6 }}>
-              Pré-visualização
-            </p>
-            <h2 className="modal-title" id="preview-h" style={{ marginBottom: 4 }}>
-              {nomeAtividade}
-            </h2>
-            <p style={{ fontSize: "0.88rem", color: "var(--text-3)" }}>
-              {professor} · {disciplina}
-            </p>
-          </div>
-          <span className="badge badge-indigo">{FAKE_QUESTIONS.length} questões</span>
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 8 }}>
-          {FAKE_QUESTIONS.map((q, i) => (
-            <div key={q.id} className="preview-question-item">
-              <p className="preview-question-num">
-                Questão {i + 1} · {q.type === "multiple" ? "Múltipla escolha" : "Dissertativa"}
-              </p>
-              <p className="preview-question-text">{q.text}</p>
-              {q.type === "multiple" && q.options && (
-                <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
-                  {q.options.map((opt, j) => (
-                    <div key={j} className="preview-alt">
-                      <span className="preview-alt-letter">
-                        {["A","B","C","D"][j]}
-                      </span>
-                      <span>{opt}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        <div className="modal-actions">
-          <button className="btn btn-outline" onClick={onBack} aria-label="Voltar e editar">
-            <ArrowLeft size={16} weight="regular" />
-            Voltar
-          </button>
-          <button className="btn btn-primary" onClick={onConfirm} aria-label="Confirmar e publicar atividade">
-            <CheckCircle size={17} weight="regular" />
-            Confirmar e Publicar
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Modal: Nova Atividade ────────────────────────────────────────
-function NovaAtividadeModal({ onClose, onPreview }) {
-  const [nome, setNome]           = useState("");
-  const [nomeProf, setNomeProf]   = useState("");
-  const [disciplina, setDisciplina] = useState("");
-  const [file, setFile]           = useState(null);
-  const [over, setOver]           = useState(false);
-  const [loading, setLoading]     = useState(false);
-  const inputRef                  = useRef();
-
-  const handleFile = (f) => { if (f?.type === "application/pdf") setFile(f); };
-  const canNext    = nome.trim() && nomeProf.trim() && disciplina.trim() && file;
-
-  const handleNext = () => {
-    if (!canNext) return;
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      onPreview({ nome: nome.trim(), professor: nomeProf.trim(), disciplina: disciplina.trim() });
-    }, 1500);
-  };
-
-  return (
-    <div
-      className="modal-overlay"
-      role="dialog" aria-modal="true" aria-labelledby="modal-h"
-      onClick={(e) => { if (e.target === e.currentTarget && !loading) onClose(); }}
-    >
-      <div className="modal-card">
-        <h2 className="modal-title" id="modal-h">Nova Atividade</h2>
-        <div className="field-group">
-          <div className="field-wrap">
-            <label className="field-label" htmlFor="ativ-nome">Nome da atividade</label>
-            <input id="ativ-nome" className="text-input" type="text"
-              value={nome} onChange={(e) => setNome(e.target.value)}
-              placeholder="Ex: Atividade 9, Prova Final..." autoFocus disabled={loading} />
-          </div>
-          <div className="field-wrap">
-            <label className="field-label" htmlFor="ativ-prof">Nome do professor</label>
-            <input id="ativ-prof" className="text-input" type="text"
-              value={nomeProf} onChange={(e) => setNomeProf(e.target.value)}
-              placeholder="Ex: Prof. Maria Silva" disabled={loading} />
-          </div>
-          <div className="field-wrap">
-            <label className="field-label" htmlFor="ativ-disc">Disciplina</label>
-            <input id="ativ-disc" className="text-input" type="text"
-              value={disciplina} onChange={(e) => setDisciplina(e.target.value)}
-              placeholder="Ex: Programação 3" disabled={loading} />
-          </div>
-        </div>
-
-        <div className="field-wrap" style={{ marginBottom: 8 }}>
-          <span className="field-label">Arquivo de questões (PDF)</span>
-        </div>
-
-        {!file ? (
-          <div
-            className={`upload-zone compact${over ? " over" : ""}`}
-            role="button" tabIndex={0}
-            onClick={() => !loading && inputRef.current?.click()}
-            onDragOver={(e)  => { e.preventDefault(); setOver(true); }}
-            onDragLeave={()  => setOver(false)}
-            onDrop={(e) => { e.preventDefault(); setOver(false); handleFile(e.dataTransfer.files[0]); }}
-          >
-            <div className="upload-icon-wrap">
-              <FilePdf size={22} weight="regular" />
-            </div>
-            <p className="upload-title" style={{ fontSize: "0.95rem" }}>Arraste o PDF aqui</p>
-            <p className="upload-sub"  style={{ fontSize: "0.85rem" }}>ou clique para selecionar</p>
-          </div>
-        ) : (
-          <div style={{
-            display: "flex", alignItems: "center", gap: 10, padding: "14px 16px",
-            background: "var(--green-50)", border: "1px solid var(--green-100)", borderRadius: "var(--r-md)",
-          }}>
-            <CheckCircle size={18} color="var(--green-600)" weight="fill" />
-            <span style={{ fontSize: "0.92rem", fontWeight: 600, color: "var(--green-700)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {file.name}
-            </span>
-            <button className="btn btn-ghost btn-sm" style={{ minHeight: 36, padding: "0 10px", fontSize: "0.82rem" }}
-              onClick={() => setFile(null)} disabled={loading}>
-              Remover
-            </button>
-          </div>
-        )}
-        <input ref={inputRef} type="file" accept=".pdf" style={{ display: "none" }}
-          onChange={(e) => handleFile(e.target.files[0])} />
-
-        {loading && (
-          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px 0", color: "var(--text-3)", fontSize: "0.9rem" }}>
-            <div className="spinner" style={{ width: 20, height: 20, borderWidth: 2 }} aria-hidden="true" />
-            Lendo questões do PDF...
-          </div>
-        )}
-
-        <div className="modal-actions">
-          <button className="btn btn-outline" onClick={onClose} disabled={loading}>Cancelar</button>
-          <button className="btn btn-primary" disabled={!canNext || loading} onClick={handleNext}>
-            <Eye size={17} weight="regular" />
-            {loading ? "Carregando..." : "Pré-visualizar"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Tela principal ───────────────────────────────────────────────
-export function ProfessorScreen({ username, onLogout }) {
-  const [questionarios, setQuestionarios] = useState(MOCK_QUESTIONARIOS);
+export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl }) {
+  const [questionarios, setQuestionarios] = useState([]);
   const [showModal, setShowModal]         = useState(false);
   const [previewData, setPreviewData]     = useState(null);
   const [search, setSearch]               = useState("");
   const [viewingActivity, setViewingActivity] = useState(null);
+  const [loadingList, setLoadingList]     = useState(false);
+  const [saving, setSaving]               = useState(false);
+  const [listError, setListError]         = useState("");
+
+  const fetchActivities = useCallback(async () => {
+    if (!userId) return;
+    setLoadingList(true);
+    setListError("");
+    try {
+      const response = await fetch(`${apiBaseUrl}/activities?owner_id=${userId}`);
+      if (!response.ok) throw new Error("Falha ao carregar atividades.");
+      const data = await response.json();
+      setQuestionarios(data.map((item) => normalizeActivity(item, username)));
+    } catch (error) {
+      setListError(error?.message ?? "Falha ao carregar atividades.");
+    } finally {
+      setLoadingList(false);
+    }
+  }, [apiBaseUrl, userId, username]);
+
+  useEffect(() => {
+    fetchActivities();
+  }, [fetchActivities]);
 
   const filtered = questionarios.filter((q) =>
     q.nome.toLowerCase().includes(search.toLowerCase()) ||
@@ -261,17 +115,41 @@ export function ProfessorScreen({ username, onLogout }) {
     setPreviewData(data);
   };
 
-  const handleConfirm = () => {
-    const { nome, professor, disciplina } = previewData;
-    const slug = nome.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-    setQuestionarios((prev) => [{
-      id: Date.now(), nome, professor, disciplina,
-      status: "Ativo",
-      criadoEm: new Date().toLocaleDateString("pt-BR"),
-      alunos: 0,
-      link: `https://app.example.com/q/${slug}`,
-    }, ...prev]);
-    setPreviewData(null);
+  const handleConfirm = async () => {
+    if (!previewData || !userId) return;
+    setSaving(true);
+    try {
+      const response = await fetch(`${apiBaseUrl}/activities`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          owner_id: userId,
+          name: previewData.name,
+          discipline: previewData.discipline,
+          status: "ativo",
+          is_shareable: true,
+        }),
+      });
+
+      if (!response.ok) {
+        let detail = "Falha ao criar atividade.";
+        try {
+          const data = await response.json();
+          if (data?.detail) detail = data.detail;
+        } catch {
+          
+        }
+        throw new Error(detail);
+      }
+
+      const created = await response.json();
+      setQuestionarios((prev) => [normalizeActivity(created, username), ...prev]);
+      setPreviewData(null);
+    } catch (error) {
+      setListError(error?.message ?? "Falha ao criar atividade.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -320,6 +198,11 @@ export function ProfessorScreen({ username, onLogout }) {
               </div>
 
               <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+                {listError && (
+                  <div style={{ padding: "14px 22px", color: "var(--red-600)", fontSize: "0.9rem" }} role="status">
+                    {listError}
+                  </div>
+                )}
                 <table className="data-table" role="table" aria-label="Lista de questionários">
                   <thead>
                     <tr>
@@ -362,9 +245,14 @@ export function ProfessorScreen({ username, onLogout }) {
                   </tbody>
                 </table>
 
-                {filtered.length === 0 && (
+                {!loadingList && filtered.length === 0 && (
                   <div style={{ padding: "64px 32px", textAlign: "center", color: "var(--text-3)", fontSize: "0.92rem" }} role="status">
                     {search ? `Nenhuma atividade encontrada para "${search}".` : "Nenhuma atividade criada ainda."}
+                  </div>
+                )}
+                {loadingList && (
+                  <div style={{ padding: "64px 32px", textAlign: "center", color: "var(--text-3)", fontSize: "0.92rem" }} role="status">
+                    Carregando atividades...
                   </div>
                 )}
               </div>
@@ -375,19 +263,24 @@ export function ProfessorScreen({ username, onLogout }) {
       </div>
 
       {showModal && (
-        <NovaAtividadeModal
+        <ActivityCreateModal
+          ownerName={username || "Professor"}
           onClose={() => setShowModal(false)}
           onPreview={handlePreview}
         />
       )}
 
       {previewData && (
-        <PreviewModal
-          nomeAtividade={previewData.nome}
-          professor={previewData.professor}
-          disciplina={previewData.disciplina}
+        <ActivityPreviewModal
+          activity={{
+            name: previewData.name,
+            discipline: previewData.discipline,
+            ownerName: username || "Professor",
+          }}
+          questions={DEMO_QUESTIONS}
           onBack={() => { setPreviewData(null); setShowModal(true); }}
           onConfirm={handleConfirm}
+          saving={saving}
         />
       )}
 

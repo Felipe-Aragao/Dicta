@@ -39,6 +39,7 @@ export default function App() {
   const [role, setRole]         = useState(null);
   const [page, setPage]         = useState("login");
   const [username, setUsername] = useState("");
+  const [currentUser, setCurrentUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(false);
   const [answers, setAnswers]   = useState([]);
   const [uploadStatus, setUploadStatus] = useState("idle");
@@ -103,7 +104,7 @@ export default function App() {
           const response = await fetch(`${API_BASE_URL}/auth/login`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
+            body: JSON.stringify({ email: email.trim().toLowerCase(), password, role }),
           });
 
           if (!response.ok) {
@@ -121,6 +122,7 @@ export default function App() {
           if (user.role && user.role !== role) {
             throw new Error("Perfil selecionado nao corresponde ao usuario.");
           }
+          setCurrentUser(user);
           setUsername(user.name || "");
           navigate("voice-commands-intro");
         } catch (error) {
@@ -161,6 +163,7 @@ export default function App() {
           if (user.role && user.role !== role) {
             throw new Error("Perfil selecionado nao corresponde ao usuario.");
           }
+          setCurrentUser(user);
           setUsername(user.name || "");
           navigate("voice-commands-intro");
         } catch (error) {
@@ -175,7 +178,7 @@ export default function App() {
 
       const handleLogout = useCallback(() => {
         stopSpeak();
-        setRole(null); setUsername(""); setAnswers([]);
+        setRole(null); setUsername(""); setAnswers([]); setCurrentUser(null);
         window.history.pushState({ page: "login", role: null }, "", "#login");
         setPage("login");
       }, [stopSpeak]);
@@ -380,6 +383,8 @@ export default function App() {
             username={username || "Professor"} 
             onLogout={handleLogout} 
             onOpenActivity={() => navigate("question")} 
+            userId={currentUser?.id}
+            apiBaseUrl={API_BASE_URL}
           />
         )}
 
@@ -389,6 +394,8 @@ export default function App() {
             onLogout={handleLogout}
             onNewQuestionnaire={() => navigate("upload")}
             onOpenActivity={() => navigate("question")} 
+            userId={currentUser?.id}
+            apiBaseUrl={API_BASE_URL}
           />
         )}
 

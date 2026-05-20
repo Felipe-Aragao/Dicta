@@ -5,8 +5,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.models.users import RoleEnum
 from app.schemas.activity import ActivityCreate, ActivityRead, ActivityUpdate
 from app.services.activity_service import ActivityService
+from app.services.user_service import UserService
 
 router = APIRouter(prefix="/activities", tags=["activities"])
 
@@ -20,6 +22,12 @@ def _get_activity_or_404(service: ActivityService, activity_id: uuid.UUID):
 
 @router.post("", response_model=ActivityRead, status_code=status.HTTP_201_CREATED)
 def create_activity(data: ActivityCreate, db: Session = Depends(get_db)):
+    user_service = UserService(db)
+    owner = user_service.get(data.owner_id)
+    if not owner:
+        raise HTTPException(status_code=404, detail="Owner not found.")
+    if owner.role not in {RoleEnum.aluno, RoleEnum.professor}:
+        raise HTTPException(status_code=403, detail="Role cannot create activities.")
     return ActivityService(db).create(data)
 
 

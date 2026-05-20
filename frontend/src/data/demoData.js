@@ -33,8 +33,3 @@ export const DEMO_QUESTIONS = [
   },
 ];
 
-export const HISTORY_DATA = [
-  { name: "Atividade 8", professor: "João Ferdinis", disciplina:"Programção 1", criadoem:"08/05/2026", date: "08/10/2026", status: "Concluído" },
-  { name: "Atividade 1", professor: "Maria Aparecida", disciplina:"Prog. Orientada a Objetos", criadoem: "23/06/2026", date: "23/11/2026", status: "Concluído" },
-  { name: "Prova 4",     professor: "Ana Lima", disciplina: "Sonegação 1", criadoem: "16/02/2026", date: "16/07/2026", status: "Concluído" },
-];
