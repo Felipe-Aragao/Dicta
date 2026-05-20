@@ -4,6 +4,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from app import models
 from app.core.database import engine
 from app.routers.pdf import router as pdf_router
+from app.routers.activities import router as activities_router
+from app.routers.users import router as users_router
+
+import uvicorn
 
 app = FastAPI()
 
@@ -14,7 +18,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
+models.Base.metadata.drop_all(bind=engine) # For testing
 models.Base.metadata.create_all(bind=engine)
 
 app.include_router(pdf_router)
+app.include_router(activities_router)
+app.include_router(users_router)

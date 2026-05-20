@@ -9,9 +9,9 @@ from app.core.database import Base
 
 
 class ActivityStatus(str, enum.Enum):
-    draft = "draft"
-    published = "published"
-    closed = "closed"
+    ativo = "ativo"
+    encerrado = "encerrado"
+    rascunho = "rascunho"
 
 
 class Activity(Base):
@@ -21,7 +21,7 @@ class Activity(Base):
     owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     name = Column(String, nullable=False)
     discipline = Column(String, nullable=True)
-    status = Column(Enum(ActivityStatus), default=ActivityStatus.draft)
+    status = Column(Enum(ActivityStatus), default=ActivityStatus.rascunho)
     is_shareable = Column(Boolean, default=False)
     total_responses = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
