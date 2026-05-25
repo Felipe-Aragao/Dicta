@@ -11,6 +11,7 @@ import { QuestionScreen }       from "./components/QuestionScreen";
 import { DoneScreen }           from "./components/DoneScreen";
 import { HistoryScreen }        from "./components/HistoryScreen";
 import { VoiceCommandsScreen }  from "./components/VoiceCommandsScreen";
+import { AttemptsScreen }       from "./components/AttemptsScreen";
 
 import { useSpeech } from "./hooks/useSpeech";
 import { useToast }  from "./hooks/useToast";
@@ -47,6 +48,8 @@ export default function App() {
   const [questionsLoading, setQuestionsLoading] = useState(false);
   const [questionsError, setQuestionsError] = useState("");
   const [activeActivityId, setActiveActivityId] = useState(null);
+  const [activeAttemptId, setActiveAttemptId] = useState(null);
+  const [attemptsActivity, setAttemptsActivity] = useState(null);
   const [uploadStatus, setUploadStatus] = useState("idle");
   const [uploadError, setUploadError] = useState("");
  
@@ -120,6 +123,128 @@ export default function App() {
     if (!activeActivityId) return;
     fetchQuestionsByActivity(activeActivityId);
   }, [activeActivityId, fetchQuestionsByActivity]);
+
+  const createAttempt = useCallback(async (activityId) => {
+    if (!activityId) return null;
+
+    const payload = {
+      activity_id: activityId,
+      status: "em progresso",
+      started_at: new Date().toISOString(),
+    };
+
+    if (role === "aluno" && currentUser?.id) {
+      payload.aluno_id = currentUser.id;
+    } else if (role === "visitante" && username) {
+      payload.visitor_name = username;
+    } else {
+      return null;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/attempts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        let detail = "Falha ao criar tentativa.";
+        try {
+          const data = await response.json();
+          if (data?.detail) detail = data.detail;
+        } catch {
+          
+        }
+        throw new Error(detail);
+      }
+
+      const attempt = await response.json();
+      setActiveAttemptId(attempt?.id ?? null);
+      return attempt;
+    } catch (error) {
+      showToast(error?.message ?? "Falha ao criar tentativa.");
+      return null;
+    }
+  }, [API_BASE_URL, currentUser?.id, role, showToast, username]);
+
+  const saveAnswers = useCallback(async (attemptId, answerList = []) => {
+    if (!attemptId || !Array.isArray(answerList) || answerList.length === 0) return;
+
+    let existing = [];
+    try {
+      const response = await fetch(`${API_BASE_URL}/answers?attempt_id=${attemptId}&limit=200`);
+      if (response.ok) existing = await response.json();
+    } catch {
+      
+    }
+
+    const answerByQuestion = new Map(
+      existing
+        .filter((item) => item?.question_id)
+        .map((item) => [item.question_id, item])
+    );
+
+    for (const answer of answerList) {
+      if (!answer?.questionId) continue;
+
+      const payload = {
+        response_text: answer.responseText ?? null,
+        chosen_letter: answer.chosenLetter ?? null,
+      };
+
+      const existingAnswer = answerByQuestion.get(answer.questionId);
+      const endpoint = existingAnswer
+        ? `${API_BASE_URL}/answers/${existingAnswer.id}`
+        : `${API_BASE_URL}/answers`;
+
+      const response = await fetch(endpoint, {
+        method: existingAnswer ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          existingAnswer
+            ? payload
+            : {
+                attempt_id: attemptId,
+                question_id: answer.questionId,
+                ...payload,
+              }
+        ),
+      });
+
+      if (!response.ok) {
+        let detail = "Falha ao salvar respostas.";
+        try {
+          const data = await response.json();
+          if (data?.detail) detail = data.detail;
+        } catch {
+          
+        }
+        throw new Error(detail);
+      }
+    }
+
+    await fetch(`${API_BASE_URL}/attempts/${attemptId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        last_saved_at: new Date().toISOString(),
+      }),
+    });
+  }, [API_BASE_URL]);
+
+  const markAttemptConcluded = useCallback(async (attemptId) => {
+    if (!attemptId) return;
+    await fetch(`${API_BASE_URL}/attempts/${attemptId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        status: "concluido",
+        submitted_at: new Date().toISOString(),
+        pdf_generated_at: new Date().toISOString(),
+      }),
+    });
+  }, [API_BASE_URL]);
 
     
     // Abertura/fechamento de comandos de voz
@@ -221,6 +346,7 @@ export default function App() {
         stopSpeak();
         setRole(null); setUsername(""); setAnswers([]); setCurrentUser(null);
         setQuestionSet(DEMO_QUESTIONS); setActiveActivityId(null); setQuestionsError("");
+        setActiveAttemptId(null); setAttemptsActivity(null);
         window.history.pushState({ page: "login", role: null }, "", "#login");
         setPage("login");
       }, [stopSpeak]);
@@ -278,16 +404,41 @@ export default function App() {
           setUploadError(error?.message ?? "Falha ao enviar PDF.");
         }
       };
-      const handleComplete = (res) => { setAnswers(res); navigate("done"); };
-      const handleGenerate = () => {
-        showToast("PDF gerado com sucesso!");
-        setTimeout(() => navigate(role === "aluno" ? "history" : "upload"), 2600);
+      const handleComplete = async (res) => {
+        setAnswers(res);
+        try {
+          const attemptId = activeAttemptId ?? (await createAttempt(activeActivityId))?.id;
+          if (attemptId) await saveAnswers(attemptId, res);
+        } catch (error) {
+          showToast(error?.message ?? "Falha ao salvar respostas.");
+        }
+        navigate("done");
       };
 
-      const handleOpenActivity = useCallback((activityId) => {
+      const handleGenerate = async () => {
+        try {
+          await markAttemptConcluded(activeAttemptId);
+          showToast("PDF gerado com sucesso!");
+        } catch {
+          showToast("Falha ao finalizar tentativa.");
+        } finally {
+          setActiveAttemptId(null);
+          setTimeout(() => navigate(role === "aluno" ? "history" : "upload"), 2600);
+        }
+      };
+
+      const handleOpenActivity = useCallback(async (activityId) => {
         if (!activityId) return;
         setActiveActivityId(activityId);
+        setActiveAttemptId(null);
+        await createAttempt(activityId);
         navigate("question");
+      }, [createAttempt, navigate]);
+
+      const handleOpenAttempts = useCallback((activity) => {
+        if (!activity?.id) return;
+        setAttemptsActivity(activity);
+        navigate("attempts");
       }, [navigate]);
 
       // Topbar e navegacao
@@ -436,6 +587,7 @@ export default function App() {
             username={username || "Professor"} 
             onLogout={handleLogout} 
             onOpenActivity={handleOpenActivity} 
+            onOpenAttempts={handleOpenAttempts}
             userId={currentUser?.id}
             apiBaseUrl={API_BASE_URL}
           />
@@ -447,6 +599,7 @@ export default function App() {
             onLogout={handleLogout}
             onNewQuestionnaire={() => navigate("upload")}
             onOpenActivity={handleOpenActivity} 
+            onOpenAttempts={handleOpenAttempts}
             userId={currentUser?.id}
             apiBaseUrl={API_BASE_URL}
           />
@@ -478,6 +631,14 @@ export default function App() {
           onEdit={()     => navigate("question")}
           onGenerate={handleGenerate}
           onHome={()     => navigate(role === "aluno" ? "history" : "upload")}
+          />
+        )}
+
+        {page === "attempts" && (
+          <AttemptsScreen
+            activity={attemptsActivity}
+            apiBaseUrl={API_BASE_URL}
+            onBack={() => navigate(role === "professor" ? "professor-home" : "history")}
           />
         )}
 

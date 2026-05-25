@@ -79,7 +79,7 @@ function CopyLinkButton({ link }) {
 }
 
 // Tela principal do professor
-export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl }) {
+export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl, onOpenAttempts }) {
   const [questionarios, setQuestionarios] = useState([]);
   const [showModal, setShowModal]         = useState(false);
   const [previewData, setPreviewData]     = useState(null);
@@ -111,6 +111,7 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl }) {
   useEffect(() => {
     fetchActivities();
   }, [fetchActivities]);
+
 
   const fetchQuestionsForActivity = useCallback(async (activityId) => {
     if (!activityId) return;
@@ -314,6 +315,7 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl }) {
                       <th scope="col">Criado em</th>
                       <th scope="col">Alunos</th>
                       <th scope="col">Link</th>
+                      <th scope="col">Tentativas</th>
                       <th scope="col"></th>
                     </tr>
                   </thead>
@@ -339,6 +341,16 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl }) {
                         </td>
                         <td onClick={(e) => e.stopPropagation()}>
                           <CopyLinkButton link={q.link} />
+                        </td>
+                        <td onClick={(e) => e.stopPropagation()}>
+                          {onOpenAttempts && (
+                            <button
+                              className="btn btn-outline btn-sm"
+                              onClick={() => { onOpenAttempts({ id: q.id, name: q.nome, discipline: q.disciplina }); }}
+                            >
+                              Ver tentativas
+                            </button>
+                          )}
                         </td>
                         <td style={{ textAlign: "right" }}>
                           <ArrowRight size={15} color="var(--text-3)" />

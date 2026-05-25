@@ -2,6 +2,7 @@ import uuid
 from sqlalchemy import Column, String, DateTime, Text, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 
 from app.core.database import Base
 
@@ -16,3 +17,13 @@ class Answer(Base):
     chosen_letter = Column(String(1), nullable=True)
     answered_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    question = relationship("Question", backref="answers")
+
+    @property
+    def question_prompt(self):
+        return self.question.prompt if self.question else None
+
+    @property
+    def question_type(self):
+        return self.question.type if self.question else None

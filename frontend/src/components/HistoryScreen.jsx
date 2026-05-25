@@ -50,7 +50,7 @@ function Sidebar({ username, onLogout }) {
 }
 
 // Tela de historico do aluno
-export function HistoryScreen({ onNewQuestionnaire, username, onLogout, onOpenActivity, userId, apiBaseUrl }) {
+export function HistoryScreen({ onNewQuestionnaire, username, onLogout, onOpenActivity, onOpenAttempts, userId, apiBaseUrl }) {
   const [search, setSearch] = useState("");
   const [viewingActivity, setViewingActivity] = useState(null);
   const [viewingQuestions, setViewingQuestions] = useState([]);
@@ -82,6 +82,7 @@ export function HistoryScreen({ onNewQuestionnaire, username, onLogout, onOpenAc
   useEffect(() => {
     fetchActivities();
   }, [fetchActivities]);
+
 
   const fetchQuestionsForActivity = useCallback(async (activityId) => {
     if (!activityId) return;
@@ -308,6 +309,7 @@ export function HistoryScreen({ onNewQuestionnaire, username, onLogout, onOpenAc
                       <th scope="col">Criado em</th>
                       <th scope="col">Data de conclusão</th>
                       <th scope="col">Status</th>
+                      <th scope="col">Tentativas</th>
                       <th scope="col"></th>
                     </tr>
                   </thead>
@@ -336,6 +338,16 @@ export function HistoryScreen({ onNewQuestionnaire, username, onLogout, onOpenAc
                         <td>{h.criadoem || "12/05/2026"}</td>
                         <td>{h.date}</td>
                         <td><span className="badge badge-green">{h.status}</span></td>
+                        <td onClick={(e) => e.stopPropagation()}>
+                          {onOpenAttempts && (
+                            <button
+                              className="btn btn-outline btn-sm"
+                              onClick={() => { onOpenAttempts({ id: h.id, name: h.name, discipline: h.disciplina }); }}
+                            >
+                              Ver tentativas
+                            </button>
+                          )}
+                        </td>
                         <td style={{ textAlign: "right" }}>
                           <ArrowRight size={15} color="var(--text-3)" />
                         </td>

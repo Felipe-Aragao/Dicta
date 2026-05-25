@@ -139,9 +139,18 @@ export function QuestionScreen({ questions, onComplete, loading = false, error =
   };
 
   const saveAndNext = () => {
-    const ans = isMultiple
-      ? { qIdx: idx, type: "multiple", text: q.options[selectedAlt] ?? "(sem resposta)", alt: selectedAlt }
-      : { qIdx: idx, type: "open",     text: transcription || "(sem resposta)" };
+    const chosenLetter = isMultiple && selectedAlt !== null ? LETTERS[selectedAlt] ?? null : null;
+    const responseText = isMultiple
+      ? q.options[selectedAlt] ?? "(sem resposta)"
+      : transcription || "(sem resposta)";
+
+    const ans = {
+      qIdx: idx,
+      questionId: q?.id ?? null,
+      type: isMultiple ? "multiple" : "open",
+      responseText,
+      chosenLetter,
+    };
 
     const nextAnswers = [...answers, ans];
     setAnswers(nextAnswers);

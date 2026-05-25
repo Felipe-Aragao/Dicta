@@ -1,5 +1,6 @@
+import enum
 import uuid
-from sqlalchemy import Column, String, DateTime, Enum, ForeignKey
+from sqlalchemy import Column, String, DateTime, Enum as SAEnum, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
@@ -7,10 +8,9 @@ from sqlalchemy.orm import relationship
 from app.core.database import Base
 
 
-class AttemptStatus(str, Enum):
-    in_progress = "in_progress"
-    submitted = "submitted"
-    graded = "graded"
+class AttemptStatus(str, enum.Enum):
+    em_progresso = "em progresso"
+    concluido = "concluido"
 
 
 class Attempt(Base):
@@ -20,7 +20,7 @@ class Attempt(Base):
     activity_id = Column(UUID(as_uuid=True), ForeignKey("activities.id"), nullable=False)
     aluno_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     visitor_name = Column(String, nullable=True)
-    status = Column(String, nullable=True)
+    status = Column(SAEnum(AttemptStatus), default=AttemptStatus.em_progresso, nullable=False)
     pdf_url = Column(String, nullable=True)
     pdf_generated_at = Column(DateTime(timezone=True), nullable=True)
     started_at = Column(DateTime(timezone=True), nullable=True)
@@ -28,3 +28,8 @@ class Attempt(Base):
     last_saved_at = Column(DateTime(timezone=True), nullable=True)
 
     answers = relationship("Answer", backref="attempt", cascade="all, delete-orphan")
+    aluno = relationship("User", backref="attempts")
+
+    @property
+    def aluno_name(self):
+        return self.aluno.name if self.aluno else None
