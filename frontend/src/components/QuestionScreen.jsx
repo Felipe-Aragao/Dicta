@@ -69,7 +69,7 @@ function VoicePanel({ recording, transcription, onToggle }) {
 }
 
 // Tela do questionario
-export function QuestionScreen({ questions, onComplete }) {
+export function QuestionScreen({ questions, onComplete, loading = false, error = "" }) {
   const [idx, setIdx]                     = useState(0);
   const [answerMode, setAnswerMode]       = useState(false); // false = lendo, true = respondendo
   const [recording, setRecording]         = useState(false);
@@ -79,16 +79,50 @@ export function QuestionScreen({ questions, onComplete }) {
 
   const { speak, startRec, stopRec } = useSpeech();
 
-  const q          = questions[idx];
-  const isLast     = idx === questions.length - 1;
-  const isMultiple = q.type === "multiple";
-  const pct        = Math.round(((idx + 1) / questions.length) * 100);
+  const q          = questions?.[idx];
+  const isLast     = idx === (questions?.length ?? 0) - 1;
+  const isMultiple = q?.type === "multiple";
+  const pct        = questions?.length ? Math.round(((idx + 1) / questions.length) * 100) : 0;
+
+  useEffect(() => {
+    setIdx(0);
+    setAnswerMode(false);
+    setRecording(false);
+    setTranscription("");
+    setSelectedAlt(null);
+    setAnswers([]);
+  }, [questions]);
 
   // Volta para modo de leitura ao trocar de questao
   useEffect(() => {
+    if (!q) return;
     setAnswerMode(false);
     speak(q.text);
-  }, [idx]);
+  }, [idx, q, speak]);
+
+  if (loading) {
+    return (
+      <div className="page page-anim">
+        <div className="page-narrow">
+          <div className="card" role="status" aria-live="polite">
+            Carregando questoes...
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!questions?.length) {
+    return (
+      <div className="page page-anim">
+        <div className="page-narrow">
+          <div className="card" role="status" aria-live="polite">
+            {error || "Nenhuma questao encontrada."}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const toggleRec = () => {
     if (recording) { stopRec(); setRecording(false); return; }

@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { DownloadSimple, ArrowRight, ClockCounterClockwise, Plus, User, MagnifyingGlass } from "@phosphor-icons/react";
 import { DEMO_QUESTIONS } from "../data/demoData";
+import { normalizeQuestions } from "../utils/questions";
 import { ActivityCreateModal, ActivityPreviewModal } from "./ActivityModals";
+
+const OPTION_LETTERS = ["A", "B", "C", "D", "E", "F"];
 
 // Formata data para exibicao
 const formatDate = (value) => {
@@ -50,6 +53,9 @@ function Sidebar({ username, onLogout }) {
 export function HistoryScreen({ onNewQuestionnaire, username, onLogout, onOpenActivity, userId, apiBaseUrl }) {
   const [search, setSearch] = useState("");
   const [viewingActivity, setViewingActivity] = useState(null);
+  const [viewingQuestions, setViewingQuestions] = useState([]);
+  const [viewingQuestionsLoading, setViewingQuestionsLoading] = useState(false);
+  const [viewingQuestionsError, setViewingQuestionsError] = useState("");
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -77,14 +83,101 @@ export function HistoryScreen({ onNewQuestionnaire, username, onLogout, onOpenAc
     fetchActivities();
   }, [fetchActivities]);
 
+  const fetchQuestionsForActivity = useCallback(async (activityId) => {
+    if (!activityId) return;
+    setViewingQuestionsLoading(true);
+    setViewingQuestionsError("");
+    try {
+      const response = await fetch(`${apiBaseUrl}/questions?activity_id=${activityId}`);
+      if (!response.ok) throw new Error("Falha ao carregar questoes.");
+      const data = await response.json();
+      setViewingQuestions(normalizeQuestions(data));
+    } catch (err) {
+      setViewingQuestionsError(err?.message ?? "Falha ao carregar questoes.");
+      setViewingQuestions([]);
+    } finally {
+      setViewingQuestionsLoading(false);
+    }
+  }, [apiBaseUrl]);
+
+  useEffect(() => {
+    if (!viewingActivity?.id) {
+      setViewingQuestions([]);
+      setViewingQuestionsError("");
+      return;
+    }
+    fetchQuestionsForActivity(viewingActivity.id);
+  }, [fetchQuestionsForActivity, viewingActivity?.id]);
+
   const handlePreview = (data) => {
     setShowModal(false);
     setPreviewData(data);
   };
 
-  const handleConfirm = async () => {
+  const createQuestionsForActivity = useCallback(async (activityId, questions = []) => {
+    for (let i = 0; i < questions.length; i += 1) {
+      const question = questions[i];
+      const prompt = (question?.text ?? "").trim();
+      if (!prompt) continue;
+
+      const questionResponse = await fetch(`${apiBaseUrl}/questions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          activity_id: activityId,
+          position: i + 1,
+          type: question?.type === "multiple" ? "multiple" : "open",
+          prompt,
+        }),
+      });
+
+      if (!questionResponse.ok) {
+        let detail = "Falha ao salvar questao.";
+        try {
+          const data = await questionResponse.json();
+          if (data?.detail) detail = data.detail;
+        } catch {
+          
+        }
+        throw new Error(detail);
+      }
+
+      const createdQuestion = await questionResponse.json();
+
+      if (question?.type === "multiple" && Array.isArray(question?.options)) {
+        for (let j = 0; j < question.options.length; j += 1) {
+          const optionText = (question.options[j] ?? "").trim();
+          if (!optionText) continue;
+
+          const optionResponse = await fetch(`${apiBaseUrl}/question-options`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              question_id: createdQuestion.id,
+              letter: OPTION_LETTERS[j] ?? String(j + 1),
+              text: optionText,
+            }),
+          });
+
+          if (!optionResponse.ok) {
+            let detail = "Falha ao salvar alternativa.";
+            try {
+              const data = await optionResponse.json();
+              if (data?.detail) detail = data.detail;
+            } catch {
+              
+            }
+            throw new Error(detail);
+          }
+        }
+      }
+    }
+  }, [apiBaseUrl]);
+
+  const handleConfirm = async (editedQuestions) => {
     if (!previewData || !userId) return;
     setSaving(true);
+    let createdActivity = null;
     try {
       const response = await fetch(`${apiBaseUrl}/activities`, {
         method: "POST",
@@ -109,10 +202,18 @@ export function HistoryScreen({ onNewQuestionnaire, username, onLogout, onOpenAc
         throw new Error(detail);
       }
 
-      const created = await response.json();
-      setActivities((prev) => [normalizeActivity(created, username), ...prev]);
+      createdActivity = await response.json();
+      await createQuestionsForActivity(createdActivity.id, editedQuestions ?? DEMO_QUESTIONS);
+      setActivities((prev) => [normalizeActivity(createdActivity, username), ...prev]);
       setPreviewData(null);
     } catch (err) {
+      if (createdActivity?.id) {
+        try {
+          await fetch(`${apiBaseUrl}/activities/${createdActivity.id}`, { method: "DELETE" });
+        } catch {
+          
+        }
+      }
       setError(err?.message ?? "Falha ao criar atividade.");
     } finally {
       setSaving(false);
@@ -273,12 +374,24 @@ export function HistoryScreen({ onNewQuestionnaire, username, onLogout, onOpenAc
                   {viewingActivity.professor || "Prof. Ana Lima"} · {viewingActivity.disciplina || "Prog. Orientada a Objetos"}
                 </p>
               </div>
-              <span className="badge badge-indigo">{DEMO_QUESTIONS.length} questões</span>
+              <span className="badge badge-indigo">
+                {viewingQuestionsLoading ? "Carregando..." : `${viewingQuestions.length} questões`}
+              </span>
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 28, maxHeight: "50vh", overflowY: "auto" }}>
-              {DEMO_QUESTIONS.map((q, i) => (
-                <div key={q.id} className="preview-question-item">
+              {viewingQuestionsError && (
+                <div style={{ color: "var(--red-600)", fontSize: "0.9rem" }} role="status">
+                  {viewingQuestionsError}
+                </div>
+              )}
+              {!viewingQuestionsLoading && viewingQuestions.length === 0 && !viewingQuestionsError && (
+                <div style={{ color: "var(--text-3)", fontSize: "0.9rem" }} role="status">
+                  Nenhuma questão cadastrada.
+                </div>
+              )}
+              {viewingQuestions.map((q, i) => (
+                <div key={q.id ?? i} className="preview-question-item">
                   <p className="preview-question-num">
                     Questão {i + 1} · {q.type === "multiple" ? "Múltipla escolha" : "Dissertativa"}
                   </p>
@@ -300,6 +413,15 @@ export function HistoryScreen({ onNewQuestionnaire, username, onLogout, onOpenAc
             </div>
 
             <div className="modal-actions" style={{ marginTop: 0 }}>
+              {onOpenActivity && (
+                <button
+                  className="btn btn-primary"
+                  onClick={() => { onOpenActivity(viewingActivity.id); setViewingActivity(null); }}
+                  disabled={viewingQuestionsLoading}
+                >
+                  Responder questionario
+                </button>
+              )}
               <button className="btn btn-outline" style={{ width: "100%" }} onClick={() => setViewingActivity(null)}>
                 Fechar
               </button>

@@ -6,6 +6,9 @@ import {
 } from "@phosphor-icons/react";
 import { ActivityCreateModal, ActivityPreviewModal } from "./ActivityModals";
 import { DEMO_QUESTIONS } from "../data/demoData";
+import { normalizeQuestions } from "../utils/questions";
+
+const OPTION_LETTERS = ["A", "B", "C", "D", "E", "F"];
 
 // Formata data para exibicao
 const formatDate = (value) => {
@@ -82,6 +85,9 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl }) {
   const [previewData, setPreviewData]     = useState(null);
   const [search, setSearch]               = useState("");
   const [viewingActivity, setViewingActivity] = useState(null);
+  const [viewingQuestions, setViewingQuestions] = useState([]);
+  const [viewingQuestionsLoading, setViewingQuestionsLoading] = useState(false);
+  const [viewingQuestionsError, setViewingQuestionsError] = useState("");
   const [loadingList, setLoadingList]     = useState(false);
   const [saving, setSaving]               = useState(false);
   const [listError, setListError]         = useState("");
@@ -106,6 +112,32 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl }) {
     fetchActivities();
   }, [fetchActivities]);
 
+  const fetchQuestionsForActivity = useCallback(async (activityId) => {
+    if (!activityId) return;
+    setViewingQuestionsLoading(true);
+    setViewingQuestionsError("");
+    try {
+      const response = await fetch(`${apiBaseUrl}/questions?activity_id=${activityId}`);
+      if (!response.ok) throw new Error("Falha ao carregar questoes.");
+      const data = await response.json();
+      setViewingQuestions(normalizeQuestions(data));
+    } catch (error) {
+      setViewingQuestionsError(error?.message ?? "Falha ao carregar questoes.");
+      setViewingQuestions([]);
+    } finally {
+      setViewingQuestionsLoading(false);
+    }
+  }, [apiBaseUrl]);
+
+  useEffect(() => {
+    if (!viewingActivity?.id) {
+      setViewingQuestions([]);
+      setViewingQuestionsError("");
+      return;
+    }
+    fetchQuestionsForActivity(viewingActivity.id);
+  }, [fetchQuestionsForActivity, viewingActivity?.id]);
+
   const filtered = questionarios.filter((q) =>
     q.nome.toLowerCase().includes(search.toLowerCase()) ||
     q.professor.toLowerCase().includes(search.toLowerCase()) ||
@@ -117,9 +149,70 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl }) {
     setPreviewData(data);
   };
 
-  const handleConfirm = async () => {
+  const createQuestionsForActivity = useCallback(async (activityId, questions = []) => {
+    for (let i = 0; i < questions.length; i += 1) {
+      const question = questions[i];
+      const prompt = (question?.text ?? "").trim();
+      if (!prompt) continue;
+
+      const questionResponse = await fetch(`${apiBaseUrl}/questions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          activity_id: activityId,
+          position: i + 1,
+          type: question?.type === "multiple" ? "multiple" : "open",
+          prompt,
+        }),
+      });
+
+      if (!questionResponse.ok) {
+        let detail = "Falha ao salvar questao.";
+        try {
+          const data = await questionResponse.json();
+          if (data?.detail) detail = data.detail;
+        } catch {
+          
+        }
+        throw new Error(detail);
+      }
+
+      const createdQuestion = await questionResponse.json();
+
+      if (question?.type === "multiple" && Array.isArray(question?.options)) {
+        for (let j = 0; j < question.options.length; j += 1) {
+          const optionText = (question.options[j] ?? "").trim();
+          if (!optionText) continue;
+
+          const optionResponse = await fetch(`${apiBaseUrl}/question-options`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              question_id: createdQuestion.id,
+              letter: OPTION_LETTERS[j] ?? String(j + 1),
+              text: optionText,
+            }),
+          });
+
+          if (!optionResponse.ok) {
+            let detail = "Falha ao salvar alternativa.";
+            try {
+              const data = await optionResponse.json();
+              if (data?.detail) detail = data.detail;
+            } catch {
+              
+            }
+            throw new Error(detail);
+          }
+        }
+      }
+    }
+  }, [apiBaseUrl]);
+
+  const handleConfirm = async (editedQuestions) => {
     if (!previewData || !userId) return;
     setSaving(true);
+    let createdActivity = null;
     try {
       const response = await fetch(`${apiBaseUrl}/activities`, {
         method: "POST",
@@ -144,10 +237,18 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl }) {
         throw new Error(detail);
       }
 
-      const created = await response.json();
-      setQuestionarios((prev) => [normalizeActivity(created, username), ...prev]);
+      createdActivity = await response.json();
+      await createQuestionsForActivity(createdActivity.id, editedQuestions ?? DEMO_QUESTIONS);
+      setQuestionarios((prev) => [normalizeActivity(createdActivity, username), ...prev]);
       setPreviewData(null);
     } catch (error) {
+      if (createdActivity?.id) {
+        try {
+          await fetch(`${apiBaseUrl}/activities/${createdActivity.id}`, { method: "DELETE" });
+        } catch {
+          
+        }
+      }
       setListError(error?.message ?? "Falha ao criar atividade.");
     } finally {
       setSaving(false);
@@ -302,12 +403,24 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl }) {
                   {viewingActivity.professor} · {viewingActivity.disciplina}
                 </p>
               </div>
-              <span className="badge badge-indigo">{FAKE_QUESTIONS.length} questões</span>
+              <span className="badge badge-indigo">
+                {viewingQuestionsLoading ? "Carregando..." : `${viewingQuestions.length} questões`}
+              </span>
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 28, maxHeight: "50vh", overflowY: "auto" }}>
-              {FAKE_QUESTIONS.map((q, i) => (
-                <div key={q.id} className="preview-question-item">
+              {viewingQuestionsError && (
+                <div style={{ color: "var(--red-600)", fontSize: "0.9rem" }} role="status">
+                  {viewingQuestionsError}
+                </div>
+              )}
+              {!viewingQuestionsLoading && viewingQuestions.length === 0 && !viewingQuestionsError && (
+                <div style={{ color: "var(--text-3)", fontSize: "0.9rem" }} role="status">
+                  Nenhuma questão cadastrada.
+                </div>
+              )}
+              {viewingQuestions.map((q, i) => (
+                <div key={q.id ?? i} className="preview-question-item">
                   <p className="preview-question-num">
                     Questão {i + 1} · {q.type === "multiple" ? "Múltipla escolha" : "Dissertativa"}
                   </p>

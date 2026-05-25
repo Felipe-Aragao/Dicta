@@ -16,6 +16,7 @@ import { useSpeech } from "./hooks/useSpeech";
 import { useToast }  from "./hooks/useToast";
 
 import { DEMO_QUESTIONS } from "./data/demoData";
+import { normalizeQuestions } from "./utils/questions";
 import "./App.css";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
@@ -42,6 +43,10 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(false);
   const [answers, setAnswers]   = useState([]);
+  const [questionSet, setQuestionSet] = useState(DEMO_QUESTIONS);
+  const [questionsLoading, setQuestionsLoading] = useState(false);
+  const [questionsError, setQuestionsError] = useState("");
+  const [activeActivityId, setActiveActivityId] = useState(null);
   const [uploadStatus, setUploadStatus] = useState("idle");
   const [uploadError, setUploadError] = useState("");
  
@@ -79,9 +84,42 @@ export default function App() {
     setUploadError("");
   }, []);
 
+  const fetchQuestionsByActivity = useCallback(async (activityId) => {
+    if (!activityId) return;
+    setQuestionsLoading(true);
+    setQuestionsError("");
+    try {
+      const response = await fetch(`${API_BASE_URL}/questions?activity_id=${activityId}`);
+      if (!response.ok) {
+        let detail = "Falha ao carregar questoes.";
+        try {
+          const data = await response.json();
+          if (data?.detail) detail = data.detail;
+        } catch {
+          
+        }
+        throw new Error(detail);
+      }
+      const data = await response.json();
+      const normalized = normalizeQuestions(data);
+      setQuestionSet(normalized.length > 0 ? normalized : DEMO_QUESTIONS);
+    } catch (error) {
+      setQuestionsError(error?.message ?? "Falha ao carregar questoes.");
+      setQuestionSet(DEMO_QUESTIONS);
+      showToast(error?.message ?? "Falha ao carregar questoes.");
+    } finally {
+      setQuestionsLoading(false);
+    }
+  }, [API_BASE_URL, showToast]);
+
   useEffect(() => {
     if (page === "upload") resetUploadStatus();
   }, [page, resetUploadStatus]);
+
+  useEffect(() => {
+    if (!activeActivityId) return;
+    fetchQuestionsByActivity(activeActivityId);
+  }, [activeActivityId, fetchQuestionsByActivity]);
 
     
     // Abertura/fechamento de comandos de voz
@@ -182,6 +220,7 @@ export default function App() {
       const handleLogout = useCallback(() => {
         stopSpeak();
         setRole(null); setUsername(""); setAnswers([]); setCurrentUser(null);
+        setQuestionSet(DEMO_QUESTIONS); setActiveActivityId(null); setQuestionsError("");
         window.history.pushState({ page: "login", role: null }, "", "#login");
         setPage("login");
       }, [stopSpeak]);
@@ -227,6 +266,9 @@ export default function App() {
 
           await response.json();
           setUploadStatus("success");
+          setQuestionSet(DEMO_QUESTIONS);
+          setActiveActivityId(null);
+          setQuestionsError("");
           setTimeout(() => {
             navigate("extracting");
             setTimeout(() => navigate("question"), 2300);
@@ -241,6 +283,12 @@ export default function App() {
         showToast("PDF gerado com sucesso!");
         setTimeout(() => navigate(role === "aluno" ? "history" : "upload"), 2600);
       };
+
+      const handleOpenActivity = useCallback((activityId) => {
+        if (!activityId) return;
+        setActiveActivityId(activityId);
+        navigate("question");
+      }, [navigate]);
 
       // Topbar e navegacao
       const renderTopbar = () => {
@@ -387,7 +435,7 @@ export default function App() {
           <ProfessorScreen 
             username={username || "Professor"} 
             onLogout={handleLogout} 
-            onOpenActivity={() => navigate("question")} 
+            onOpenActivity={handleOpenActivity} 
             userId={currentUser?.id}
             apiBaseUrl={API_BASE_URL}
           />
@@ -398,7 +446,7 @@ export default function App() {
             username={username || "Aluno"}
             onLogout={handleLogout}
             onNewQuestionnaire={() => navigate("upload")}
-            onOpenActivity={() => navigate("question")} 
+            onOpenActivity={handleOpenActivity} 
             userId={currentUser?.id}
             apiBaseUrl={API_BASE_URL}
           />
@@ -416,7 +464,12 @@ export default function App() {
         )}
         {page === "extracting" && (role === "aluno" || role === "visitante") && <ExtractingScreen />}
         {page === "question"   && (role === "aluno" || role === "visitante") && (
-          <QuestionScreen questions={DEMO_QUESTIONS} onComplete={handleComplete} />
+          <QuestionScreen
+            questions={questionSet}
+            loading={questionsLoading}
+            error={questionsError}
+            onComplete={handleComplete}
+          />
         )}
 
         {page === "done" && (role === "aluno" || role === "visitante") && (
