@@ -1,10 +1,10 @@
 import { useRef, useCallback } from "react";
 
-
+// Hook de voz
 export function useSpeech() {
   const recRef = useRef(null);
 
-  // ── Síntese de voz ──────────────────────────────────────────────
+  // Sintese de voz
   const speak = useCallback((text) => {
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();         // cancela leitura anterior
@@ -18,13 +18,12 @@ export function useSpeech() {
     if (window.speechSynthesis) window.speechSynthesis.cancel();
   }, []);
 
-  // ── Reconhecimento de fala ──────────────────────────────────────
+  // Reconhecimento de fala
   const startRec = useCallback((onResult, onEnd) => {
     const SpeechRecognition =
       window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      
       alert("Reconhecimento de voz não suportado neste navegador. Use o Chrome.");
       return false;
     }

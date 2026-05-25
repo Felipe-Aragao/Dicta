@@ -20,7 +20,7 @@ import "./App.css";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
-// ── Logo reutilizável ────────────────────────────────────────────
+// Logo da aplicacao
 function DictaLogo({ height = 40  , onClick }) {
   return (
     <div
@@ -50,7 +50,7 @@ export default function App() {
   const { stopSpeak }               = useSpeech();
   const { toasts, show: showToast } = useToast();
 
-  // ── Browser history ────────────────────────────────────────────
+  // Historico do navegador
   useEffect(() => {
     window.history.replaceState({ page: "login", role: null }, "", "#login");
     const handlePop = (e) => {
@@ -64,6 +64,7 @@ export default function App() {
     return () => window.removeEventListener("popstate", handlePop);
   }, []);
 
+  // Navegacao entre telas
   const navigate = useCallback((destino, novoRole = null) => {
     stopSpeak();
     const nextRole = novoRole !== null ? novoRole : role;
@@ -72,6 +73,7 @@ export default function App() {
     if (novoRole !== null) setRole(novoRole);
   }, [role, stopSpeak]);
 
+  // Reset de status de upload
   const resetUploadStatus = useCallback(() => {
     setUploadStatus("idle");
     setUploadError("");
@@ -82,6 +84,7 @@ export default function App() {
   }, [page, resetUploadStatus]);
 
     
+    // Abertura/fechamento de comandos de voz
     const openVoiceCommands = useCallback(() => {
       setPrevPage(page);
       navigate("voice-commands");
@@ -91,7 +94,7 @@ export default function App() {
       navigate(prevPage || "login");
     }, [prevPage, navigate]);
 
-    // ── Handlers de autenticação ───────────────────────────────────
+    // Fluxo de autenticacao
     const handleRoleSelect = (papel) => {
       if (papel === "visitante") navigate("visitor-name", "visitante");
       else navigate("credentials", papel);
@@ -183,14 +186,15 @@ export default function App() {
         setPage("login");
       }, [stopSpeak]);
 
-     
+
+      // Navegacao inicial por perfil
       const handleSkipIntro = () => {
         if (role === "professor") navigate("professor-home");
         else if (role === "visitante") navigate("upload");
         else navigate("history");
       };
 
-      // ── Handlers do fluxo de questionário ─────────────────────────
+      // Fluxo do questionario
       const handleStart    = async (file) => {
         if (!file) {
           setUploadStatus("error");
@@ -238,10 +242,10 @@ export default function App() {
         setTimeout(() => navigate(role === "aluno" ? "history" : "upload"), 2600);
       };
 
-      // ── Topbar ─────────────────────────────────────────────────────
+      // Topbar e navegacao
       const renderTopbar = () => {
         
-        // 1. Telas de auth normais — só logo
+        // Telas de auth: so logo
         if (["login", "credentials", "visitor-name"].includes(page)) {
           return (
             <header className="topbar" role="banner">
@@ -250,7 +254,7 @@ export default function App() {
           );
         }
 
-        // 2. Tela de Introdução aos comandos de voz — Logo + Botão Pular
+        // Intro de comandos: logo + pular
         if (page === "voice-commands-intro") {
           return (
             <header className="topbar" role="banner">
@@ -267,7 +271,7 @@ export default function App() {
           );
         }
 
-        // 3. Tela de comandos de voz (ajuda) — Logo + Botão Voltar
+        // Ajuda de comandos: logo + voltar
         if (page === "voice-commands") {
           return (
             <header className="topbar" role="banner">
@@ -284,7 +288,7 @@ export default function App() {
           );
         }
 
-        // Área do professor (sidebar cuida do logout)
+        // Area do professor
         if (page === "professor-home") {
           return (
             <header className="topbar" role="banner">
@@ -296,7 +300,7 @@ export default function App() {
           );
         }
 
-        // Home do aluno (sidebar cuida do logout)
+        // Home do aluno
         if (page === "history" && role === "aluno") {
           return (
             <header className="topbar" role="banner">
@@ -358,6 +362,7 @@ export default function App() {
         );
       };
 
+      // Render principal
       return (
         <div className="vq-shell">
         {renderTopbar()}

@@ -13,7 +13,7 @@ import { useSpeech } from "../hooks/useSpeech";
 
 const LETTERS = ["A", "B", "C", "D", "E"];
 
-// ─── Alternativas ────────────────────────────────────────────────
+// Alternativas
 function Alternatives({ options, selectedAlt, onSelect }) {
   return (
     <div className="alts" role="radiogroup" aria-label="Alternativas de resposta">
@@ -34,7 +34,7 @@ function Alternatives({ options, selectedAlt, onSelect }) {
   );
 }
 
-// ─── Painel de Voz ───────────────────────────────────────────────
+// Painel de voz
 function VoicePanel({ recording, transcription, onToggle }) {
   return (
     <div className="voice-panel">
@@ -68,7 +68,7 @@ function VoicePanel({ recording, transcription, onToggle }) {
   );
 }
 
-// ─── Tela principal ──────────────────────────────────────────────
+// Tela do questionario
 export function QuestionScreen({ questions, onComplete }) {
   const [idx, setIdx]                     = useState(0);
   const [answerMode, setAnswerMode]       = useState(false); // false = lendo, true = respondendo
@@ -84,7 +84,7 @@ export function QuestionScreen({ questions, onComplete }) {
   const isMultiple = q.type === "multiple";
   const pct        = Math.round(((idx + 1) / questions.length) * 100);
 
-  // Volta para modo de leitura ao trocar de questão
+  // Volta para modo de leitura ao trocar de questao
   useEffect(() => {
     setAnswerMode(false);
     speak(q.text);
@@ -152,7 +152,7 @@ export function QuestionScreen({ questions, onComplete }) {
       <div className="page page-anim">
         <div className="page-wide">
 
-          {/* ── MODO LEITURA: questão ocupa toda a largura ── */}
+          {/* Modo leitura: questao em largura total */}
           {!answerMode && (
             <div className="question-reading">
               <div className="card">
@@ -209,12 +209,12 @@ export function QuestionScreen({ questions, onComplete }) {
             </div>
           )}
 
-          {/* ── MODO RESPOSTA: layout dividido ── */}
+          {/* Modo resposta: layout dividido */}
           {answerMode && (
             <>
               <div className="question-layout">
 
-                {/* Painel da questão */}
+                {/* Painel da questao */}
                 <div className="card">
                   <div className="q-meta">
                     <span className="q-meta-badge">

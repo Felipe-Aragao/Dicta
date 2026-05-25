@@ -7,6 +7,7 @@ import {
 import { ActivityCreateModal, ActivityPreviewModal } from "./ActivityModals";
 import { DEMO_QUESTIONS } from "../data/demoData";
 
+// Formata data para exibicao
 const formatDate = (value) => {
   if (!value) return "-";
   const date = new Date(value);
@@ -14,6 +15,7 @@ const formatDate = (value) => {
   return date.toLocaleDateString("pt-BR");
 };
 
+// Normaliza dados de atividade
 const normalizeActivity = (activity, ownerName) => {
   const statusMap = {
     ativo: "Ativo",
@@ -33,7 +35,7 @@ const normalizeActivity = (activity, ownerName) => {
   };
 };
 
-// ─── Sidebar ─────────────────────────────────────────────────────
+// Menu lateral do professor
 function Sidebar({ username, onLogout }) {
   return (
     <aside className="sidebar" aria-label="Menu lateral">
@@ -49,7 +51,7 @@ function Sidebar({ username, onLogout }) {
   );
 }
 
-// ─── Botão copiar link ────────────────────────────────────────────
+// Botao de copiar link
 function CopyLinkButton({ link }) {
   const [copied, setCopied] = useState(false);
   const handleCopy = (e) => {
@@ -73,7 +75,7 @@ function CopyLinkButton({ link }) {
   );
 }
 
-// ─── Tela principal ───────────────────────────────────────────────
+// Tela principal do professor
 export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl }) {
   const [questionarios, setQuestionarios] = useState([]);
   const [showModal, setShowModal]         = useState(false);
@@ -284,7 +286,7 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl }) {
         />
       )}
 
-      {/* MODAL PARA VISUALIZAR ATIVIDADE JÁ CRIADA */}
+      {/* Modal de visualizacao */}
       {viewingActivity && (
         <div className="modal-overlay" role="dialog" aria-modal="true" onClick={(e) => { if (e.target === e.currentTarget) setViewingActivity(null); }}>
           <div className="modal-card modal-card-wide">

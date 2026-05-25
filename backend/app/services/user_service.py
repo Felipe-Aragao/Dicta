@@ -7,6 +7,7 @@ from app.models.users import User
 from app.schemas.user import UserCreate, UserUpdate
 
 
+# Compatibilidade entre Pydantic v1/v2
 def _model_dump(model, **kwargs):
     if hasattr(model, "model_dump"):
         return model.model_dump(**kwargs)
@@ -17,6 +18,7 @@ class UserService:
     def __init__(self, db: Session):
         self.db = db
 
+    # Cria um usuario
     def create(self, data: UserCreate) -> User:
         payload = _model_dump(data, exclude_none=True)
         user = User(**payload)
@@ -25,15 +27,19 @@ class UserService:
         self.db.refresh(user)
         return user
 
+    # Lista usuarios com paginacao
     def list(self, skip: int = 0, limit: int = 20) -> list[User]:
         return self.db.query(User).order_by(User.created_at.desc()).offset(skip).limit(limit).all()
 
+    # Busca usuario por id
     def get(self, user_id: uuid.UUID) -> Optional[User]:
         return self.db.query(User).filter(User.id == user_id).first()
 
+    # Busca usuario por email
     def get_by_email(self, email: str) -> Optional[User]:
         return self.db.query(User).filter(User.email == email).first()
 
+    # Atualiza usuario existente
     def update(self, user: User, data: UserUpdate) -> User:
         updates = _model_dump(data, exclude_unset=True)
         for field, value in updates.items():
@@ -43,6 +49,7 @@ class UserService:
         self.db.refresh(user)
         return user
 
+    # Remove usuario
     def delete(self, user: User) -> None:
         self.db.delete(user)
         self.db.commit()

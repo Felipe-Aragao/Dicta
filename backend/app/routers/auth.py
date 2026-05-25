@@ -10,6 +10,7 @@ from app.services.user_service import UserService
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+# Registro de usuario
 @router.post("/register", response_model=AuthUserRead, status_code=status.HTTP_201_CREATED)
 def register(data: RegisterRequest, db: Session = Depends(get_db)):
     service = UserService(db)
@@ -17,7 +18,7 @@ def register(data: RegisterRequest, db: Session = Depends(get_db)):
     if existing:
         raise HTTPException(
             status_code=409,
-            detail=f"Email already in use for role '{existing.role}'.",
+            detail=f"Email cadastrado em outra função",
         )
 
     user = service.create(
@@ -31,6 +32,7 @@ def register(data: RegisterRequest, db: Session = Depends(get_db)):
     return user
 
 
+# Login de usuario
 @router.post("/login", response_model=AuthUserRead)
 def login(data: LoginRequest, db: Session = Depends(get_db)):
     service = UserService(db)

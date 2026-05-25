@@ -1,11 +1,11 @@
-// VoiceCommandsScreen.jsx
-// Página de instruções de comandos de voz disponíveis no Dicta.
 import { useEffect } from "react"; 
 import { ArrowLeft, Microphone, SpeakerHigh, ArrowRight,
          MagnifyingGlass, DownloadSimple, CheckCircle,
          ArrowCounterClockwise } from "@phosphor-icons/react";
 
-// ── Dados dos comandos organizados por seção ─────────────────────
+// Tela de comandos de voz
+
+// Dados de comandos por secao
 const SECTIONS = [
   {
     icon: <SpeakerHigh size={22} weight="regular" />,
@@ -70,7 +70,7 @@ const SECTIONS = [
   },
 ];
 
-// ── Card de seção ────────────────────────────────────────────────
+// Card de secao
 function SectionCard({ section }) {
   return (
     <div style={{
@@ -79,7 +79,7 @@ function SectionCard({ section }) {
       borderRadius: "var(--r-lg)",
       overflow: "hidden",
     }}>
-      {/* Cabeçalho colorido */}
+      {/* Cabecalho colorido */}
       <div style={{
         background: section.bg,
         padding: "18px 24px",
@@ -156,7 +156,7 @@ function SectionCard({ section }) {
   );
 }
 
-// ── Tela principal ───────────────────────────────────────────────
+// Tela principal
 export function VoiceCommandsScreen({ onClose, isIntro, onContinue }) {
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -215,7 +215,7 @@ export function VoiceCommandsScreen({ onClose, isIntro, onContinue }) {
             </p>
           </div>
 
-          {/* Ícone decorativo */}
+          {/* Icone decorativo */}
           <div style={{
             width: 100, height: 100,
             borderRadius: "50%",
@@ -243,14 +243,14 @@ export function VoiceCommandsScreen({ onClose, isIntro, onContinue }) {
           </p>
         </div>
 
-        {/* Seções de comandos */}
+        {/* Secoes de comandos */}
         <div style={{ display: "flex", flexDirection: "column", gap: 20, marginBottom: 40 }}>
           {SECTIONS.map((s, i) => (
             <SectionCard key={i} section={s} />
           ))}
         </div>
 
-        {/* Botão de fechar ou avançar */}
+        {/* Botao de fechar ou avancar */}
         <div style={{ display: "flex", justifyContent: "center" }}>
           {isIntro ? (
             <button

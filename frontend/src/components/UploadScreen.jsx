@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { FilePdf, CheckCircle, XCircle, SpinnerGap } from "@phosphor-icons/react";
 
+// Tela de envio de PDF
 export function UploadScreen({
   onStart,
   uploadStatus = "idle",
@@ -26,7 +27,7 @@ export function UploadScreen({
     <div className="page page-anim">
       <div className="page-narrow">
 
-        {/* Heading */}
+        {/* Cabecalho */}
         <div style={{ marginBottom: 32 }}>
           <h2 style={{ fontSize: "1.2rem", fontWeight: 700, color: "var(--text-1)", marginBottom: 4, letterSpacing: "-0.2px" }}>
             Enviar Material
@@ -36,7 +37,7 @@ export function UploadScreen({
           </p>
         </div>
 
-        {/* Drop zone */}
+        {/* Area de upload */}
         <div
           className={`upload-zone${over ? " over" : ""}`}
           role="button"
@@ -101,7 +102,7 @@ export function UploadScreen({
           </div>
         )}
 
-        {/* CTA */}
+        {/* Chamada para acao */}
         <div style={{ marginTop: 28 }}>
           <button
             className="btn btn-primary btn-lg"

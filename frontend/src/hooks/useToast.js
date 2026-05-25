@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 
-
+// Hook de toasts
 export function useToast() {
   const [toasts, setToasts] = useState([]);
 

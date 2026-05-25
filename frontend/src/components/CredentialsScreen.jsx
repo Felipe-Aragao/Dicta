@@ -1,10 +1,7 @@
-// CredentialsScreen.jsx
-// Tela de login simulado para Professor e Aluno.
-// Não há validação real — qualquer preenchimento aceita.
-
 import { useState } from "react";
 import { ArrowLeft, ChalkboardTeacher, Student } from "@phosphor-icons/react";
 
+// Metadados por perfil
 const ROLE_META = {
   professor: {
     icon: <ChalkboardTeacher size={16} weight="regular" />,
@@ -20,6 +17,7 @@ const ROLE_META = {
   },
 };
 
+// Tela de credenciais
 export function CredentialsScreen({ role, onLogin, onRegister, onBack, loading = false }) {
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
@@ -50,13 +48,13 @@ export function CredentialsScreen({ role, onLogin, onRegister, onBack, loading =
     <div className="login-bg">
       <div className="creds-card page-anim">
 
-        {/* Voltar */}
+        {/* Botao voltar */}
         <button className="creds-back" onClick={onBack} aria-label="Voltar à seleção de perfil">
           <ArrowLeft size={15} weight="regular" />
           Trocar perfil
         </button>
 
-        {/* Role badge */}
+        {/* Badge do perfil */}
         <div style={{ marginBottom: 16 }}>
           <span className="creds-role-badge">
             {meta.icon}

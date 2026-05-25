@@ -12,6 +12,7 @@ import uvicorn
 
 app = FastAPI()
 
+# CORS para o frontend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
@@ -19,9 +20,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-models.Base.metadata.drop_all(bind=engine) # For testing
+# Inicializacao do schema no banco
+# models.Base.metadata.drop_all(bind=engine) # For testing
 models.Base.metadata.create_all(bind=engine)
 
+# Registro das rotas
 app.include_router(pdf_router)
 app.include_router(activities_router)
 app.include_router(users_router)

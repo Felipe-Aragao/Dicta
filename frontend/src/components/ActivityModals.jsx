@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ArrowLeft, CheckCircle, Eye } from "@phosphor-icons/react";
 
+// Modal de criacao de atividade
 export function ActivityCreateModal({ ownerName, onClose, onPreview, loading = false }) {
   const [name, setName] = useState("");
   const [discipline, setDiscipline] = useState("");
@@ -69,6 +70,7 @@ export function ActivityCreateModal({ ownerName, onClose, onPreview, loading = f
   );
 }
 
+// Modal de pre-visualizacao de atividade
 export function ActivityPreviewModal({ activity, questions = [], onBack, onConfirm, saving = false }) {
   if (!activity) return null;
   const questionCount = questions.length;

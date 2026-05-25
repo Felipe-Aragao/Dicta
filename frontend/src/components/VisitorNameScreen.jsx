@@ -1,10 +1,7 @@
-// VisitorNameScreen.jsx
-// Tela simples onde o visitante escolhe como quer ser chamado.
-// Sem validação de backend — o nome é usado apenas localmente.
-
 import { useState } from "react";
 import { ArrowLeft, UserCircle } from "@phosphor-icons/react";
 
+// Tela de nome do visitante
 export function VisitorNameScreen({ onContinue, onBack }) {
   const [nome, setNome] = useState("");
 
@@ -14,7 +11,7 @@ export function VisitorNameScreen({ onContinue, onBack }) {
     <div className="login-bg">
       <div className="creds-card page-anim">
 
-        {/* Voltar */}
+        {/* Botao voltar */}
         <button
           className="creds-back"
           onClick={onBack}
@@ -24,7 +21,7 @@ export function VisitorNameScreen({ onContinue, onBack }) {
           Trocar perfil
         </button>
 
-        {/* Badge */}
+        {/* Badge do perfil */}
         <div style={{ marginBottom: 20 }}>
           <span className="creds-role-badge">
             <UserCircle size={16} weight="regular" />

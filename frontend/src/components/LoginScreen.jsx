@@ -1,5 +1,6 @@
 import { ChalkboardTeacher, Student, UserCircle } from "@phosphor-icons/react";
 
+// Tela de selecao de perfil
 export function LoginScreen({ onSelect }) {
   return (
     <div className="login-bg">

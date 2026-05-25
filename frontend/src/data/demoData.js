@@ -1,8 +1,4 @@
-/**
- * demoData.js
- * Dados de exemplo usados enquanto a integração com a API não está pronta.
- */
-
+// Dados de exemplo
 export const DEMO_QUESTIONS = [
   {
     id: 1,

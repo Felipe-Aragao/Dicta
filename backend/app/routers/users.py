@@ -11,6 +11,7 @@ from app.services.user_service import UserService
 router = APIRouter(prefix="/users", tags=["users"])
 
 
+# Helper de busca com 404
 def _get_user_or_404(service: UserService, user_id: uuid.UUID):
     user = service.get(user_id)
     if not user:
@@ -18,6 +19,7 @@ def _get_user_or_404(service: UserService, user_id: uuid.UUID):
     return user
 
 
+# Criacao de usuario
 @router.post("", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 def create_user(data: UserCreate, db: Session = Depends(get_db)):
     service = UserService(db)
@@ -27,17 +29,20 @@ def create_user(data: UserCreate, db: Session = Depends(get_db)):
     return service.create(data)
 
 
+# Listagem de usuarios
 @router.get("", response_model=List[UserRead])
 def list_users(skip: int = 0, limit: int = 20, db: Session = Depends(get_db)):
     return UserService(db).list(skip=skip, limit=limit)
 
 
+# Consulta de usuario
 @router.get("/{user_id}", response_model=UserRead)
 def get_user(user_id: uuid.UUID, db: Session = Depends(get_db)):
     service = UserService(db)
     return _get_user_or_404(service, user_id)
 
 
+# Atualizacao de usuario
 @router.put("/{user_id}", response_model=UserRead)
 def update_user(
     user_id: uuid.UUID,
@@ -55,6 +60,7 @@ def update_user(
     return service.update(user, data)
 
 
+# Remocao de usuario
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_user(user_id: uuid.UUID, db: Session = Depends(get_db)):
     service = UserService(db)

@@ -3,6 +3,7 @@ import { DownloadSimple, ArrowRight, ClockCounterClockwise, Plus, User, Magnifyi
 import { DEMO_QUESTIONS } from "../data/demoData";
 import { ActivityCreateModal, ActivityPreviewModal } from "./ActivityModals";
 
+// Formata data para exibicao
 const formatDate = (value) => {
   if (!value) return "-";
   const date = new Date(value);
@@ -10,6 +11,7 @@ const formatDate = (value) => {
   return date.toLocaleDateString("pt-BR");
 };
 
+// Normaliza dados de atividade
 const normalizeActivity = (activity, ownerName) => {
   const statusMap = {
     ativo: "Ativo",
@@ -28,6 +30,7 @@ const normalizeActivity = (activity, ownerName) => {
   };
 };
 
+// Menu lateral do aluno
 function Sidebar({ username, onLogout }) {
   return (
     <aside className="sidebar" aria-label="Menu lateral">
@@ -43,6 +46,7 @@ function Sidebar({ username, onLogout }) {
   );
 }
 
+// Tela de historico do aluno
 export function HistoryScreen({ onNewQuestionnaire, username, onLogout, onOpenActivity, userId, apiBaseUrl }) {
   const [search, setSearch] = useState("");
   const [viewingActivity, setViewingActivity] = useState(null);
@@ -117,7 +121,7 @@ export function HistoryScreen({ onNewQuestionnaire, username, onLogout, onOpenAc
 
   const filtered = activities.filter((h) => {
     const s = search.toLowerCase();
-    // Busca robusta em todos os campos
+    // Busca ampla em todos os campos
     return (
       (h.name || "").toLowerCase().includes(s) ||
       (h.professor || "Prof. Ana Lima").toLowerCase().includes(s) ||
@@ -135,7 +139,7 @@ export function HistoryScreen({ onNewQuestionnaire, username, onLogout, onOpenAc
         <div className="page">
           <div className="page-wide">
 
-            {/* Header + busca */}
+            {/* Cabecalho e busca */}
             <div className="section-header">
               <div className="section-header-left">
                 <h2 className="section-title">Histórico de Questionários</h2>
@@ -253,7 +257,7 @@ export function HistoryScreen({ onNewQuestionnaire, username, onLogout, onOpenAc
         </div>
       </div>
       
-      {/* MODAL DE PRÉ-VISUALIZAÇÃO */}
+      {/* Modal de pre-visualizacao */}
       {viewingActivity && (
         <div className="modal-overlay" role="dialog" aria-modal="true" onClick={(e) => { if (e.target === e.currentTarget) setViewingActivity(null); }}>
           <div className="modal-card modal-card-wide">

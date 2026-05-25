@@ -3,11 +3,13 @@ import hashlib
 import hmac
 import os
 
+# Parametros de hash
 ALGORITHM = "pbkdf2_sha256"
 ITERATIONS = 120_000
 SALT_BYTES = 16
 
 
+# Gera hash de senha
 def hash_password(password: str) -> str:
     if not password:
         raise ValueError("password required")
@@ -18,6 +20,7 @@ def hash_password(password: str) -> str:
     return f"{ALGORITHM}${ITERATIONS}${salt_b64}${hash_b64}"
 
 
+# Valida senha informada
 def verify_password(stored: str | None, password: str) -> bool:
     if not stored or not password:
         return False

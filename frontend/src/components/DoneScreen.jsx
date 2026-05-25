@@ -1,5 +1,6 @@
 import { CheckCircle, PencilSimple, DownloadSimple, ArrowLeft, ArrowCounterClockwise } from "@phosphor-icons/react";
 
+// Tela de finalizacao
 export function DoneScreen({ role, onEdit, onGenerate, onHome }) {
   const homeLabel = role === "aluno" ? "Ir para Minha Área" : "Responder outro questionário";
 
@@ -39,7 +40,7 @@ export function DoneScreen({ role, onEdit, onGenerate, onHome }) {
     Revisar Respostas
     </button>
 
-    {/* Voltar ao início */}
+    {/* Voltar ao inicio */}
     <button
     className="btn btn-ghost btn-full"
     onClick={onHome}
@@ -52,7 +53,7 @@ export function DoneScreen({ role, onEdit, onGenerate, onHome }) {
 
     </div>
 
-    {/* Dica de navegação */}
+    {/* Dica de navegacao */}
     <p className="done-nav-hint" aria-live="polite">
     <ArrowCounterClockwise size={14} weight="regular" />
     Use o botão "Revisar" ou o navegador para voltar às questões anteriores.

@@ -5,15 +5,18 @@ from fastapi import APIRouter, UploadFile, File, HTTPException
 
 router = APIRouter(prefix="/pdf", tags=["pdf"])
 
-MAX_PDF_SIZE_MB = 50
+# Limites de upload
+MAX_PDF_SIZE_MB = 10
 MAX_PDF_SIZE_BYTES = MAX_PDF_SIZE_MB * 1024 * 1024
 CHUNK_SIZE = 1024 * 1024
 
+# Caminhos de armazenamento
 BASE_DIR = Path(__file__).resolve().parents[1]
 INCOMING_DIR = BASE_DIR / "storage" / "incoming_pdfs"
 INCOMING_DIR.mkdir(parents=True, exist_ok=True)
 
 
+# Recepcao e validacao do PDF
 @router.post("/receive")
 async def receive_pdf(pdf: UploadFile = File(...)):
     if pdf.content_type and pdf.content_type.lower() != "application/pdf":

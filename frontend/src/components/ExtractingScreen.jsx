@@ -1,3 +1,4 @@
+// Tela de processamento
 export function ExtractingScreen() {
   return (
     <div className="page-center page-anim">
