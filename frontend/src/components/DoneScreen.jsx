@@ -1,7 +1,7 @@
-import { CheckCircle, PencilSimple, DownloadSimple, ArrowLeft, ArrowCounterClockwise } from "@phosphor-icons/react";
+import { CheckCircle, DownloadSimple, ArrowLeft } from "@phosphor-icons/react";
 
 // Tela de finalizacao
-export function DoneScreen({ role, onEdit, onGenerate, onHome }) {
+export function DoneScreen({ role, onGenerate, onHome }) {
   const homeLabel = role === "aluno" ? "Ir para Minha Área" : "Responder outro questionário";
 
   return (
@@ -15,7 +15,7 @@ export function DoneScreen({ role, onEdit, onGenerate, onHome }) {
     <p className="done-sub">
     Todas as respostas foram salvas com sucesso.
     <br />
-    Você pode revisar, gerar o PDF ou voltar ao início.
+    Você pode gerar o PDF ou voltar ao início.
     </p>
 
     <div className="done-actions">
@@ -31,15 +31,6 @@ export function DoneScreen({ role, onEdit, onGenerate, onHome }) {
     </button>
 
   
-    <button
-    className="btn btn-outline btn-lg btn-full"
-    onClick={onEdit}
-    aria-label="Revisar e editar respostas antes de gerar o PDF"
-    >
-    <PencilSimple size={18} weight="regular" />
-    Revisar Respostas
-    </button>
-
     {/* Voltar ao inicio */}
     <button
     className="btn btn-ghost btn-full"
@@ -52,12 +43,6 @@ export function DoneScreen({ role, onEdit, onGenerate, onHome }) {
     </button>
 
     </div>
-
-    {/* Dica de navegacao */}
-    <p className="done-nav-hint" aria-live="polite">
-    <ArrowCounterClockwise size={14} weight="regular" />
-    Use o botão "Revisar" ou o navegador para voltar às questões anteriores.
-    </p>
 
     </div>
   );

@@ -8,6 +8,7 @@ import { ProfessorScreen }      from "./components/ProfessorScreen";
 import { UploadScreen }         from "./components/UploadScreen";
 import { ExtractingScreen }     from "./components/ExtractingScreen";
 import { QuestionScreen }       from "./components/QuestionScreen";
+import { ReviewScreen }         from "./components/ReviewScreen";
 import { DoneScreen }           from "./components/DoneScreen";
 import { HistoryScreen }        from "./components/HistoryScreen";
 import { VoiceCommandsScreen }  from "./components/VoiceCommandsScreen";
@@ -52,11 +53,19 @@ export default function App() {
   const [attemptsActivity, setAttemptsActivity] = useState(null);
   const [uploadStatus, setUploadStatus] = useState("idle");
   const [uploadError, setUploadError] = useState("");
+  const [questionSessionId, setQuestionSessionId] = useState(0);
+  const [lockedAttemptNotice, setLockedAttemptNotice] = useState(null);
+  const [attemptConcluded, setAttemptConcluded] = useState(false);
  
   const [prevPage, setPrevPage] = useState(null);
 
   const { stopSpeak }               = useSpeech();
   const { toasts, show: showToast } = useToast();
+
+  const isAttemptLockedError = (error) => {
+    const message = String(error?.message ?? "").toLowerCase();
+    return error?.status === 409 || message.includes("conclu");
+  };
 
   // Historico do navegador
   useEffect(() => {
@@ -124,6 +133,14 @@ export default function App() {
     fetchQuestionsByActivity(activeActivityId);
   }, [activeActivityId, fetchQuestionsByActivity]);
 
+  useEffect(() => {
+    if (!attemptConcluded) return;
+    if (page !== "question" && page !== "review") return;
+    if (!lockedAttemptNotice) {
+      setLockedAttemptNotice("Esta tentativa ja foi concluida e nao pode ser editada.");
+    }
+  }, [attemptConcluded, lockedAttemptNotice, page]);
+
   const createAttempt = useCallback(async (activityId) => {
     if (!activityId) return null;
 
@@ -161,6 +178,8 @@ export default function App() {
 
       const attempt = await response.json();
       setActiveAttemptId(attempt?.id ?? null);
+      setAttemptConcluded(false);
+      setLockedAttemptNotice(null);
       return attempt;
     } catch (error) {
       showToast(error?.message ?? "Falha ao criar tentativa.");
@@ -220,30 +239,57 @@ export default function App() {
         } catch {
           
         }
-        throw new Error(detail);
+        const error = new Error(detail);
+        error.status = response.status;
+        throw error;
       }
     }
 
-    await fetch(`${API_BASE_URL}/attempts/${attemptId}`, {
+    const updateResponse = await fetch(`${API_BASE_URL}/attempts/${attemptId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         last_saved_at: new Date().toISOString(),
       }),
     });
+
+    if (!updateResponse.ok) {
+      let detail = "Falha ao atualizar tentativa.";
+      try {
+        const data = await updateResponse.json();
+        if (data?.detail) detail = data.detail;
+      } catch {
+        
+      }
+      const error = new Error(detail);
+      error.status = updateResponse.status;
+      throw error;
+    }
   }, [API_BASE_URL]);
 
   const markAttemptConcluded = useCallback(async (attemptId) => {
     if (!attemptId) return;
-    await fetch(`${API_BASE_URL}/attempts/${attemptId}`, {
+    const response = await fetch(`${API_BASE_URL}/attempts/${attemptId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         status: "concluido",
         submitted_at: new Date().toISOString(),
-        pdf_generated_at: new Date().toISOString(),
       }),
     });
+
+    if (!response.ok) {
+      let detail = "Falha ao finalizar tentativa.";
+      try {
+        const data = await response.json();
+        if (data?.detail) detail = data.detail;
+      } catch {
+        
+      }
+      const error = new Error(detail);
+      error.status = response.status;
+      throw error;
+    }
   }, [API_BASE_URL]);
 
     
@@ -347,6 +393,9 @@ export default function App() {
         setRole(null); setUsername(""); setAnswers([]); setCurrentUser(null);
         setQuestionSet(DEMO_QUESTIONS); setActiveActivityId(null); setQuestionsError("");
         setActiveAttemptId(null); setAttemptsActivity(null);
+        setQuestionSessionId(0);
+        setAttemptConcluded(false);
+        setLockedAttemptNotice(null);
         window.history.pushState({ page: "login", role: null }, "", "#login");
         setPage("login");
       }, [stopSpeak]);
@@ -392,6 +441,10 @@ export default function App() {
 
           await response.json();
           setUploadStatus("success");
+          setAttemptConcluded(false);
+          setLockedAttemptNotice(null);
+          setAnswers([]);
+          setQuestionSessionId((prev) => prev + 1);
           setQuestionSet(DEMO_QUESTIONS);
           setActiveActivityId(null);
           setQuestionsError("");
@@ -410,27 +463,103 @@ export default function App() {
           const attemptId = activeAttemptId ?? (await createAttempt(activeActivityId))?.id;
           if (attemptId) await saveAnswers(attemptId, res);
         } catch (error) {
+          if (isAttemptLockedError(error)) {
+            setAttemptConcluded(true);
+            setActiveAttemptId(null);
+            setLockedAttemptNotice("Esta tentativa ja foi concluida e nao pode ser editada.");
+            return;
+          }
           showToast(error?.message ?? "Falha ao salvar respostas.");
         }
+        navigate("review");
+      };
+
+      const handleReviewEdit = () => {
+        setQuestionSessionId((prev) => prev + 1);
+        navigate("question");
+      };
+
+      const handleReviewConfirm = async () => {
+        let attemptId = activeAttemptId;
+        try {
+          attemptId = attemptId ?? (await createAttempt(activeActivityId))?.id;
+          if (attemptId) {
+            await saveAnswers(attemptId, answers);
+            await markAttemptConcluded(attemptId);
+          }
+        } catch (error) {
+          if (isAttemptLockedError(error)) {
+            setAttemptConcluded(true);
+            setActiveAttemptId(null);
+            setLockedAttemptNotice("Esta tentativa ja foi concluida e nao pode ser editada.");
+            return;
+          }
+          showToast(error?.message ?? "Falha ao salvar respostas.");
+          return;
+        }
+        setAttemptConcluded(true);
+        setActiveAttemptId(attemptId ?? null);
+        setAnswers([]);
+        setQuestionSessionId((prev) => prev + 1);
         navigate("done");
       };
 
       const handleGenerate = async () => {
+        const attemptId = activeAttemptId;
+        if (!attemptId) {
+          showToast("Tentativa nao encontrada.");
+          return;
+        }
         try {
-          await markAttemptConcluded(activeAttemptId);
+          const response = await fetch(`${API_BASE_URL}/attempts/${attemptId}/pdf`);
+          if (!response.ok) {
+            let detail = "Falha ao gerar PDF.";
+            try {
+              const data = await response.json();
+              if (data?.detail) detail = data.detail;
+            } catch {
+              
+            }
+            throw new Error(detail);
+          }
+
+          const blob = await response.blob();
+          let filename = "respostas.pdf";
+          const disposition = response.headers.get("content-disposition") ?? "";
+          const match = /filename\*=UTF-8''([^;]+)|filename="([^"]+)"/i.exec(disposition);
+          if (match) {
+            const rawName = match[1] ? decodeURIComponent(match[1]) : match[2];
+            if (rawName) filename = rawName;
+          }
+
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          window.URL.revokeObjectURL(url);
           showToast("PDF gerado com sucesso!");
-        } catch {
-          showToast("Falha ao finalizar tentativa.");
+        } catch (error) {
+          showToast(error?.message ?? "Falha ao gerar PDF.");
         } finally {
           setActiveAttemptId(null);
+          setAttemptConcluded(false);
+          setAnswers([]);
+          setQuestionSessionId((prev) => prev + 1);
           setTimeout(() => navigate(role === "aluno" ? "history" : "upload"), 2600);
         }
       };
 
       const handleOpenActivity = useCallback(async (activityId) => {
         if (!activityId) return;
+        setAnswers([]);
         setActiveActivityId(activityId);
         setActiveAttemptId(null);
+        setQuestionSessionId((prev) => prev + 1);
+        setAttemptConcluded(false);
+        setLockedAttemptNotice(null);
         await createAttempt(activityId);
         navigate("question");
       }, [createAttempt, navigate]);
@@ -622,13 +751,23 @@ export default function App() {
             loading={questionsLoading}
             error={questionsError}
             onComplete={handleComplete}
+            initialAnswers={answers}
+            resetKey={questionSessionId}
+          />
+        )}
+
+        {page === "review" && (role === "aluno" || role === "visitante") && (
+          <ReviewScreen
+            questions={questionSet}
+            answers={answers}
+            onEdit={handleReviewEdit}
+            onConfirm={handleReviewConfirm}
           />
         )}
 
         {page === "done" && (role === "aluno" || role === "visitante") && (
           <DoneScreen
           role={role}
-          onEdit={()     => navigate("question")}
           onGenerate={handleGenerate}
           onHome={()     => navigate(role === "aluno" ? "history" : "upload")}
           />
@@ -656,6 +795,35 @@ export default function App() {
         {toasts.length > 0 && (
           <div className="toast-wrap" role="alert" aria-live="assertive">
           {toasts.map((t) => <div key={t.id} className="toast">{t.msg}</div>)}
+          </div>
+        )}
+
+        {lockedAttemptNotice && (
+          <div
+            className="modal-overlay"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="modal-card">
+              <h2 className="modal-title" style={{ marginBottom: 10 }}>Tentativa concluida</h2>
+              <p style={{ color: "var(--text-3)", marginBottom: 18 }}>
+                {lockedAttemptNotice}
+              </p>
+              <div className="modal-actions">
+                <button
+                  className="btn btn-primary"
+                  onClick={() => {
+                    setLockedAttemptNotice(null);
+                    setActiveAttemptId(null);
+                    setAnswers([]);
+                    setQuestionSessionId((prev) => prev + 1);
+                    navigate(role === "aluno" ? "history" : "upload");
+                  }}
+                >
+                  Voltar ao inicio
+                </button>
+              </div>
+            </div>
           </div>
         )}
         </div>

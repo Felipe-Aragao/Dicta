@@ -28,7 +28,6 @@ const normalizeActivity = (activity, ownerName) => {
     professor: ownerName || "Aluno",
     disciplina: activity.discipline || "Geral",
     criadoem: formatDate(activity.created_at),
-    date: formatDate(activity.created_at),
     status: statusMap[activity.status] || "Ativo",
   };
 };
@@ -228,7 +227,6 @@ export function HistoryScreen({ onNewQuestionnaire, username, onLogout, onOpenAc
       (h.name || "").toLowerCase().includes(s) ||
       (h.professor || "Prof. Ana Lima").toLowerCase().includes(s) ||
       (h.disciplina || "Prog. Orientada a Objetos").toLowerCase().includes(s) ||
-      (h.date || "").toLowerCase().includes(s) ||
       (h.criadoem || "12/05/2026").toLowerCase().includes(s)
     );
   });
@@ -307,7 +305,6 @@ export function HistoryScreen({ onNewQuestionnaire, username, onLogout, onOpenAc
                       <th scope="col">Questionário</th>
                       <th scope="col">Professor · Disciplina</th>
                       <th scope="col">Criado em</th>
-                      <th scope="col">Data de conclusão</th>
                       <th scope="col">Status</th>
                       <th scope="col">Tentativas</th>
                       <th scope="col"></th>
@@ -336,7 +333,6 @@ export function HistoryScreen({ onNewQuestionnaire, username, onLogout, onOpenAc
                           </div>
                         </td>
                         <td>{h.criadoem || "12/05/2026"}</td>
-                        <td>{h.date}</td>
                         <td><span className="badge badge-green">{h.status}</span></td>
                         <td onClick={(e) => e.stopPropagation()}>
                           {onOpenAttempts && (

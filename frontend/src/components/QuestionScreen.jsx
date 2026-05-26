@@ -69,7 +69,14 @@ function VoicePanel({ recording, transcription, onToggle }) {
 }
 
 // Tela do questionario
-export function QuestionScreen({ questions, onComplete, loading = false, error = "" }) {
+export function QuestionScreen({
+  questions,
+  onComplete,
+  loading = false,
+  error = "",
+  initialAnswers = [],
+  resetKey = 0,
+}) {
   const [idx, setIdx]                     = useState(0);
   const [answerMode, setAnswerMode]       = useState(false); // false = lendo, true = respondendo
   const [recording, setRecording]         = useState(false);
@@ -90,8 +97,13 @@ export function QuestionScreen({ questions, onComplete, loading = false, error =
     setRecording(false);
     setTranscription("");
     setSelectedAlt(null);
-    setAnswers([]);
-  }, [questions]);
+    setAnswers(Array.isArray(initialAnswers) ? [...initialAnswers] : []);
+  }, [initialAnswers, questions, resetKey]);
+
+  const getStoredAnswer = (questionId, questionIndex) => (
+    answers.find((item) => item?.questionId === questionId) ||
+    answers.find((item) => item?.qIdx === questionIndex)
+  );
 
   // Volta para modo de leitura ao trocar de questao
   useEffect(() => {
@@ -99,6 +111,26 @@ export function QuestionScreen({ questions, onComplete, loading = false, error =
     setAnswerMode(false);
     speak(q.text);
   }, [idx, q, speak]);
+
+  useEffect(() => {
+    if (!q) return;
+    const stored = getStoredAnswer(q?.id, idx);
+
+    if (q?.type === "multiple") {
+      const storedLetter = stored?.chosenLetter ?? null;
+      const byLetter = storedLetter ? LETTERS.indexOf(storedLetter) : -1;
+      const byText = stored?.responseText
+        ? q.options.findIndex((opt) => opt === stored.responseText)
+        : -1;
+      const nextIndex = byLetter >= 0 ? byLetter : byText;
+      setSelectedAlt(nextIndex >= 0 ? nextIndex : null);
+      setTranscription("");
+    } else {
+      setTranscription(stored?.responseText ?? "");
+      setSelectedAlt(null);
+    }
+    setRecording(false);
+  }, [answers, idx, q]);
 
   if (loading) {
     return (
@@ -152,7 +184,15 @@ export function QuestionScreen({ questions, onComplete, loading = false, error =
       chosenLetter,
     };
 
-    const nextAnswers = [...answers, ans];
+    const nextAnswers = [...answers];
+    const existingIndex = nextAnswers.findIndex((item) => (
+      item?.questionId && ans.questionId
+        ? item.questionId === ans.questionId
+        : item?.qIdx === ans.qIdx
+    ));
+
+    if (existingIndex >= 0) nextAnswers[existingIndex] = ans;
+    else nextAnswers.push(ans);
     setAnswers(nextAnswers);
 
     if (isLast) { onComplete(nextAnswers); return; }
