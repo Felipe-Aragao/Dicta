@@ -30,3 +30,4 @@ class Activity(Base):
     owner = relationship("User", backref="activities")
     questions = relationship("Question", backref="activity", cascade="all, delete-orphan")
     links = relationship("ActivityLink", backref="activity", cascade="all, delete-orphan")
+    attempts = relationship("Attempt", backref="activity", cascade="all, delete-orphan")
