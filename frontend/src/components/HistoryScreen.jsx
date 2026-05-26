@@ -116,9 +116,39 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenAttemp
     fetchQuestionsForActivity(viewingActivity.id);
   }, [fetchQuestionsForActivity, viewingActivity?.id]);
 
+  const handleCreateDemo = () => {
+    setShowModal(false);
+    setPreviewData({
+      name: "Simulado de Teste",
+      discipline: "Demonstração",
+      numQuestions: 5,
+      questions: [...DEMO_QUESTIONS] 
+    });
+  };
+
   const handlePreview = (data) => {
     setShowModal(false);
-    setPreviewData(data);
+    const numQuestions = data.numQuestions || 5;
+
+    setPreviewData((prev) => {
+      // Pega as questões que já existiam (se houver)
+      let mergedQuestions = prev?.questions || [];
+
+      // Ajusta o tamanho da lista preservando o que já foi digitado
+      if (mergedQuestions.length > numQuestions) {
+        mergedQuestions = mergedQuestions.slice(0, numQuestions); // Corta o excesso
+      } else if (mergedQuestions.length < numQuestions) {
+        const blanks = Array.from({ length: numQuestions - mergedQuestions.length }).map((_, i) => ({
+          id: `blank-${mergedQuestions.length + i}`,
+          type: "open",
+          text: "",
+          options: []
+        }));
+        mergedQuestions = [...mergedQuestions, ...blanks]; // Adiciona as brancas no final
+      }
+
+      return { ...prev, ...data, numQuestions, questions: mergedQuestions };
+    });
   };
 
   const createQuestionsForActivity = useCallback(async (activityId, questions = []) => {
@@ -321,6 +351,7 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenAttemp
                 </div>
                 
                 <div style={{ display: "flex", gap: "10px", marginLeft: "10px" }}>
+                  
                   <button
                     className="btn btn-primary btn-sm"
                     onClick={() => setShowModal(true)}
@@ -329,7 +360,14 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenAttemp
                     <Plus size={16} weight="bold" />
                     Criar Atividade
                   </button>
-
+                  <button
+                    className="btn btn-outline btn-sm"
+                    onClick={handleCreateDemo}
+                    aria-label="Gerar prova de teste"
+                  >
+                    <Plus size={16} weight="bold" />
+                    Prova Teste
+                  </button>
                   <button
                     className="btn btn-outline btn-sm"
                     onClick={handleOpenCodeModal}
@@ -505,20 +543,35 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenAttemp
       {showModal && (
         <ActivityCreateModal
           ownerName={username || "Aluno"}
-          onClose={() => setShowModal(false)}
+          onClose={() => {
+            setShowModal(false);
+            setPreviewData(null); 
+          }}
           onPreview={handlePreview}
+          initialData={previewData}
         />
       )}
 
-      {previewData && (
+      {}
+      {previewData && !showModal && (
         <ActivityPreviewModal
           activity={{
             name: previewData.name,
             discipline: previewData.discipline,
             ownerName: username || "Aluno",
           }}
-          questions={DEMO_QUESTIONS}
-          onBack={() => { setPreviewData(null); setShowModal(true); }}
+          questions={
+            previewData.questions || Array.from({ length: previewData.numQuestions }).map((_, i) => ({
+              id: `blank-${i}`,
+              type: "open", 
+              text: "",
+              options: []
+            }))
+          }
+          onBack={(savedQuestions) => {
+            setPreviewData(prev => ({ ...prev, questions: savedQuestions }));
+            setShowModal(true);
+          }}
           onConfirm={handleConfirm}
           saving={saving}
         />

@@ -25,7 +25,7 @@ const getStatusMeta = (status) => {
 };
 
 // Tela de tentativas
-export function AttemptsScreen({ activity, apiBaseUrl, onBack }) {
+export function AttemptsScreen({ activity, apiBaseUrl, onBack, onResume }) {
   const [attempts, setAttempts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -290,6 +290,19 @@ export function AttemptsScreen({ activity, apiBaseUrl, onBack }) {
 
             <div className="modal-actions">
               <button className="btn btn-outline" onClick={() => setSelectedAttempt(null)}>Fechar</button>
+              
+              {/*Só aparece se estiver em progresso */}
+              {selectedAttempt.status === "em progresso" && onResume && (
+                <button 
+                  className="btn btn-primary" 
+                  onClick={() => {
+                    setSelectedAttempt(null); // Fecha o modal
+                    onResume(selectedAttempt); // Dispara a função do App.jsx
+                  }}
+                >
+                  Continuar Tentativa
+                </button>
+              )}
             </div>
           </div>
         </div>

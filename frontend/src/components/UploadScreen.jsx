@@ -10,6 +10,9 @@ export function UploadScreen({
 }) {
   const [file, setFile] = useState(null);
   const [over, setOver] = useState(false);
+  
+  const [numQuestions, setNumQuestions] = useState(5); 
+  
   const inputRef = useRef();
 
   const handleFile = (f) => {
@@ -102,13 +105,36 @@ export function UploadScreen({
           </div>
         )}
 
+        {/* Seleção de quantidade de questões */}
+        <div style={{ marginTop: 24, display: "flex", flexDirection: "column", gap: 8 }}>
+          <label htmlFor="numQuestions" style={{ fontSize: "0.9rem", fontWeight: 600, color: "var(--text-2)" }}>
+            Quantidade de questões a gerar:
+          </label>
+          <input 
+            id="numQuestions"
+            type="number" 
+            min="1" 
+            max="20" 
+            value={numQuestions}
+            onChange={(e) => setNumQuestions(Number(e.target.value))}
+            style={{ 
+              padding: "10px", 
+              borderRadius: "8px", 
+              border: "1px solid var(--border)",
+              fontSize: "1rem",
+              width: "100%"
+            }}
+          />
+        </div>
+
         {/* Chamada para acao (Fluxo Real) */}
         <div style={{ marginTop: 28 }}>
           <button
             className="btn btn-primary btn-lg"
             style={{ width: "100%" }}
             disabled={!file || isLoading}
-            onClick={() => onStart(file)}
+            /* Enviando o arquivo E o número de questões para o pai */
+            onClick={() => onStart(file, numQuestions)}
             aria-label="Iniciar questionário"
           >
             Iniciar Questionário

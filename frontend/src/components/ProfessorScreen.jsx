@@ -152,7 +152,27 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl, onOpen
 
   const handlePreview = (data) => {
     setShowModal(false);
-    setPreviewData(data);
+    const numQuestions = data.numQuestions || 5;
+
+    setPreviewData((prev) => {
+      // Pega as questões que já existiam (se houver)
+      let mergedQuestions = prev?.questions || [];
+
+      // Ajusta o tamanho da lista preservando o que já foi digitado
+      if (mergedQuestions.length > numQuestions) {
+        mergedQuestions = mergedQuestions.slice(0, numQuestions); // Corta o excesso
+      } else if (mergedQuestions.length < numQuestions) {
+        const blanks = Array.from({ length: numQuestions - mergedQuestions.length }).map((_, i) => ({
+          id: `blank-${mergedQuestions.length + i}`,
+          type: "open",
+          text: "",
+          options: []
+        }));
+        mergedQuestions = [...mergedQuestions, ...blanks]; // Adiciona as brancas no final
+      }
+
+      return { ...prev, ...data, numQuestions, questions: mergedQuestions };
+    });
   };
 
   const createQuestionsForActivity = useCallback(async (activityId, questions = []) => {
@@ -442,20 +462,28 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl, onOpen
       {showModal && (
         <ActivityCreateModal
           ownerName={username || "Professor"}
-          onClose={() => setShowModal(false)}
+          onClose={() => {
+            setShowModal(false);
+            setPreviewData(null); 
+          }}
           onPreview={handlePreview}
+          initialData={previewData}
         />
       )}
 
-      {previewData && (
+      {}
+      {previewData && !showModal && (
         <ActivityPreviewModal
           activity={{
             name: previewData.name,
             discipline: previewData.discipline,
-            ownerName: username || "Professor",
+            ownerName: username || "Professor", 
           }}
-          questions={DEMO_QUESTIONS}
-          onBack={() => { setPreviewData(null); setShowModal(true); }}
+          questions={previewData.questions} 
+          onBack={(savedQuestions) => {
+            setPreviewData(prev => ({ ...prev, questions: savedQuestions }));
+            setShowModal(true);
+          }}
           onConfirm={handleConfirm}
           saving={saving}
         />

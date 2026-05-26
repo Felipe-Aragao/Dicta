@@ -490,7 +490,7 @@ export default function App() {
         else navigate("history");
       };
 
-      const handleStart    = async (file) => {
+      const handleStart    = async (file, numQuestions = 5) => { // Recebendo a quantidade
         const nextAfterExtracting = role === "visitante" ? "preview" : "question";
 
         if (!file) return;
@@ -500,6 +500,7 @@ export default function App() {
 
         const formData = new FormData();
         formData.append("pdf", file);
+        formData.append("num_questions", numQuestions); // Para enviar ao back
 
         try {
           const response = await fetch(`${API_BASE_URL}/pdf/receive`, {
@@ -527,7 +528,10 @@ export default function App() {
           setQuestionsError("");
           setPreviewTitle(file?.name ? file.name.replace(/\.[^.]+$/, "") : "Prova");
 
-          setQuestionSet(DEMO_QUESTIONS);
+          // Cortando a lista de questões para ficar com a quantidade exata
+          const questoesLimitadas = DEMO_QUESTIONS.slice(0, numQuestions);
+          setQuestionSet(questoesLimitadas);
+          
           setActiveActivityId(null);
           setActiveAttemptId(null);
 
@@ -667,7 +671,7 @@ export default function App() {
         resetAttemptFlow();
         navigate(role === "aluno" ? "history" : "upload");
       }, [navigate, resetAttemptFlow, role]);
-
+      
       // Abrir atividade e criar tentativa inicial
       const handleOpenActivity = useCallback(async (activityId) => {
         if (!activityId) return;
@@ -683,7 +687,7 @@ export default function App() {
         }
         navigate("question");
       }, [createAttempt, navigate]);
-
+      
       // Abrir lista de tentativas de uma atividade
       const handleOpenAttempts = useCallback((activity) => {
         if (!activity?.id) return;
@@ -691,6 +695,40 @@ export default function App() {
         navigate("attempts");
       }, [navigate]);
 
+      // 🟢 NOVA FUNÇÃO: Puxa do banco a tentativa "em progresso" e suas respostas
+      const handleResumeAttempt = useCallback(async (attempt) => {
+        if (!attempt?.id || !attempt?.activity_id) return;
+
+        try {
+          // 1. Busca as respostas que o back já salvou
+          const response = await fetch(`${API_BASE_URL}/answers?attempt_id=${attempt.id}&limit=200`);
+          let existingAnswers = [];
+          
+          if (response.ok) {
+            const data = await response.json();
+            // 2. Converte pro formato que a sua QuestionScreen entende
+            existingAnswers = data.map(ans => ({
+              questionId: ans.question_id,
+              responseText: ans.response_text || "",
+              chosenLetter: ans.chosen_letter || null,
+            }));
+          }
+
+          // 3. Injeta na memória do App
+          setAnswers(existingAnswers);
+          setActiveActivityId(attempt.activity_id);
+          setActiveAttemptId(attempt.id);
+          setQuestionSessionId((prev) => prev + 1);
+          setAttemptConcluded(attempt.status === "concluido");
+          setLockedAttemptNotice(attempt.status === "concluido" ? "Esta tentativa já foi concluída e não pode ser editada." : null);
+
+          // 4. Manda o usuário para a tela da prova (ou revisão se já acabou)
+          navigate(attempt.status === "concluido" ? "review" : "question");
+          
+        } catch (error) {
+          showToast("Falha ao retomar a tentativa.");
+        }
+      }, [API_BASE_URL, navigate, showToast]);
       // Topbar e navegacao
       const renderTopbar = () => {
         
@@ -914,6 +952,7 @@ export default function App() {
             activity={attemptsActivity}
             apiBaseUrl={API_BASE_URL}
             onBack={() => navigate(role === "professor" ? "professor-home" : "history")}
+            onResume={handleResumeAttempt} 
           />
         )}
 
