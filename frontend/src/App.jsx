@@ -7,6 +7,7 @@ import { VisitorNameScreen }    from "./components/VisitorNameScreen";
 import { ProfessorScreen }      from "./components/ProfessorScreen";
 import { UploadScreen }         from "./components/UploadScreen";
 import { ExtractingScreen }     from "./components/ExtractingScreen";
+import { PreviewScreen }        from "./components/PreviewScreen";
 import { QuestionScreen }       from "./components/QuestionScreen";
 import { ReviewScreen }         from "./components/ReviewScreen";
 import { DoneScreen }           from "./components/DoneScreen";
@@ -55,6 +56,7 @@ export default function App() {
   const [attemptsActivity, setAttemptsActivity] = useState(null);
   const [uploadStatus, setUploadStatus] = useState("idle");
   const [uploadError, setUploadError] = useState("");
+  const [previewTitle, setPreviewTitle] = useState("Mock test");
   const [questionSessionId, setQuestionSessionId] = useState(0);
   const [lockedAttemptNotice, setLockedAttemptNotice] = useState(null);
   const [attemptConcluded, setAttemptConcluded] = useState(false);
@@ -488,19 +490,10 @@ export default function App() {
         else navigate("history");
       };
 
-      // Fluxo do questionario (upload ou modo de teste)
       const handleStart    = async (file) => {
-        
-        //  Teste de prova
-        if (!file) {
-          console.log("Modo de teste: Iniciando sem PDF.");
-          setUploadStatus("success");
-          setTimeout(() => {
-            navigate("extracting");
-            setTimeout(() => navigate("question"), 2300);
-          }, 400);
-          return;
-        }
+        const nextAfterExtracting = role === "visitante" ? "preview" : "question";
+
+        if (!file) return;
 
         setUploadStatus("loading");
         setUploadError("");
@@ -532,25 +525,15 @@ export default function App() {
           setAnswers([]);
           setQuestionSessionId((prev) => prev + 1);
           setQuestionsError("");
+          setPreviewTitle(file?.name ? file.name.replace(/\.[^.]+$/, "") : "Prova");
 
-          if (role === "visitante") {
-            const bootstrap = await createVisitorAttempt({
-              fileName: file?.name,
-              questions: DEMO_QUESTIONS,
-            });
-            if (!bootstrap?.attempt) {
-              setUploadStatus("error");
-              setUploadError("Falha ao preparar tentativa do visitante.");
-              return;
-            }
-          } else {
-            setQuestionSet(DEMO_QUESTIONS);
-            setActiveActivityId(null);
-          }
+          setQuestionSet(DEMO_QUESTIONS);
+          setActiveActivityId(null);
+          setActiveAttemptId(null);
 
           setTimeout(() => {
             navigate("extracting");
-            setTimeout(() => navigate("question"), 2300);
+            setTimeout(() => navigate(nextAfterExtracting), 2300);
           }, 400);
         } catch (error) {
           setUploadStatus("error");
@@ -612,6 +595,28 @@ export default function App() {
         setAnswers([]);
         setQuestionSessionId((prev) => prev + 1);
         navigate("done");
+      };
+
+      const handlePreviewStart = async (editedQuestions = []) => {
+        const normalizedQuestions = Array.isArray(editedQuestions) && editedQuestions.length > 0
+          ? editedQuestions
+          : questionSet;
+
+        setQuestionSet(normalizedQuestions);
+
+        if (role === "visitante") {
+          const bootstrap = await createVisitorAttempt({
+            fileName: previewTitle,
+            questions: normalizedQuestions,
+          });
+          if (!bootstrap?.attempt) {
+            setUploadStatus("error");
+            setUploadError("Falha ao preparar tentativa do visitante.");
+            return;
+          }
+        }
+
+        navigate("question");
       };
 
       // Gerar PDF da tentativa
@@ -767,15 +772,17 @@ export default function App() {
         }
 
         
-        const backLabel = role === "aluno"      ? "Minha Área"
-                : role === "visitante"  ? "Início"
-                : role === "professor"  ? "Área do Professor" 
-                : "Início";
+        const backLabel = page === "preview" ? "Upload"
+          : role === "aluno"      ? "Minha Área"
+          : role === "visitante"  ? "Início"
+          : role === "professor"  ? "Área do Professor"
+          : "Início";
 
-        const backDest  = role === "aluno"      ? "history"
-                : role === "visitante"  ? "login"
-                : role === "professor"  ? "professor-home" 
-                : "login";                      "login";
+        const backDest  = page === "preview" ? "upload"
+          : role === "aluno"      ? "history"
+          : role === "visitante"  ? "login"
+          : role === "professor"  ? "professor-home"
+          : "login";
 
         const handleBack = () => {
           if (page === "done") resetAttemptFlow();
@@ -866,6 +873,14 @@ export default function App() {
           />
         )}
         {page === "extracting" && (role === "aluno" || role === "visitante") && <ExtractingScreen />}
+        {page === "preview" && role === "visitante" && (
+          <PreviewScreen
+            title={previewTitle}
+            questions={questionSet}
+            onBack={() => navigate("upload")}
+            onStart={handlePreviewStart}
+          />
+        )}
         {page === "question"   && (role === "aluno" || role === "visitante") && (
           <QuestionScreen
             questions={questionSet}
