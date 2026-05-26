@@ -102,7 +102,7 @@ export function UploadScreen({
           </div>
         )}
 
-        {/* Chamada para acao */}
+        {/* Chamada para acao (Fluxo Real) */}
         <div style={{ marginTop: 28 }}>
           <button
             className="btn btn-primary btn-lg"
@@ -112,6 +112,19 @@ export function UploadScreen({
             aria-label="Iniciar questionário"
           >
             Iniciar Questionário
+          </button>
+        </div>
+
+        {/*  BOTÃO TEMPORÁRIO DE TESTE (BYPASS)  */}
+        <div style={{ marginTop: 16 }}>
+          <button
+            className="btn btn-outline"
+            style={{ width: "100%", borderColor: "red", color: "red", borderStyle: "dashed" }}
+            onClick={() => onStart(null)} // O null indica para o App.jsx que é um teste
+            aria-label="Pular upload e testar interface"
+            disabled={isLoading}
+          >
+             Prova piloto
           </button>
         </div>
 

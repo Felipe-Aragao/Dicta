@@ -472,12 +472,19 @@ export default function App() {
 
       // Fluxo do questionario
       const handleStart    = async (file) => {
+        
+        //  Teste de prova
         if (!file) {
-          setUploadStatus("error");
-          setUploadError("Selecione um PDF.");
+          console.log("Modo de teste: Iniciando sem PDF.");
+          setUploadStatus("success");
+          setTimeout(() => {
+            navigate("extracting");
+            setTimeout(() => navigate("question"), 2300);
+          }, 400);
           return;
         }
 
+        // --- FLUXO DE UPLOAD PARA O BACKEND ---
         setUploadStatus("loading");
         setUploadError("");
 
@@ -496,7 +503,7 @@ export default function App() {
               const data = await response.json();
               if (data?.detail) detail = data.detail;
             } catch {
-              
+              // ignora erro silenciosamente
             }
             throw new Error(detail);
           }
