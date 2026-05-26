@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   SpeakerHigh,
   Microphone,
@@ -13,7 +13,7 @@ import { useSpeech } from "../hooks/useSpeech";
 
 const LETTERS = ["A", "B", "C", "D", "E"];
 
-// Alternativas
+// ─── Alternativas ────────────────────────────────────────────────
 function Alternatives({ options, selectedAlt, onSelect }) {
   return (
     <div className="alts" role="radiogroup" aria-label="Alternativas de resposta">
@@ -34,8 +34,8 @@ function Alternatives({ options, selectedAlt, onSelect }) {
   );
 }
 
-// Painel de voz
-function VoicePanel({ recording, transcription, onToggle }) {
+// ─── Painel de Voz ───────────────────────────────────────────────
+function VoicePanel({ recording, transcription, interimText, onToggle }) {
   return (
     <div className="voice-panel">
       {recording && (
@@ -59,16 +59,23 @@ function VoicePanel({ recording, transcription, onToggle }) {
         aria-live="polite"
       >
         {recording
-          ? "Gravando — clique para parar"
+          ? "Gravando — diga 'parar' ou clique"
           : transcription
           ? "Gravação concluída"
-          : "Clique no microfone para responder"}
+          : "Diga 'gravar' ou clique para responder"}
       </p>
+
+      {/* Texto em tempo real aparecendo em cinza */}
+      {recording && interimText && (
+        <p style={{ color: "gray", fontStyle: "italic", marginTop: "10px", fontSize: "0.9rem" }}>
+          Ouvindo: {interimText}
+        </p>
+      )}
     </div>
   );
 }
 
-// Tela do questionario
+// ─── Tela principal ──────────────────────────────────────────────
 export function QuestionScreen({
   questions,
   onComplete,
@@ -78,24 +85,62 @@ export function QuestionScreen({
   resetKey = 0,
 }) {
   const [idx, setIdx]                     = useState(0);
-  const [answerMode, setAnswerMode]       = useState(false); // false = lendo, true = respondendo
+  const [answerMode, setAnswerMode]       = useState(false); 
   const [recording, setRecording]         = useState(false);
   const [transcription, setTranscription] = useState("");
+  const [interimText, setInterimText]     = useState(""); 
   const [selectedAlt, setSelectedAlt]     = useState(null);
   const [answers, setAnswers]             = useState([]);
 
-  const { speak, startRec, stopRec } = useSpeech();
+  const { speak, startRec, stopRec, setCommands } = useSpeech();
 
   const q          = questions?.[idx];
   const isLast     = idx === (questions?.length ?? 0) - 1;
   const isMultiple = q?.type === "multiple";
   const pct        = questions?.length ? Math.round(((idx + 1) / questions.length) * 100) : 0;
 
+  const isRecordingRef = useRef(false);
+  useEffect(() => {
+    isRecordingRef.current = recording;
+  }, [recording]);
+
+  // LIGA O MICROFONE E CAPTURA TEXTO (Com filtro anti-vazamento de comandos)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      startRec((textoFinal, textoTemporario) => {
+        if (!isRecordingRef.current) return; 
+
+        if (textoFinal) {
+          // Filtro Regex: Remove "gravar" ou "parar" se eles vierem de bônus no início do texto
+          const textoLimpo = textoFinal
+            .replace(/^gravar\s*/i, "")
+            .replace(/^parar\s*/i, "");
+
+          if (textoLimpo.trim()) {
+            setTranscription((prev) => prev + (prev ? " " : "") + textoLimpo);
+          }
+        }
+        
+        // Aplica a limpeza também no texto cinza temporário
+        const temporarioLimpo = textoTemporario
+          .replace(/^gravar\s*/i, "")
+          .replace(/^parar\s*/i, "");
+        setInterimText(temporarioLimpo || "");
+      });
+    }, 500);
+
+    return () => {
+      clearTimeout(timer);
+      stopRec();
+    };
+  }, [startRec, stopRec]);
+
   useEffect(() => {
     setIdx(0);
     setAnswerMode(false);
     setRecording(false);
     setTranscription("");
+    setInterimText("");
     setSelectedAlt(null);
     setAnswers(Array.isArray(initialAnswers) ? [...initialAnswers] : []);
   }, [initialAnswers, questions, resetKey]);
@@ -105,11 +150,13 @@ export function QuestionScreen({
     answers.find((item) => item?.qIdx === questionIndex)
   );
 
-  // Volta para modo de leitura ao trocar de questao
   useEffect(() => {
     if (!q) return;
     setAnswerMode(false);
-    speak(q.text);
+    const timer = setTimeout(() => {
+      speak(q.text);
+    }, 300);
+    return () => clearTimeout(timer);
   }, [idx, q, speak]);
 
   useEffect(() => {
@@ -130,39 +177,11 @@ export function QuestionScreen({
       setSelectedAlt(null);
     }
     setRecording(false);
+    setInterimText("");
   }, [answers, idx, q]);
 
-  if (loading) {
-    return (
-      <div className="page page-anim">
-        <div className="page-narrow">
-          <div className="card" role="status" aria-live="polite">
-            Carregando questoes...
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!questions?.length) {
-    return (
-      <div className="page page-anim">
-        <div className="page-narrow">
-          <div className="card" role="status" aria-live="polite">
-            {error || "Nenhuma questao encontrada."}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   const toggleRec = () => {
-    if (recording) { stopRec(); setRecording(false); return; }
-    const ok = startRec(
-      (text) => setTranscription(text),
-      ()     => setRecording(false)
-    );
-    if (ok) setRecording(true);
+    setRecording(!recording);
   };
 
   const handleSelectAlt = (i) => {
@@ -199,6 +218,7 @@ export function QuestionScreen({
 
     setIdx((i) => i + 1);
     setTranscription("");
+    setInterimText("");
     setSelectedAlt(null);
     setRecording(false);
   };
@@ -207,26 +227,71 @@ export function QuestionScreen({
     if (idx <= 0) return;
     setIdx((i) => i - 1);
     setTranscription("");
+    setInterimText("");
     setSelectedAlt(null);
     setRecording(false);
   };
 
+  //  Bloqueia ações de navegação se "recording" for verdadeiro
+  useEffect(() => {
+    setCommands({
+      "proxima": () => { if (!recording) saveAndNext(); },
+      "proxima questao": () => { if (!recording) saveAndNext(); },
+      "anterior": () => { if (!recording) goBack(); },
+      "repetir": () => { if (!recording && q) speak(q.text); },
+      "repet": () => { if (!recording && q) speak(q.text); }, 
+      "ouvir alternatives": () => {
+        if (!recording && isMultiple && q?.options) {
+          const textoOpcoes = q.options.map((opt, i) => `Letra ${LETTERS[i]}, ${opt}`).join(". ");
+          speak(`As alternativas são: ${textoOpcoes}`);
+        }
+      },
+      "responder": () => { if (!recording) setAnswerMode(true); },
+      "gravar": () => setRecording(true), 
+      "parar": () => setRecording(false), 
+      "refazer": () => { setTranscription(""); setInterimText(""); setRecording(false); },
+      "finalizar": () => { if (!recording && isLast) saveAndNext(); },
+      "letra a": () => { if (!recording && isMultiple) handleSelectAlt(0); },
+      "letra b": () => { if (!recording && isMultiple) handleSelectAlt(1); },
+      "letra c": () => { if (!recording && isMultiple) handleSelectAlt(2); },
+      "letra d": () => { if (!recording && isMultiple) handleSelectAlt(3); },
+      "letra e": () => { if (!recording && isMultiple) handleSelectAlt(4); },
+    });
+  }, [idx, answerMode, isMultiple, selectedAlt, q, answers, transcription, recording, setCommands]);
+
+  if (loading) {
+    return (
+      <div className="page page-anim">
+        <div className="page-narrow">
+          <div className="card" role="status" aria-live="polite">
+            Carregando questoes...
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!questions?.length) {
+    return (
+      <div className="page page-anim">
+        <div className="page-narrow">
+          <div className="card" role="status" aria-live="polite">
+            {error || "Nenhuma questao encontrada."}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
-      {/* Barra de progresso */}
       <div className="prog-bar-wrap">
         <div className="prog-bar-inner" style={{ maxWidth: "var(--shell-max)" }}>
           <div className="prog-meta">
             <span className="prog-label">Questão {idx + 1} de {questions.length}</span>
             <span className="prog-pct">{pct}%</span>
           </div>
-          <div
-            className="prog-track"
-            role="progressbar"
-            aria-valuenow={pct}
-            aria-valuemin={0}
-            aria-valuemax={100}
-          >
+          <div className="prog-track" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
             <div className="prog-fill" style={{ width: `${pct}%` }} />
           </div>
         </div>
@@ -235,7 +300,6 @@ export function QuestionScreen({
       <div className="page page-anim">
         <div className="page-wide">
 
-          {/* Modo leitura: questao em largura total */}
           {!answerMode && (
             <div className="question-reading">
               <div className="card">
@@ -247,57 +311,29 @@ export function QuestionScreen({
                 <p className="q-text">{q.text}</p>
 
                 <div className="reading-actions">
-                  <button
-                    className="btn btn-outline btn-sm"
-                    onClick={() => speak(q.text)}
-                    aria-label="Ouvir questão em voz alta"
-                  >
-                    <SpeakerHigh size={17} weight="regular" />
-                    Ouvir questão
+                  <button className="btn btn-outline btn-sm" onClick={() => speak(q.text)} aria-label="Ouvir questão em voz alta">
+                    <SpeakerHigh size={17} weight="regular" /> Ouvir questão
                   </button>
-                  <button
-                    className="btn btn-primary"
-                    onClick={() => setAnswerMode(true)}
-                    aria-label="Ir para o campo de resposta"
-                  >
-                    <PencilSimple size={17} weight="regular" />
-                    Responder
+                  <button className="btn btn-primary" onClick={() => setAnswerMode(true)} aria-label="Ir para o campo de resposta">
+                    <PencilSimple size={17} weight="regular" /> Responder
                   </button>
                 </div>
               </div>
 
-              
               <div className="nav-row">
-                <button
-                  className="btn btn-outline"
-                  disabled={idx === 0}
-                  onClick={goBack}
-                  aria-label="Questão anterior"
-                >
-                  <ArrowLeft size={16} weight="regular" />
-                  Anterior
+                <button className="btn btn-outline" disabled={idx === 0} onClick={goBack} aria-label="Questão anterior">
+                  <ArrowLeft size={16} weight="regular" /> Anterior
                 </button>
-                <button
-                  className="btn btn-primary"
-                  onClick={saveAndNext}
-                  aria-label={isLast ? "Finalizar questionário" : "Próxima questão"}
-                >
-                  {isLast ? (
-                    <><Check size={16} weight="bold" /> Finalizar</>
-                  ) : (
-                    <>Próxima <ArrowRight size={16} weight="regular" /></>
-                  )}
+                <button className="btn btn-primary" onClick={saveAndNext} aria-label={isLast ? "Finalizar questionário" : "Próxima questão"}>
+                  {isLast ? <><Check size={16} weight="bold" /> Finalizar</> : <>Próxima <ArrowRight size={16} weight="regular" /></>}
                 </button>
               </div>
             </div>
           )}
 
-          {/* Modo resposta: layout dividido */}
           {answerMode && (
             <>
               <div className="question-layout">
-
-                {/* Painel da questao */}
                 <div className="card">
                   <div className="q-meta">
                     <span className="q-meta-badge">
@@ -307,28 +343,17 @@ export function QuestionScreen({
                   <p className="q-text">{q.text}</p>
 
                   <div className="action-row">
-                    <button
-                      className="btn btn-outline btn-sm"
-                      onClick={() => speak(q.text)}
-                      aria-label="Ouvir questão em voz alta"
-                    >
-                      <SpeakerHigh size={15} weight="regular" />
-                      Ouvir questão
+                    <button className="btn btn-outline btn-sm" onClick={() => speak(q.text)} aria-label="Ouvir questão em voz alta">
+                      <SpeakerHigh size={15} weight="regular" /> Ouvir questão
                     </button>
                     {isMultiple && selectedAlt !== null && (
-                      <button
-                        className="btn btn-outline btn-sm"
-                        onClick={() => speak(q.options[selectedAlt])}
-                        aria-label="Ouvir alternativa selecionada"
-                      >
-                        <SpeakerHigh size={15} weight="regular" />
-                        Ouvir alternativa
+                      <button className="btn btn-outline btn-sm" onClick={() => speak(q.options[selectedAlt])} aria-label="Ouvir alternativa selecionada">
+                        <SpeakerHigh size={15} weight="regular" /> Ouvir alternativa
                       </button>
                     )}
                   </div>
                 </div>
 
-                {/* Painel de resposta */}
                 <div className="card">
                   <p style={{
                     fontSize: "0.78rem", fontWeight: 600, textTransform: "uppercase",
@@ -338,16 +363,13 @@ export function QuestionScreen({
                   </p>
 
                   {isMultiple ? (
-                    <Alternatives
-                      options={q.options}
-                      selectedAlt={selectedAlt}
-                      onSelect={handleSelectAlt}
-                    />
+                    <Alternatives options={q.options} selectedAlt={selectedAlt} onSelect={handleSelectAlt} />
                   ) : (
                     <>
                       <VoicePanel
                         recording={recording}
                         transcription={transcription}
+                        interimText={interimText}
                         onToggle={toggleRec}
                       />
                       {transcription && (
@@ -357,14 +379,8 @@ export function QuestionScreen({
                         </div>
                       )}
                       {transcription && (
-                        <button
-                          className="btn btn-ghost btn-sm"
-                          style={{ marginTop: 10 }}
-                          onClick={() => { setTranscription(""); setRecording(false); }}
-                          aria-label="Refazer gravação"
-                        >
-                          <ArrowCounterClockwise size={14} weight="regular" />
-                          Refazer
+                        <button className="btn btn-ghost btn-sm" style={{ marginTop: 10 }} onClick={() => { setTranscription(""); setInterimText(""); setRecording(false); }} aria-label="Refazer gravação">
+                          <ArrowCounterClockwise size={14} weight="regular" /> Refazer
                         </button>
                       )}
                     </>
@@ -372,26 +388,12 @@ export function QuestionScreen({
                 </div>
               </div>
 
-              
               <div className="nav-row">
-                <button
-                  className="btn btn-outline"
-                  onClick={() => setAnswerMode(false)}
-                  aria-label="Voltar para a leitura da questão"
-                >
-                  <ArrowLeft size={16} weight="regular" />
-                  Voltar
+                <button className="btn btn-outline" onClick={() => setAnswerMode(false)} aria-label="Voltar para a leitura da questão">
+                  <ArrowLeft size={16} weight="regular" /> Voltar
                 </button>
-                <button
-                  className="btn btn-primary"
-                  onClick={saveAndNext}
-                  aria-label={isLast ? "Finalizar questionário" : "Próxima questão"}
-                >
-                  {isLast ? (
-                    <><Check size={16} weight="bold" /> Finalizar</>
-                  ) : (
-                    <>Próxima <ArrowRight size={16} weight="regular" /></>
-                  )}
+                <button className="btn btn-primary" onClick={saveAndNext} aria-label={isLast ? "Finalizar questionário" : "Próxima questão"}>
+                  {isLast ? <><Check size={16} weight="bold" /> Finalizar</> : <>Próxima <ArrowRight size={16} weight="regular" /></>}
                 </button>
               </div>
             </>
