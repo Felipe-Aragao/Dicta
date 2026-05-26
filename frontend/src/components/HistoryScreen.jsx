@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ArrowRight, ClockCounterClockwise, Plus, User, MagnifyingGlass, Trash } from "@phosphor-icons/react";
 import { DEMO_QUESTIONS } from "../data/demoData";
+import { extractApiErrorMessage } from "../utils/apiError";
 import { normalizeQuestions } from "../utils/questions";
 import { ActivityCreateModal, ActivityPreviewModal } from "./ActivityModals";
 
@@ -76,7 +77,7 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenAttemp
       const response = await fetch(`${apiBaseUrl}/activities?owner_id=${userId}`);
       if (!response.ok) throw new Error("Falha ao carregar atividades.");
       const data = await response.json();
-      setActivities(data.map((item) => normalizeActivity(item, username)));
+      setActivities(Array.isArray(data) ? data.map((item) => normalizeActivity(item, username)) : []);
     } catch (err) {
       setError(err?.message ?? "Falha ao carregar atividades.");
     } finally {
@@ -141,7 +142,7 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenAttemp
         let detail = "Falha ao salvar questao.";
         try {
           const data = await questionResponse.json();
-          if (data?.detail) detail = data.detail;
+          detail = extractApiErrorMessage(data?.detail, detail);
         } catch {
           
         }
@@ -169,7 +170,7 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenAttemp
             let detail = "Falha ao salvar alternativa.";
             try {
               const data = await optionResponse.json();
-              if (data?.detail) detail = data.detail;
+              detail = extractApiErrorMessage(data?.detail, detail);
             } catch {
               
             }
@@ -201,7 +202,7 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenAttemp
         let detail = "Falha ao criar atividade.";
         try {
           const data = await response.json();
-          if (data?.detail) detail = data.detail;
+          detail = extractApiErrorMessage(data?.detail, detail);
         } catch {
           
         }
@@ -251,7 +252,7 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenAttemp
         let detail = "Falha ao excluir atividade.";
         try {
           const data = await response.json();
-          if (data?.detail) detail = data.detail;
+          detail = extractApiErrorMessage(data?.detail, detail);
         } catch {
           
         }

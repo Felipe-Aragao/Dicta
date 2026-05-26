@@ -317,6 +317,18 @@ body {
   border-radius: var(--r-xl); padding: 16px 16px;
   width: 200%; max-width: 460px;
 }
+.creds-error {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: var(--r-sm);
+  background: var(--red-50);
+  border: 1px solid #fecdd3;
+  color: var(--red-600);
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.45;
+  text-align: left;
+}
 .creds-back {
   display: flex; align-items: center; gap: 8px;
   background: none; border: none; cursor: pointer;
@@ -358,6 +370,11 @@ body {
   transition: border-color .15s; min-height: 48px;
 }
 .text-input:focus { border-color: var(--accent); }
+.field-hint {
+  font-size: 0.82rem;
+  color: var(--text-3);
+  line-height: 1.45;
+}
 
 /* ─── SECTION HEADER ─────────────────────────────────────────────── */
 .section-header {

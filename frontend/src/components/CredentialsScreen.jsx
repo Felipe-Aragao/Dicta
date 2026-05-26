@@ -18,7 +18,7 @@ const ROLE_META = {
 };
 
 // Tela de credenciais
-export function CredentialsScreen({ role, onLogin, onRegister, onBack, loading = false }) {
+export function CredentialsScreen({ role, onLogin, onRegister, onBack, loading = false, authError = "" }) {
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -47,6 +47,12 @@ export function CredentialsScreen({ role, onLogin, onRegister, onBack, loading =
   return (
     <div className="login-bg">
       <div className="creds-card page-anim">
+
+        {authError && (
+          <div className="creds-error" role="alert">
+            {authError}
+          </div>
+        )}
 
         {/* Botao voltar */}
         <button className="creds-back" onClick={onBack} aria-label="Voltar à seleção de perfil">
@@ -136,6 +142,11 @@ export function CredentialsScreen({ role, onLogin, onRegister, onBack, loading =
               onKeyDown={(e) => { if (e.key === "Enter" && canLogin) handleLogin(); }}
               autoComplete="current-password"
             />
+            {mode === "register" && (
+              <p className="field-hint">
+                Requisitos: mínimo de 6 caracteres.
+              </p>
+            )}
           </div>
 
           {mode === "register" && (

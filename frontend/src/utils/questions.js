@@ -1,4 +1,4 @@
-// Normaliza questoes vindas da API para o formato esperado pelo frontend
+// Normaliza questoes da API
 export const normalizeQuestions = (items = []) => {
   const sorted = [...items].sort((a, b) => {
     const aPos = a?.position ?? 0;

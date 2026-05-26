@@ -12,7 +12,7 @@ SALT_BYTES = 16
 # Gera hash de senha
 def hash_password(password: str) -> str:
     if not password:
-        raise ValueError("password required")
+        raise ValueError("Senha não pode ser vazia.")
     salt = os.urandom(SALT_BYTES)
     derived = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, ITERATIONS)
     salt_b64 = base64.b64encode(salt).decode("ascii")

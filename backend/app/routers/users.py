@@ -15,7 +15,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 def _get_user_or_404(service: UserService, user_id: uuid.UUID):
     user = service.get(user_id)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found.")
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
     return user
 
 
@@ -25,7 +25,7 @@ def create_user(data: UserCreate, db: Session = Depends(get_db)):
     service = UserService(db)
     existing = service.get_by_email(str(data.email))
     if existing:
-        raise HTTPException(status_code=409, detail="Email already in use.")
+        raise HTTPException(status_code=409, detail="Email já está sendo utilizado.")
     return service.create(data)
 
 
@@ -55,7 +55,7 @@ def update_user(
     if data.email:
         existing = service.get_by_email(str(data.email))
         if existing and existing.id != user.id:
-            raise HTTPException(status_code=409, detail="Email already in use.")
+            raise HTTPException(status_code=409, detail="Email já está sendo utilizado.")
 
     return service.update(user, data)
 

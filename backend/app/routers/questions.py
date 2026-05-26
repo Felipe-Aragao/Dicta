@@ -16,7 +16,7 @@ router = APIRouter(prefix="/questions", tags=["questions"])
 def _get_question_or_404(service: QuestionService, question_id: uuid.UUID):
     question = service.get(question_id)
     if not question:
-        raise HTTPException(status_code=404, detail="Question not found.")
+        raise HTTPException(status_code=404, detail="Questão não encontrada.")
     return question
 
 
@@ -25,7 +25,7 @@ def _get_question_or_404(service: QuestionService, question_id: uuid.UUID):
 def create_question(data: QuestionCreate, db: Session = Depends(get_db)):
     activity = ActivityService(db).get(data.activity_id)
     if not activity:
-        raise HTTPException(status_code=404, detail="Activity not found.")
+        raise HTTPException(status_code=404, detail="Atividade não encontrada.")
     return QuestionService(db).create(data)
 
 

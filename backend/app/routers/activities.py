@@ -17,7 +17,7 @@ router = APIRouter(prefix="/activities", tags=["activities"])
 def _get_activity_or_404(service: ActivityService, activity_id: uuid.UUID):
     activity = service.get(activity_id)
     if not activity:
-        raise HTTPException(status_code=404, detail="Activity not found.")
+        raise HTTPException(status_code=404, detail="Atividade não encontrada.")
     return activity
 
 
@@ -27,9 +27,9 @@ def create_activity(data: ActivityCreate, db: Session = Depends(get_db)):
     user_service = UserService(db)
     owner = user_service.get(data.owner_id)
     if not owner:
-        raise HTTPException(status_code=404, detail="Owner not found.")
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
     if owner.role not in {RoleEnum.aluno, RoleEnum.professor}:
-        raise HTTPException(status_code=403, detail="Role cannot create activities.")
+        raise HTTPException(status_code=403, detail="Não é permitido criar atividades para este tipo de usuário.")
     return ActivityService(db).create(data)
 
 

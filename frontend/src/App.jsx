@@ -18,6 +18,7 @@ import { useSpeech } from "./hooks/useSpeech";
 import { useToast }  from "./hooks/useToast";
 
 import { DEMO_QUESTIONS } from "./data/demoData";
+import { extractApiErrorMessage } from "./utils/apiError";
 import { normalizeQuestions } from "./utils/questions";
 import "./App.css";
 
@@ -44,6 +45,7 @@ export default function App() {
   const [username, setUsername] = useState("");
   const [currentUser, setCurrentUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState("");
   const [answers, setAnswers]   = useState([]);
   const [questionSet, setQuestionSet] = useState(DEMO_QUESTIONS);
   const [questionsLoading, setQuestionsLoading] = useState(false);
@@ -96,6 +98,7 @@ export default function App() {
     setUploadError("");
   }, []);
 
+  // Carrega questoes da atividade selecionada
   const fetchQuestionsByActivity = useCallback(async (activityId) => {
     if (!activityId) return;
     setQuestionsLoading(true);
@@ -103,10 +106,10 @@ export default function App() {
     try {
       const response = await fetch(`${API_BASE_URL}/questions?activity_id=${activityId}`);
       if (!response.ok) {
-        let detail = "Falha ao carregar questoes.";
+        let detail = "Falha ao carregar questões.";
         try {
           const data = await response.json();
-          if (data?.detail) detail = data.detail;
+          detail = extractApiErrorMessage(data?.detail, detail);
         } catch {
           
         }
@@ -120,9 +123,9 @@ export default function App() {
         setQuestionSet(DEMO_QUESTIONS);
       }
     } catch (error) {
-      setQuestionsError(error?.message ?? "Falha ao carregar questoes.");
+      setQuestionsError(error?.message ?? "Falha ao carregar questões.");
       if (role !== "visitante") setQuestionSet(DEMO_QUESTIONS);
-      showToast(error?.message ?? "Falha ao carregar questoes.");
+      showToast(error?.message ?? "Falha ao carregar questões.");
     } finally {
       setQuestionsLoading(false);
     }
@@ -141,10 +144,11 @@ export default function App() {
     if (!attemptConcluded) return;
     if (page !== "question" && page !== "review") return;
     if (!lockedAttemptNotice) {
-      setLockedAttemptNotice("Esta tentativa ja foi concluida e nao pode ser editada.");
+      setLockedAttemptNotice("Esta tentativa já foi concluida e não pode ser editada.");
     }
   }, [attemptConcluded, lockedAttemptNotice, page]);
 
+  // Cria uma tentativa no servidor para usuario/aluno
   const createAttempt = useCallback(async (activityId) => {
     if (!activityId) return null;
 
@@ -173,7 +177,7 @@ export default function App() {
         let detail = "Falha ao criar tentativa.";
         try {
           const data = await response.json();
-          if (data?.detail) detail = data.detail;
+          detail = extractApiErrorMessage(data?.detail, detail);
         } catch {
           
         }
@@ -191,6 +195,7 @@ export default function App() {
     }
   }, [API_BASE_URL, currentUser?.id, role, showToast, username]);
 
+  // Prepara e cria tentativa para visitante (server-side)
   const createVisitorAttempt = useCallback(async ({ fileName, questions }) => {
     const visitorName = (username || "Visitante").trim();
     if (!visitorName) return null;
@@ -217,7 +222,7 @@ export default function App() {
         let detail = "Falha ao preparar tentativa do visitante.";
         try {
           const data = await response.json();
-          if (data?.detail) detail = data.detail;
+          detail = extractApiErrorMessage(data?.detail, detail);
         } catch {
           
         }
@@ -289,7 +294,7 @@ export default function App() {
         let detail = "Falha ao salvar respostas.";
         try {
           const data = await response.json();
-          if (data?.detail) detail = data.detail;
+          detail = extractApiErrorMessage(data?.detail, detail);
         } catch {
           
         }
@@ -311,7 +316,7 @@ export default function App() {
       let detail = "Falha ao atualizar tentativa.";
       try {
         const data = await updateResponse.json();
-        if (data?.detail) detail = data.detail;
+        detail = extractApiErrorMessage(data?.detail, detail);
       } catch {
         
       }
@@ -321,6 +326,7 @@ export default function App() {
     }
   }, [API_BASE_URL]);
 
+  // Marca tentativa como concluida
   const markAttemptConcluded = useCallback(async (attemptId) => {
     if (!attemptId) return;
     const response = await fetch(`${API_BASE_URL}/attempts/${attemptId}`, {
@@ -336,7 +342,7 @@ export default function App() {
       let detail = "Falha ao finalizar tentativa.";
       try {
         const data = await response.json();
-        if (data?.detail) detail = data.detail;
+        detail = extractApiErrorMessage(data?.detail, detail);
       } catch {
         
       }
@@ -347,7 +353,7 @@ export default function App() {
   }, [API_BASE_URL]);
 
     
-    // Abertura/fechamento de comandos de voz
+    // Comandos de voz (abrir/fechar)
     const openVoiceCommands = useCallback(() => {
       setPrevPage(page);
       navigate("voice-commands");
@@ -357,8 +363,9 @@ export default function App() {
       navigate(prevPage || "login");
     }, [prevPage, navigate]);
 
-    // Fluxo de autenticacao
+    // Seleção de perfil
     const handleRoleSelect = (papel) => {
+        setAuthError("");
       if (papel === "visitante") navigate("visitor-name", "visitante");
       else navigate("credentials", papel);
     };
@@ -366,6 +373,7 @@ export default function App() {
       const handleLogin = useCallback(async ({ email, password }) => {
         if (!role) return;
         setAuthLoading(true);
+        setAuthError("");
         try {
           const response = await fetch(`${API_BASE_URL}/auth/login`, {
             method: "POST",
@@ -374,24 +382,29 @@ export default function App() {
           });
 
           if (!response.ok) {
-            let detail = "Falha ao entrar.";
+            let detail = response.status === 422 ? "Email ou senha inválidos." : "Falha ao entrar.";
             try {
               const data = await response.json();
-              if (data?.detail) detail = data.detail;
+              detail = extractApiErrorMessage(data?.detail, detail);
             } catch {
               
+            }
+            if (response.status === 422) {
+              detail = "Email ou senha inválidos.";
             }
             throw new Error(detail);
           }
 
           const user = await response.json();
           if (user.role && user.role !== role) {
-            throw new Error("Perfil selecionado nao corresponde ao usuario.");
+            throw new Error("Perfil selecionado não corresponde ao usuário.");
           }
           setCurrentUser(user);
           setUsername(user.name || "");
+          setAuthError("");
           navigate("voice-commands-intro");
         } catch (error) {
+          setAuthError(error?.message ?? "Falha ao entrar.");
           showToast(error?.message ?? "Falha ao entrar.");
           throw error;
         } finally {
@@ -402,6 +415,7 @@ export default function App() {
       const handleRegister = useCallback(async ({ name, email, password }) => {
         if (!role) return;
         setAuthLoading(true);
+        setAuthError("");
         try {
           const response = await fetch(`${API_BASE_URL}/auth/register`, {
             method: "POST",
@@ -418,7 +432,7 @@ export default function App() {
             let detail = "Falha ao cadastrar.";
             try {
               const data = await response.json();
-              if (data?.detail) detail = data.detail;
+              detail = extractApiErrorMessage(data?.detail, detail);
             } catch {
               
             }
@@ -427,12 +441,14 @@ export default function App() {
 
           const user = await response.json();
           if (user.role && user.role !== role) {
-            throw new Error("Perfil selecionado nao corresponde ao usuario.");
+            throw new Error("Perfil selecionado não corresponde ao usuário.");
           }
           setCurrentUser(user);
           setUsername(user.name || "");
+          setAuthError("");
           navigate("voice-commands-intro");
         } catch (error) {
+          setAuthError(error?.message ?? "Falha ao cadastrar.");
           showToast(error?.message ?? "Falha ao cadastrar.");
           throw error;
         } finally {
@@ -445,6 +461,7 @@ export default function App() {
       const handleLogout = useCallback(() => {
         stopSpeak();
         setRole(null); setUsername(""); setAnswers([]); setCurrentUser(null);
+        setAuthError("");
         setQuestionSet(DEMO_QUESTIONS); setActiveActivityId(null); setQuestionsError("");
         setActiveAttemptId(null); setAttemptsActivity(null);
         setQuestionSessionId(0);
@@ -454,6 +471,7 @@ export default function App() {
         setPage("login");
       }, [stopSpeak]);
 
+      // Reinicia fluxo de tentativa localmente
       const resetAttemptFlow = useCallback(() => {
         setActiveAttemptId(null);
         setAttemptConcluded(false);
@@ -470,7 +488,7 @@ export default function App() {
         else navigate("history");
       };
 
-      // Fluxo do questionario
+      // Fluxo do questionario (upload ou modo de teste)
       const handleStart    = async (file) => {
         
         //  Teste de prova
@@ -484,7 +502,6 @@ export default function App() {
           return;
         }
 
-        // --- FLUXO DE UPLOAD PARA O BACKEND ---
         setUploadStatus("loading");
         setUploadError("");
 
@@ -501,9 +518,9 @@ export default function App() {
             let detail = "Falha ao enviar PDF.";
             try {
               const data = await response.json();
-              if (data?.detail) detail = data.detail;
+              detail = extractApiErrorMessage(data?.detail, detail);
             } catch {
-              // ignora erro silenciosamente
+              
             }
             throw new Error(detail);
           }
@@ -540,41 +557,51 @@ export default function App() {
           setUploadError(error?.message ?? "Falha ao enviar PDF.");
         }
       };
+      // Finalizacao parcial
       const handleComplete = async (res) => {
         setAnswers(res);
         try {
           const attemptId = activeAttemptId ?? (await createAttempt(activeActivityId))?.id;
-          if (attemptId) await saveAnswers(attemptId, res);
+          if (!attemptId) {
+            showToast("Tentativa nao encontrada.");
+            return;
+          }
+          await saveAnswers(attemptId, res);
         } catch (error) {
           if (isAttemptLockedError(error)) {
             setAttemptConcluded(true);
             setActiveAttemptId(null);
-            setLockedAttemptNotice("Esta tentativa ja foi concluida e nao pode ser editada.");
+            setLockedAttemptNotice("Esta tentativa já foi concluida e não pode ser editada.");
             return;
           }
           showToast(error?.message ?? "Falha ao salvar respostas.");
+          return;
         }
         navigate("review");
       };
 
+      // Editar respostas na revisao
       const handleReviewEdit = () => {
         setQuestionSessionId((prev) => prev + 1);
         navigate("question");
       };
 
+      // Confirmar e finalizar tentativa na revisao
       const handleReviewConfirm = async () => {
         let attemptId = activeAttemptId;
         try {
           attemptId = attemptId ?? (await createAttempt(activeActivityId))?.id;
-          if (attemptId) {
-            await saveAnswers(attemptId, answers);
-            await markAttemptConcluded(attemptId);
+          if (!attemptId) {
+            showToast("Tentativa nao encontrada.");
+            return;
           }
+          await saveAnswers(attemptId, answers);
+          await markAttemptConcluded(attemptId);
         } catch (error) {
           if (isAttemptLockedError(error)) {
             setAttemptConcluded(true);
             setActiveAttemptId(null);
-            setLockedAttemptNotice("Esta tentativa ja foi concluida e nao pode ser editada.");
+            setLockedAttemptNotice("Esta tentativa já foi concluida e não pode ser editada.");
             return;
           }
           showToast(error?.message ?? "Falha ao salvar respostas.");
@@ -587,6 +614,7 @@ export default function App() {
         navigate("done");
       };
 
+      // Gerar PDF da tentativa
       const handleGenerate = async () => {
         const attemptId = activeAttemptId;
         if (!attemptId) {
@@ -599,7 +627,7 @@ export default function App() {
             let detail = "Falha ao gerar PDF.";
             try {
               const data = await response.json();
-              if (data?.detail) detail = data.detail;
+              detail = extractApiErrorMessage(data?.detail, detail);
             } catch {
               
             }
@@ -629,11 +657,13 @@ export default function App() {
         }
       };
 
+      // Acoes apos finalizacao (voltar para inicio)
       const handleDoneHome = useCallback(() => {
         resetAttemptFlow();
         navigate(role === "aluno" ? "history" : "upload");
       }, [navigate, resetAttemptFlow, role]);
 
+      // Abrir atividade e criar tentativa inicial
       const handleOpenActivity = useCallback(async (activityId) => {
         if (!activityId) return;
         setAnswers([]);
@@ -642,10 +672,14 @@ export default function App() {
         setQuestionSessionId((prev) => prev + 1);
         setAttemptConcluded(false);
         setLockedAttemptNotice(null);
-        await createAttempt(activityId);
+        const attempt = await createAttempt(activityId);
+        if (!attempt?.id) {
+          return;
+        }
         navigate("question");
       }, [createAttempt, navigate]);
 
+      // Abrir lista de tentativas de uma atividade
       const handleOpenAttempts = useCallback((activity) => {
         if (!activity?.id) return;
         setAttemptsActivity(activity);
@@ -791,6 +825,7 @@ export default function App() {
             onRegister={handleRegister}
             onBack={() => navigate("login", null)}
             loading={authLoading}
+            authError={authError}
           />
         )}
 

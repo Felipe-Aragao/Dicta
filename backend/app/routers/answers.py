@@ -18,7 +18,7 @@ router = APIRouter(prefix="/answers", tags=["answers"])
 def _get_answer_or_404(service: AnswerService, answer_id: uuid.UUID):
     answer = service.get(answer_id)
     if not answer:
-        raise HTTPException(status_code=404, detail="Answer not found.")
+        raise HTTPException(status_code=404, detail="Resposta não encontrada.")
     return answer
 
 
@@ -27,13 +27,13 @@ def _get_answer_or_404(service: AnswerService, answer_id: uuid.UUID):
 def create_answer(data: AnswerCreate, db: Session = Depends(get_db)):
     attempt = AttemptService(db).get(data.attempt_id)
     if not attempt:
-        raise HTTPException(status_code=404, detail="Attempt not found.")
+        raise HTTPException(status_code=404, detail="Tentativa não encontrada.")
     if attempt.status == AttemptStatus.concluido:
-        raise HTTPException(status_code=409, detail="Attempt already concluded.")
+        raise HTTPException(status_code=409, detail="Tentativa já concluída.")
 
     question = QuestionService(db).get(data.question_id)
     if not question:
-        raise HTTPException(status_code=404, detail="Question not found.")
+        raise HTTPException(status_code=404, detail="Questão não encontrada.")
 
     return AnswerService(db).create(data)
 
@@ -73,7 +73,7 @@ def update_answer(
     answer = _get_answer_or_404(service, answer_id)
     attempt = AttemptService(db).get(answer.attempt_id)
     if attempt and attempt.status == AttemptStatus.concluido:
-        raise HTTPException(status_code=409, detail="Attempt already concluded.")
+        raise HTTPException(status_code=409, detail="Tentativa já concluída.")
     return service.update(answer, data)
 
 
@@ -84,6 +84,6 @@ def delete_answer(answer_id: uuid.UUID, db: Session = Depends(get_db)):
     answer = _get_answer_or_404(service, answer_id)
     attempt = AttemptService(db).get(answer.attempt_id)
     if attempt and attempt.status == AttemptStatus.concluido:
-        raise HTTPException(status_code=409, detail="Attempt already concluded.")
+        raise HTTPException(status_code=409, detail="Tentativa já concluída.")
     service.delete(answer)
     return None

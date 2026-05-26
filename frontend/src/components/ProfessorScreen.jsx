@@ -6,6 +6,7 @@ import {
 } from "@phosphor-icons/react";
 import { ActivityCreateModal, ActivityPreviewModal } from "./ActivityModals";
 import { DEMO_QUESTIONS } from "../data/demoData";
+import { extractApiErrorMessage } from "../utils/apiError";
 import { normalizeQuestions } from "../utils/questions";
 
 const OPTION_LETTERS = ["A", "B", "C", "D", "E", "F"];
@@ -104,7 +105,7 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl, onOpen
       const response = await fetch(`${apiBaseUrl}/activities?owner_id=${userId}`);
       if (!response.ok) throw new Error("Falha ao carregar atividades.");
       const data = await response.json();
-      setQuestionarios(data.map((item) => normalizeActivity(item, username)));
+      setQuestionarios(Array.isArray(data) ? data.map((item) => normalizeActivity(item, username)) : []);
     } catch (error) {
       setListError(error?.message ?? "Falha ao carregar atividades.");
     } finally {
@@ -175,7 +176,7 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl, onOpen
         let detail = "Falha ao salvar questao.";
         try {
           const data = await questionResponse.json();
-          if (data?.detail) detail = data.detail;
+          detail = extractApiErrorMessage(data?.detail, detail);
         } catch {
           
         }
@@ -203,7 +204,7 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl, onOpen
             let detail = "Falha ao salvar alternativa.";
             try {
               const data = await optionResponse.json();
-              if (data?.detail) detail = data.detail;
+              detail = extractApiErrorMessage(data?.detail, detail);
             } catch {
               
             }
@@ -235,7 +236,7 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl, onOpen
         let detail = "Falha ao criar atividade.";
         try {
           const data = await response.json();
-          if (data?.detail) detail = data.detail;
+          detail = extractApiErrorMessage(data?.detail, detail);
         } catch {
           
         }
@@ -276,7 +277,7 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl, onOpen
         let detail = "Falha ao excluir atividade.";
         try {
           const data = await response.json();
-          if (data?.detail) detail = data.detail;
+          detail = extractApiErrorMessage(data?.detail, detail);
         } catch {
           
         }

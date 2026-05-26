@@ -1,10 +1,13 @@
+// Letras das opcoes
 const OPTION_LETTERS = ["A", "B", "C", "D", "E", "F"];
 
+// Encontra resposta da questao
 const getAnswerForQuestion = (answers, question, index) => (
   answers.find((item) => item?.questionId === question?.id) ||
   answers.find((item) => item?.qIdx === index)
 );
 
+// Formata resposta para exibicao
 const formatAnswer = (question, answer) => {
   if (!answer) return "(sem resposta)";
 
@@ -21,6 +24,7 @@ const formatAnswer = (question, answer) => {
   return answer?.responseText || "(sem resposta)";
 };
 
+// Tela de revisao de respostas
 export function ReviewScreen({ questions = [], answers = [], onEdit, onConfirm }) {
   const hasQuestions = Array.isArray(questions) && questions.length > 0;
 

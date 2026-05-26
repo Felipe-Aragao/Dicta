@@ -38,7 +38,7 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
     service = UserService(db)
     user = service.get_by_email(str(data.email))
     if not user or not verify_password(user.password_hash, data.password):
-        raise HTTPException(status_code=401, detail="email ou senha inválidos.")
+        raise HTTPException(status_code=401, detail="Email ou senha inválidos.")
     if data.role and user.role != data.role:
-        raise HTTPException(status_code=403, detail="email ou senha inválidos.")
+        raise HTTPException(status_code=403, detail="Email ou senha inválidos.")
     return user

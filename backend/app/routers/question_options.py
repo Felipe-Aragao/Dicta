@@ -20,7 +20,7 @@ router = APIRouter(prefix="/question-options", tags=["question-options"])
 def _get_option_or_404(service: QuestionOptionService, option_id: uuid.UUID):
     option = service.get(option_id)
     if not option:
-        raise HTTPException(status_code=404, detail="Question option not found.")
+        raise HTTPException(status_code=404, detail="Opção não encontrada.")
     return option
 
 
@@ -29,7 +29,7 @@ def _get_option_or_404(service: QuestionOptionService, option_id: uuid.UUID):
 def create_option(data: QuestionOptionCreate, db: Session = Depends(get_db)):
     question = QuestionService(db).get(data.question_id)
     if not question:
-        raise HTTPException(status_code=404, detail="Question not found.")
+        raise HTTPException(status_code=404, detail="Questão não encontrada.")
     return QuestionOptionService(db).create(data)
 
 

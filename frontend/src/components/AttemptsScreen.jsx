@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { DownloadSimple } from "@phosphor-icons/react";
+import { extractApiErrorMessage } from "../utils/apiError";
 
+// Formata data e hora
 const formatDateTime = (value) => {
   if (!value) return "-";
   const date = new Date(value);
@@ -8,18 +10,21 @@ const formatDateTime = (value) => {
   return date.toLocaleString("pt-BR");
 };
 
+// Define o nome exibido da tentativa
 const getAttemptLabel = (attempt) => {
   if (attempt?.visitor_name) return `Visitante: ${attempt.visitor_name}`;
   if (attempt?.aluno_name) return attempt.aluno_name;
   return "Aluno";
 };
 
+// Define badge de status
 const getStatusMeta = (status) => {
   if (status === "concluido") return { label: "Concluido", className: "badge badge-green" };
   if (status === "em progresso") return { label: "Em progresso", className: "badge badge-zinc" };
   return { label: status || "-", className: "badge badge-zinc" };
 };
 
+// Tela de tentativas
 export function AttemptsScreen({ activity, apiBaseUrl, onBack }) {
   const [attempts, setAttempts] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -30,6 +35,7 @@ export function AttemptsScreen({ activity, apiBaseUrl, onBack }) {
   const [answersError, setAnswersError] = useState("");
   const [downloadingId, setDownloadingId] = useState(null);
 
+  // Carrega tentativas da atividade
   const fetchAttempts = useCallback(async () => {
     if (!activity?.id) return;
     setLoading(true);
@@ -38,7 +44,7 @@ export function AttemptsScreen({ activity, apiBaseUrl, onBack }) {
       const response = await fetch(`${apiBaseUrl}/attempts?activity_id=${activity.id}&limit=200`);
       if (!response.ok) throw new Error("Falha ao carregar tentativas.");
       const data = await response.json();
-      setAttempts(data);
+      setAttempts(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err?.message ?? "Falha ao carregar tentativas.");
     } finally {
@@ -50,6 +56,7 @@ export function AttemptsScreen({ activity, apiBaseUrl, onBack }) {
     fetchAttempts();
   }, [fetchAttempts]);
 
+  // Carrega respostas da tentativa
   const fetchAnswers = useCallback(async (attemptId) => {
     if (!attemptId) return;
     setAnswersLoading(true);
@@ -67,11 +74,13 @@ export function AttemptsScreen({ activity, apiBaseUrl, onBack }) {
     }
   }, [apiBaseUrl]);
 
+  // Abre modal de respostas
   const handleOpenAttempt = useCallback((attempt) => {
     setSelectedAttempt(attempt);
     fetchAnswers(attempt?.id);
   }, [fetchAnswers]);
 
+  // Download do PDF da tentativa
   const downloadAttemptPdf = useCallback(async (attempt) => {
     if (!attempt?.id) return;
     setDownloadingId(attempt.id);
@@ -82,7 +91,7 @@ export function AttemptsScreen({ activity, apiBaseUrl, onBack }) {
         let detail = "Falha ao baixar PDF.";
         try {
           const data = await response.json();
-          if (data?.detail) detail = data.detail;
+          detail = extractApiErrorMessage(data?.detail, detail);
         } catch {
           
         }
@@ -114,6 +123,7 @@ export function AttemptsScreen({ activity, apiBaseUrl, onBack }) {
     }
   }, [apiBaseUrl]);
 
+  // Formata texto da resposta
   const formatAnswerText = (answer) => {
     if (answer?.question_type === "multiple") {
       if (answer?.chosen_letter && answer?.response_text) {
@@ -125,6 +135,7 @@ export function AttemptsScreen({ activity, apiBaseUrl, onBack }) {
     return answer?.response_text || "-";
   };
 
+  // Guarda para atividade vazia
   if (!activity) {
     return (
       <div className="page page-anim">
@@ -215,6 +226,7 @@ export function AttemptsScreen({ activity, apiBaseUrl, onBack }) {
         </div>
       </div>
 
+      {/* Modal de respostas */}
       {selectedAttempt && (
         <div
           className="modal-overlay"

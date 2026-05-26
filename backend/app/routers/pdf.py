@@ -24,7 +24,7 @@ async def receive_pdf(pdf: UploadFile = File(...)):
 
     header = await pdf.read(5)
     if len(header) < 5 or header != b"%PDF-":
-        raise HTTPException(status_code=400, detail="Arquivo nao parece um PDF valido.")
+        raise HTTPException(status_code=400, detail="Arquivo não parece um PDF válido.")
 
     file_id = uuid.uuid4().hex
     target_path = INCOMING_DIR / f"{file_id}.pdf"

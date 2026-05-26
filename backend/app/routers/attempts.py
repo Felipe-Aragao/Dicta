@@ -50,7 +50,7 @@ VISITOR_RETENTION_HOURS = 1
 def _get_attempt_or_404(service: AttemptService, attempt_id: uuid.UUID):
     attempt = service.get(attempt_id)
     if not attempt:
-        raise HTTPException(status_code=404, detail="Attempt not found.")
+        raise HTTPException(status_code=404, detail="Tentativa não encontrada.")
     return attempt
 
 
@@ -178,7 +178,7 @@ def _build_attempt_pdf(
     except ImportError as exc:
         raise HTTPException(
             status_code=500,
-            detail="Biblioteca fpdf2 nao instalada. Instale com: pip install fpdf2",
+            detail="Biblioteca fpdf2 nao instalada",
         ) from exc
 
     def _safe_text(s) -> str:
@@ -236,17 +236,24 @@ def _build_attempt_pdf(
 def create_attempt(data: AttemptCreate, db: Session = Depends(get_db)):
     activity = ActivityService(db).get(data.activity_id)
     if not activity:
-        raise HTTPException(status_code=404, detail="Activity not found.")
+        raise HTTPException(status_code=404, detail="Atividade não encontrada.")
 
     if data.aluno_id:
         user = UserService(db).get(data.aluno_id)
         if not user:
-            raise HTTPException(status_code=404, detail="Aluno not found.")
+            raise HTTPException(status_code=404, detail="Aluno não encontrado.")
+        if user.role != RoleEnum.aluno:
+            raise HTTPException(status_code=400, detail="Usuário informado não é aluno.")
 
-    if not data.aluno_id and not data.visitor_name:
-        raise HTTPException(status_code=400, detail="Aluno or visitor required.")
+    visitor_name = (data.visitor_name or "").strip()
+    if data.visitor_name is not None and not visitor_name:
+        raise HTTPException(status_code=400, detail="Nome do visitante não pode ser vazio.")
 
-    return AttemptService(db).create(data)
+    if not data.aluno_id and not visitor_name:
+        raise HTTPException(status_code=400, detail="Aluno ou nome do visitante deve ser fornecido.")
+
+    payload = data.model_copy(update={"visitor_name": visitor_name}) if hasattr(data, "model_copy") else data.model_copy(update={"visitor_name": visitor_name})
+    return AttemptService(db).create(payload)
 
 
 @router.post("/visitor", response_model=VisitorAttemptRead, status_code=status.HTTP_201_CREATED)
@@ -254,7 +261,11 @@ def create_visitor_attempt(data: VisitorAttemptCreate, db: Session = Depends(get
     _cleanup_expired_visitor_data(db)
 
     owner = _get_or_create_visitor_owner(db)
-    activity_name = data.activity_name or f"{VISITOR_ACTIVITY_PREFIX} - {datetime.now(timezone.utc).strftime('%d/%m/%Y %H:%M')}"
+    visitor_name = data.visitor_name.strip()
+    if not visitor_name:
+        raise HTTPException(status_code=400, detail="Nome do visitante não pode ser vazio.")
+
+    activity_name = (data.activity_name or "").strip() or f"{VISITOR_ACTIVITY_PREFIX} - {datetime.now(timezone.utc).strftime('%d/%m/%Y %H:%M')}"
 
     activity = ActivityService(db).create(
         data=ActivityCreate(
@@ -301,7 +312,7 @@ def create_visitor_attempt(data: VisitorAttemptCreate, db: Session = Depends(get
 
     attempt = Attempt(
         activity_id=activity.id,
-        visitor_name=data.visitor_name,
+        visitor_name=visitor_name,
         status=AttemptStatus.em_progresso,
         started_at=datetime.now(timezone.utc),
     )
@@ -350,7 +361,7 @@ def update_attempt(
     service = AttemptService(db)
     attempt = _get_attempt_or_404(service, attempt_id)
     if attempt.status == AttemptStatus.concluido:
-        raise HTTPException(status_code=409, detail="Attempt already concluded.")
+        raise HTTPException(status_code=409, detail="Tentativa já concluída.")
     return service.update(attempt, data)
 
 
@@ -360,7 +371,7 @@ def delete_attempt(attempt_id: uuid.UUID, db: Session = Depends(get_db)):
     service = AttemptService(db)
     attempt = _get_attempt_or_404(service, attempt_id)
     if attempt.status == AttemptStatus.concluido:
-        raise HTTPException(status_code=409, detail="Attempt already concluded.")
+        raise HTTPException(status_code=409, detail="Tentativa já concluída.")
     service.delete(attempt)
     return None
 
@@ -373,14 +384,14 @@ def generate_attempt_pdf(attempt_id: uuid.UUID, db: Session = Depends(get_db)):
 
     activity = ActivityService(db).get(attempt.activity_id)
     if not activity:
-        raise HTTPException(status_code=404, detail="Activity not found.")
+        raise HTTPException(status_code=404, detail="Atividade não encontrada.")
 
     if _is_visitor_activity(db, activity) and _is_activity_expired(activity):
         raise HTTPException(status_code=410, detail="Tentativa expirada. Gere uma nova atividade.")
 
     professor = UserService(db).get(activity.owner_id)
     if not professor:
-        raise HTTPException(status_code=404, detail="Professor not found.")
+        raise HTTPException(status_code=404, detail="Professor não encontrado.")
 
     questions = QuestionService(db).list(activity_id=activity.id, skip=0, limit=1000)
     answers = AnswerService(db).list(attempt_id=attempt.id, skip=0, limit=1000)
