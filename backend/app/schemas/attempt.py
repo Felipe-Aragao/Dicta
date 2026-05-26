@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 import uuid
 
 from pydantic import BaseModel, Field
@@ -56,3 +56,25 @@ class AttemptRead(ORMBase):
     started_at: Optional[datetime] = None
     submitted_at: Optional[datetime] = None
     last_saved_at: Optional[datetime] = None
+
+
+class VisitorQuestionInput(BaseModel):
+    prompt: str = Field(..., min_length=1)
+    type: Optional[str] = Field(None, max_length=32)
+    position: Optional[int] = None
+    options: Optional[List[str]] = None
+
+
+class VisitorAttemptCreate(BaseModel):
+    visitor_name: str = Field(..., min_length=1, max_length=255)
+    activity_name: Optional[str] = Field(None, max_length=255)
+    questions: List[VisitorQuestionInput] = Field(..., min_items=1)
+
+
+class VisitorAttemptRead(BaseModel):
+    attempt: AttemptRead
+    questions: List["QuestionRead"]
+    expires_at: datetime
+
+
+from app.schemas.question import QuestionRead  # noqa: E402

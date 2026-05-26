@@ -114,15 +114,19 @@ export default function App() {
       }
       const data = await response.json();
       const normalized = normalizeQuestions(data);
-      setQuestionSet(normalized.length > 0 ? normalized : DEMO_QUESTIONS);
+      if (normalized.length > 0) {
+        setQuestionSet(normalized);
+      } else if (role !== "visitante") {
+        setQuestionSet(DEMO_QUESTIONS);
+      }
     } catch (error) {
       setQuestionsError(error?.message ?? "Falha ao carregar questoes.");
-      setQuestionSet(DEMO_QUESTIONS);
+      if (role !== "visitante") setQuestionSet(DEMO_QUESTIONS);
       showToast(error?.message ?? "Falha ao carregar questoes.");
     } finally {
       setQuestionsLoading(false);
     }
-  }, [API_BASE_URL, showToast]);
+  }, [API_BASE_URL, role, showToast]);
 
   useEffect(() => {
     if (page === "upload") resetUploadStatus();
@@ -186,6 +190,56 @@ export default function App() {
       return null;
     }
   }, [API_BASE_URL, currentUser?.id, role, showToast, username]);
+
+  const createVisitorAttempt = useCallback(async ({ fileName, questions }) => {
+    const visitorName = (username || "Visitante").trim();
+    if (!visitorName) return null;
+
+    const payload = {
+      visitor_name: visitorName,
+      activity_name: fileName ? String(fileName).replace(/\.[^.]+$/, "").trim() : null,
+      questions: (Array.isArray(questions) ? questions : []).map((q, index) => ({
+        prompt: q?.text ?? q?.prompt ?? "",
+        type: q?.type === "multiple" ? "multiple" : "open",
+        position: index + 1,
+        options: Array.isArray(q?.options) ? q.options : [],
+      })),
+    };
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/attempts/visitor`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        let detail = "Falha ao preparar tentativa do visitante.";
+        try {
+          const data = await response.json();
+          if (data?.detail) detail = data.detail;
+        } catch {
+          
+        }
+        throw new Error(detail);
+      }
+
+      const data = await response.json();
+      const attempt = data?.attempt ?? null;
+      const serverQuestions = normalizeQuestions(data?.questions ?? []);
+
+      setActiveActivityId(attempt?.activity_id ?? null);
+      setActiveAttemptId(attempt?.id ?? null);
+      if (serverQuestions.length > 0) setQuestionSet(serverQuestions);
+      setAttemptConcluded(false);
+      setLockedAttemptNotice(null);
+
+      return data;
+    } catch (error) {
+      showToast(error?.message ?? "Falha ao preparar tentativa do visitante.");
+      return null;
+    }
+  }, [API_BASE_URL, showToast, username]);
 
   const saveAnswers = useCallback(async (attemptId, answerList = []) => {
     if (!attemptId || !Array.isArray(answerList) || answerList.length === 0) return;
@@ -453,9 +507,23 @@ export default function App() {
           setLockedAttemptNotice(null);
           setAnswers([]);
           setQuestionSessionId((prev) => prev + 1);
-          setQuestionSet(DEMO_QUESTIONS);
-          setActiveActivityId(null);
           setQuestionsError("");
+
+          if (role === "visitante") {
+            const bootstrap = await createVisitorAttempt({
+              fileName: file?.name,
+              questions: DEMO_QUESTIONS,
+            });
+            if (!bootstrap?.attempt) {
+              setUploadStatus("error");
+              setUploadError("Falha ao preparar tentativa do visitante.");
+              return;
+            }
+          } else {
+            setQuestionSet(DEMO_QUESTIONS);
+            setActiveActivityId(null);
+          }
+
           setTimeout(() => {
             navigate("extracting");
             setTimeout(() => navigate("question"), 2300);
