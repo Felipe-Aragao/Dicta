@@ -58,6 +58,7 @@ export default function App() {
   const [uploadError, setUploadError] = useState("");
   const [previewTitle, setPreviewTitle] = useState("Mock test");
   const [questionSessionId, setQuestionSessionId] = useState(0);
+  const [questionStartIndex, setQuestionStartIndex] = useState(0);
   const [lockedAttemptNotice, setLockedAttemptNotice] = useState(null);
   const [attemptConcluded, setAttemptConcluded] = useState(false);
  
@@ -467,6 +468,7 @@ export default function App() {
         setQuestionSet(DEMO_QUESTIONS); setActiveActivityId(null); setQuestionsError("");
         setActiveAttemptId(null); setAttemptsActivity(null);
         setQuestionSessionId(0);
+        setQuestionStartIndex(0);
         setAttemptConcluded(false);
         setLockedAttemptNotice(null);
         window.history.pushState({ page: "login", role: null }, "", "#login");
@@ -478,6 +480,7 @@ export default function App() {
         setActiveAttemptId(null);
         setAttemptConcluded(false);
         setAnswers([]);
+        setQuestionStartIndex(0);
         setQuestionSessionId((prev) => prev + 1);
         setLockedAttemptNotice(null);
       }, []);
@@ -490,7 +493,7 @@ export default function App() {
         else navigate("history");
       };
 
-      const handleStart    = async (file, numQuestions = 5) => { // Recebendo a quantidade
+      const handleStart    = async (file, numQuestions = 5) => {
         const nextAfterExtracting = role === "visitante" ? "preview" : "question";
 
         if (!file) return;
@@ -500,7 +503,7 @@ export default function App() {
 
         const formData = new FormData();
         formData.append("pdf", file);
-        formData.append("num_questions", numQuestions); // Para enviar ao back
+        formData.append("num_questions", numQuestions);
 
         try {
           const response = await fetch(`${API_BASE_URL}/pdf/receive`, {
@@ -524,6 +527,7 @@ export default function App() {
           setAttemptConcluded(false);
           setLockedAttemptNotice(null);
           setAnswers([]);
+          setQuestionStartIndex(0);
           setQuestionSessionId((prev) => prev + 1);
           setQuestionsError("");
           setPreviewTitle(file?.name ? file.name.replace(/\.[^.]+$/, "") : "Prova");
@@ -567,8 +571,29 @@ export default function App() {
         navigate("review");
       };
 
+      const handleProgress = useCallback(async (res) => {
+        setAnswers(res);
+        try {
+          const attemptId = activeAttemptId ?? (await createAttempt(activeActivityId))?.id;
+          if (!attemptId) {
+            throw new Error("Tentativa nao encontrada.");
+          }
+          await saveAnswers(attemptId, res);
+        } catch (error) {
+          if (isAttemptLockedError(error)) {
+            setAttemptConcluded(true);
+            setActiveAttemptId(null);
+            setLockedAttemptNotice("Esta tentativa já foi concluida e não pode ser editada.");
+            return;
+          }
+          showToast(error?.message ?? "Falha ao salvar respostas.");
+          throw error;
+        }
+      }, [activeActivityId, activeAttemptId, createAttempt, saveAnswers, showToast]);
+
       // Editar respostas na revisao
       const handleReviewEdit = () => {
+        setQuestionStartIndex(0);
         setQuestionSessionId((prev) => prev + 1);
         navigate("question");
       };
@@ -597,6 +622,7 @@ export default function App() {
         setAttemptConcluded(true);
         setActiveAttemptId(attemptId ?? null);
         setAnswers([]);
+        setQuestionStartIndex(0);
         setQuestionSessionId((prev) => prev + 1);
         navigate("done");
       };
@@ -620,6 +646,7 @@ export default function App() {
           }
         }
 
+        setQuestionStartIndex(0);
         navigate("question");
       };
 
@@ -678,6 +705,7 @@ export default function App() {
         setAnswers([]);
         setActiveActivityId(activityId);
         setActiveAttemptId(null);
+        setQuestionStartIndex(0);
         setQuestionSessionId((prev) => prev + 1);
         setAttemptConcluded(false);
         setLockedAttemptNotice(null);
@@ -695,18 +723,16 @@ export default function App() {
         navigate("attempts");
       }, [navigate]);
 
-      // 🟢 NOVA FUNÇÃO: Puxa do banco a tentativa "em progresso" e suas respostas
+      //Puxa do banco a tentativa "em progresso" e suas respostas
       const handleResumeAttempt = useCallback(async (attempt) => {
         if (!attempt?.id || !attempt?.activity_id) return;
 
         try {
-          // 1. Busca as respostas que o back já salvou
           const response = await fetch(`${API_BASE_URL}/answers?attempt_id=${attempt.id}&limit=200`);
           let existingAnswers = [];
           
           if (response.ok) {
             const data = await response.json();
-            // 2. Converte pro formato que a sua QuestionScreen entende
             existingAnswers = data.map(ans => ({
               questionId: ans.question_id,
               responseText: ans.response_text || "",
@@ -714,15 +740,14 @@ export default function App() {
             }));
           }
 
-          // 3. Injeta na memória do App
           setAnswers(existingAnswers);
           setActiveActivityId(attempt.activity_id);
           setActiveAttemptId(attempt.id);
+          setQuestionStartIndex(existingAnswers.length);
           setQuestionSessionId((prev) => prev + 1);
           setAttemptConcluded(attempt.status === "concluido");
           setLockedAttemptNotice(attempt.status === "concluido" ? "Esta tentativa já foi concluída e não pode ser editada." : null);
 
-          // 4. Manda o usuário para a tela da prova (ou revisão se já acabou)
           navigate(attempt.status === "concluido" ? "review" : "question");
           
         } catch (error) {
@@ -925,7 +950,9 @@ export default function App() {
             loading={questionsLoading}
             error={questionsError}
             onComplete={handleComplete}
+            onProgress={handleProgress}
             initialAnswers={answers}
+            initialIndex={questionStartIndex}
             resetKey={questionSessionId}
           />
         )}
@@ -991,6 +1018,7 @@ export default function App() {
                     setLockedAttemptNotice(null);
                     setActiveAttemptId(null);
                     setAnswers([]);
+                    setQuestionStartIndex(0);
                     setQuestionSessionId((prev) => prev + 1);
                     navigate(role === "aluno" ? "history" : "upload");
                   }}

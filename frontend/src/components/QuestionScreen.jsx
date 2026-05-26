@@ -79,9 +79,11 @@ function VoicePanel({ recording, transcription, interimText, onToggle }) {
 export function QuestionScreen({
   questions,
   onComplete,
+  onProgress,
   loading = false,
   error = "",
   initialAnswers = [],
+  initialIndex = 0,
   resetKey = 0,
 }) {
   const [idx, setIdx]                     = useState(0);
@@ -136,14 +138,19 @@ export function QuestionScreen({
   }, [startRec, stopRec]);
 
   useEffect(() => {
-    setIdx(0);
+    const normalizedIndex = Math.max(0, Math.min(initialIndex ?? 0, Math.max((questions?.length ?? 1) - 1, 0)));
+
+    setIdx(normalizedIndex);
     setAnswerMode(false);
     setRecording(false);
     setTranscription("");
     setInterimText("");
     setSelectedAlt(null);
+  }, [initialIndex, questions, resetKey]);
+
+  useEffect(() => {
     setAnswers(Array.isArray(initialAnswers) ? [...initialAnswers] : []);
-  }, [initialAnswers, questions, resetKey]);
+  }, [initialAnswers]);
 
   const getStoredAnswer = (questionId, questionIndex) => (
     answers.find((item) => item?.questionId === questionId) ||
@@ -189,7 +196,7 @@ export function QuestionScreen({
     speak(q.options[i]);
   };
 
-  const saveAndNext = () => {
+  const saveAndNext = async () => {
     const chosenLetter = isMultiple && selectedAlt !== null ? LETTERS[selectedAlt] ?? null : null;
     const responseText = isMultiple
       ? q.options[selectedAlt] ?? "(sem resposta)"
@@ -216,6 +223,14 @@ export function QuestionScreen({
 
     if (isLast) { onComplete(nextAnswers); return; }
 
+    if (onProgress) {
+      try {
+        await onProgress(nextAnswers);
+      } catch {
+        return;
+      }
+    }
+
     setIdx((i) => i + 1);
     setTranscription("");
     setInterimText("");
@@ -240,7 +255,7 @@ export function QuestionScreen({
       "anterior": () => { if (!recording) goBack(); },
       "repetir": () => { if (!recording && q) speak(q.text); },
       "repet": () => { if (!recording && q) speak(q.text); }, 
-      "ouvir alternatives": () => {
+      "ouvir alternativas": () => {
         if (!recording && isMultiple && q?.options) {
           const textoOpcoes = q.options.map((opt, i) => `Letra ${LETTERS[i]}, ${opt}`).join(". ");
           speak(`As alternativas são: ${textoOpcoes}`);
