@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { DownloadSimple, ArrowRight, ClockCounterClockwise, Plus, User, MagnifyingGlass } from "@phosphor-icons/react";
+import { ArrowRight, ClockCounterClockwise, Plus, User, MagnifyingGlass, Trash } from "@phosphor-icons/react";
 import { DEMO_QUESTIONS } from "../data/demoData";
 import { normalizeQuestions } from "../utils/questions";
 import { ActivityCreateModal, ActivityPreviewModal } from "./ActivityModals";
@@ -24,6 +24,7 @@ const normalizeActivity = (activity, ownerName) => {
 
   return {
     id: activity.id,
+    ownerId: activity.owner_id,
     name: activity.name || "Atividade",
     professor: ownerName || "Aluno",
     disciplina: activity.discipline || "Geral",
@@ -49,7 +50,7 @@ function Sidebar({ username, onLogout }) {
 }
 
 // Tela de historico do aluno
-export function HistoryScreen({ onNewQuestionnaire, username, onLogout, onOpenActivity, onOpenAttempts, userId, apiBaseUrl }) {
+export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenAttempts, userId, apiBaseUrl }) {
   const [search, setSearch] = useState("");
   const [viewingActivity, setViewingActivity] = useState(null);
   const [viewingQuestions, setViewingQuestions] = useState([]);
@@ -61,6 +62,11 @@ export function HistoryScreen({ onNewQuestionnaire, username, onLogout, onOpenAc
   const [showModal, setShowModal] = useState(false);
   const [previewData, setPreviewData] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [showCodeModal, setShowCodeModal] = useState(false);
+  const [activityCode, setActivityCode] = useState("");
+  const [deleteMode, setDeleteMode] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchActivities = useCallback(async () => {
     if (!userId) return;
@@ -220,6 +226,49 @@ export function HistoryScreen({ onNewQuestionnaire, username, onLogout, onOpenAc
     }
   };
 
+  const handleOpenCodeModal = () => {
+    setActivityCode("");
+    setShowCodeModal(true);
+  };
+
+  const handleCodeConfirm = () => {
+    setShowCodeModal(false);
+  };
+
+  const canDeleteActivity = (activity) => (
+    Boolean(activity?.ownerId && userId && activity.ownerId === userId)
+  );
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget?.id) return;
+    setDeleting(true);
+    setError("");
+    try {
+      const response = await fetch(`${apiBaseUrl}/activities/${deleteTarget.id}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        let detail = "Falha ao excluir atividade.";
+        try {
+          const data = await response.json();
+          if (data?.detail) detail = data.detail;
+        } catch {
+          
+        }
+        throw new Error(detail);
+      }
+
+      setActivities((prev) => prev.filter((item) => item.id !== deleteTarget.id));
+      if (viewingActivity?.id === deleteTarget.id) setViewingActivity(null);
+      setDeleteTarget(null);
+      setDeleteMode(false);
+    } catch (err) {
+      setError(err?.message ?? "Falha ao excluir atividade.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const filtered = activities.filter((h) => {
     const s = search.toLowerCase();
     // Busca ampla em todos os campos
@@ -244,6 +293,15 @@ export function HistoryScreen({ onNewQuestionnaire, username, onLogout, onOpenAc
               <div className="section-header-left">
                 <h2 className="section-title">Histórico de Questionários</h2>
                 <p className="section-sub">Atividades respondidas</p>
+                <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
+                  <button
+                    className="btn btn-outline btn-sm"
+                    onClick={() => setDeleteMode((prev) => !prev)}
+                    aria-pressed={deleteMode}
+                  >
+                    Excluir atividades
+                  </button>
+                </div>
               </div>
 
               <div className="section-header-right" style={{ flex: 1, justifyContent: "flex-end" }}>
@@ -263,15 +321,6 @@ export function HistoryScreen({ onNewQuestionnaire, username, onLogout, onOpenAc
                 
                 <div style={{ display: "flex", gap: "10px", marginLeft: "10px" }}>
                   <button
-                    className="btn btn-outline btn-sm"
-                    onClick={() => alert("Exportar PDF — integração futura")}
-                    aria-label="Exportar histórico como PDF"
-                  >
-                    <DownloadSimple size={16} weight="regular" />
-                    Exportar PDF
-                  </button>
-                  
-                  <button
                     className="btn btn-primary btn-sm"
                     onClick={() => setShowModal(true)}
                     aria-label="Criar nova atividade"
@@ -282,11 +331,11 @@ export function HistoryScreen({ onNewQuestionnaire, username, onLogout, onOpenAc
 
                   <button
                     className="btn btn-outline btn-sm"
-                    onClick={onNewQuestionnaire}
-                    aria-label="Responder novo questionário"
+                    onClick={handleOpenCodeModal}
+                    aria-label="Inserir codigo de atividade"
                   >
                     <Plus size={16} weight="bold" />
-                    Responder Atividade
+                    Inserir código
                   </button>
                 </div>
               </div>
@@ -307,6 +356,7 @@ export function HistoryScreen({ onNewQuestionnaire, username, onLogout, onOpenAc
                       <th scope="col">Criado em</th>
                       <th scope="col">Status</th>
                       <th scope="col">Tentativas</th>
+                      <th scope="col" style={{ width: 56 }}></th>
                       <th scope="col"></th>
                     </tr>
                   </thead>
@@ -341,6 +391,19 @@ export function HistoryScreen({ onNewQuestionnaire, username, onLogout, onOpenAc
                               onClick={() => { onOpenAttempts({ id: h.id, name: h.name, discipline: h.disciplina }); }}
                             >
                               Ver tentativas
+                            </button>
+                          )}
+                        </td>
+                        <td onClick={(e) => e.stopPropagation()} style={{ textAlign: "right" }}>
+                          {deleteMode && canDeleteActivity(h) && (
+                            <button
+                              className="icon-btn icon-btn-danger"
+                              onClick={() => setDeleteTarget(h)}
+                              aria-label="Excluir atividade"
+                              title="Excluir atividade"
+                              disabled={deleting}
+                            >
+                              <Trash size={14} weight="bold" />
                             </button>
                           )}
                         </td>
@@ -458,6 +521,67 @@ export function HistoryScreen({ onNewQuestionnaire, username, onLogout, onOpenAc
           onConfirm={handleConfirm}
           saving={saving}
         />
+      )}
+
+      {showCodeModal && (
+        <div className="modal-overlay" role="dialog" aria-modal="true" onClick={(e) => { if (e.target === e.currentTarget) setShowCodeModal(false); }}>
+          <div className="modal-card">
+            <h2 className="modal-title" style={{ marginBottom: 10 }}>Inserir código</h2>
+            <div className="field-group" style={{ marginBottom: 8 }}>
+              <div className="field-wrap">
+                <label className="field-label" htmlFor="activity-code">Código ou link da atividade</label>
+                <input
+                  id="activity-code"
+                  className="text-input"
+                  type="text"
+                  value={activityCode}
+                  onChange={(e) => setActivityCode(e.target.value)}
+                  placeholder="Cole o código ou link aqui"
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button className="btn btn-outline" onClick={() => setShowCodeModal(false)}>
+                Cancelar
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={handleCodeConfirm}
+                disabled={activityCode.trim().length === 0}
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div className="modal-overlay" role="dialog" aria-modal="true">
+          <div className="modal-card">
+            <h2 className="modal-title" style={{ marginBottom: 10 }}>Excluir atividade</h2>
+            <p style={{ color: "var(--text-3)", marginBottom: 18 }}>
+              Tem certeza que deve excluir?
+            </p>
+            <div className="modal-actions">
+              <button
+                className="btn btn-outline"
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+              >
+                Cancelar
+              </button>
+              <button
+                className="btn btn-danger"
+                onClick={handleDeleteConfirm}
+                disabled={deleting}
+              >
+                {deleting ? "Excluindo..." : "Excluir"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

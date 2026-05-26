@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   Plus, Users, FilePdf, ArrowRight,
   Link, Check, User,
-  MagnifyingGlass,
+  MagnifyingGlass, Trash,
 } from "@phosphor-icons/react";
 import { ActivityCreateModal, ActivityPreviewModal } from "./ActivityModals";
 import { DEMO_QUESTIONS } from "../data/demoData";
@@ -28,6 +28,7 @@ const normalizeActivity = (activity, ownerName) => {
 
   return {
     id: activity.id,
+    ownerId: activity.owner_id,
     nome: activity.name || "Atividade",
     professor: ownerName || "Professor",
     disciplina: activity.discipline || "Geral",
@@ -91,6 +92,9 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl, onOpen
   const [loadingList, setLoadingList]     = useState(false);
   const [saving, setSaving]               = useState(false);
   const [listError, setListError]         = useState("");
+  const [deleteMode, setDeleteMode] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchActivities = useCallback(async () => {
     if (!userId) return;
@@ -256,6 +260,40 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl, onOpen
     }
   };
 
+  const canDeleteActivity = (activity) => (
+    Boolean(activity?.ownerId && userId && activity.ownerId === userId)
+  );
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget?.id) return;
+    setDeleting(true);
+    setListError("");
+    try {
+      const response = await fetch(`${apiBaseUrl}/activities/${deleteTarget.id}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        let detail = "Falha ao excluir atividade.";
+        try {
+          const data = await response.json();
+          if (data?.detail) detail = data.detail;
+        } catch {
+          
+        }
+        throw new Error(detail);
+      }
+
+      setQuestionarios((prev) => prev.filter((item) => item.id !== deleteTarget.id));
+      if (viewingActivity?.id === deleteTarget.id) setViewingActivity(null);
+      setDeleteTarget(null);
+      setDeleteMode(false);
+    } catch (error) {
+      setListError(error?.message ?? "Falha ao excluir atividade.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <>
       <div className="auth-layout page-anim">
@@ -271,6 +309,15 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl, onOpen
                   <p className="section-sub">
                     {questionarios.length} atividade{questionarios.length !== 1 ? "s" : ""} criada{questionarios.length !== 1 ? "s" : ""}
                   </p>
+                  <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
+                    <button
+                      className="btn btn-outline btn-sm"
+                      onClick={() => setDeleteMode((prev) => !prev)}
+                      aria-pressed={deleteMode}
+                    >
+                      Excluir atividades
+                    </button>
+                  </div>
                 </div>
 
                 <div className="section-header-right" style={{ flex: 1, justifyContent: "flex-end" }}>
@@ -316,6 +363,7 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl, onOpen
                       <th scope="col">Alunos</th>
                       <th scope="col">Link</th>
                       <th scope="col">Tentativas</th>
+                      <th scope="col" style={{ width: 56 }}></th>
                       <th scope="col"></th>
                     </tr>
                   </thead>
@@ -349,6 +397,19 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl, onOpen
                               onClick={() => { onOpenAttempts({ id: q.id, name: q.nome, discipline: q.disciplina }); }}
                             >
                               Ver tentativas
+                            </button>
+                          )}
+                        </td>
+                        <td onClick={(e) => e.stopPropagation()} style={{ textAlign: "right" }}>
+                          {deleteMode && canDeleteActivity(q) && (
+                            <button
+                              className="icon-btn icon-btn-danger"
+                              onClick={() => setDeleteTarget(q)}
+                              aria-label="Excluir atividade"
+                              title="Excluir atividade"
+                              disabled={deleting}
+                            >
+                              <Trash size={14} weight="bold" />
                             </button>
                           )}
                         </td>
@@ -456,6 +517,33 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl, onOpen
             <div className="modal-actions" style={{ marginTop: 0 }}>
               <button className="btn btn-outline" style={{ width: "100%" }} onClick={() => setViewingActivity(null)}>
                 Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div className="modal-overlay" role="dialog" aria-modal="true">
+          <div className="modal-card">
+            <h2 className="modal-title" style={{ marginBottom: 10 }}>Excluir atividade</h2>
+            <p style={{ color: "var(--text-3)", marginBottom: 18 }}>
+              Tem certeza que deve excluir?
+            </p>
+            <div className="modal-actions">
+              <button
+                className="btn btn-outline"
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+              >
+                Cancelar
+              </button>
+              <button
+                className="btn btn-danger"
+                onClick={handleDeleteConfirm}
+                disabled={deleting}
+              >
+                {deleting ? "Excluindo..." : "Excluir"}
               </button>
             </div>
           </div>

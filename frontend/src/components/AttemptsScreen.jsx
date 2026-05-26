@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { DownloadSimple } from "@phosphor-icons/react";
 
 const formatDateTime = (value) => {
   if (!value) return "-";
@@ -27,6 +28,7 @@ export function AttemptsScreen({ activity, apiBaseUrl, onBack }) {
   const [answers, setAnswers] = useState([]);
   const [answersLoading, setAnswersLoading] = useState(false);
   const [answersError, setAnswersError] = useState("");
+  const [downloadingId, setDownloadingId] = useState(null);
 
   const fetchAttempts = useCallback(async () => {
     if (!activity?.id) return;
@@ -69,6 +71,48 @@ export function AttemptsScreen({ activity, apiBaseUrl, onBack }) {
     setSelectedAttempt(attempt);
     fetchAnswers(attempt?.id);
   }, [fetchAnswers]);
+
+  const downloadAttemptPdf = useCallback(async (attempt) => {
+    if (!attempt?.id) return;
+    setDownloadingId(attempt.id);
+    setError("");
+    try {
+      const response = await fetch(`${apiBaseUrl}/attempts/${attempt.id}/pdf`);
+      if (!response.ok) {
+        let detail = "Falha ao baixar PDF.";
+        try {
+          const data = await response.json();
+          if (data?.detail) detail = data.detail;
+        } catch {
+          
+        }
+        throw new Error(detail);
+      }
+
+      const blob = await response.blob();
+      let filename = "respostas.pdf";
+      const disposition = response.headers.get("content-disposition") ?? "";
+      const match = /filename\*=UTF-8''([^;]+)|filename="([^"]+)"/i.exec(disposition);
+      if (match) {
+        const rawName = match[1] ? decodeURIComponent(match[1]) : match[2];
+        if (rawName) filename = rawName;
+      }
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err?.message ?? "Falha ao baixar PDF.");
+      setTimeout(() => setError(""), 3200);
+    } finally {
+      setDownloadingId(null);
+    }
+  }, [apiBaseUrl]);
 
   const formatAnswerText = (answer) => {
     if (answer?.question_type === "multiple") {
@@ -121,6 +165,7 @@ export function AttemptsScreen({ activity, apiBaseUrl, onBack }) {
                   <th scope="col">Iniciado em</th>
                   <th scope="col">Enviado em</th>
                   <th scope="col">Ultima atualizacao</th>
+                  <th scope="col" style={{ width: 60 }}>PDF</th>
                 </tr>
               </thead>
               <tbody>
@@ -143,6 +188,17 @@ export function AttemptsScreen({ activity, apiBaseUrl, onBack }) {
                     <td>{formatDateTime(attempt.started_at)}</td>
                     <td>{formatDateTime(attempt.submitted_at)}</td>
                     <td>{formatDateTime(attempt.last_saved_at)}</td>
+                    <td onClick={(e) => e.stopPropagation()} style={{ textAlign: "right" }}>
+                      <button
+                        className="icon-btn"
+                        onClick={() => downloadAttemptPdf(attempt)}
+                        aria-label="Baixar PDF da tentativa"
+                        title="Baixar PDF"
+                        disabled={downloadingId === attempt.id}
+                      >
+                        <DownloadSimple size={14} weight="regular" />
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -400,6 +400,14 @@ export default function App() {
         setPage("login");
       }, [stopSpeak]);
 
+      const resetAttemptFlow = useCallback(() => {
+        setActiveAttemptId(null);
+        setAttemptConcluded(false);
+        setAnswers([]);
+        setQuestionSessionId((prev) => prev + 1);
+        setLockedAttemptNotice(null);
+      }, []);
+
 
       // Navegacao inicial por perfil
       const handleSkipIntro = () => {
@@ -543,14 +551,13 @@ export default function App() {
           showToast("PDF gerado com sucesso!");
         } catch (error) {
           showToast(error?.message ?? "Falha ao gerar PDF.");
-        } finally {
-          setActiveAttemptId(null);
-          setAttemptConcluded(false);
-          setAnswers([]);
-          setQuestionSessionId((prev) => prev + 1);
-          setTimeout(() => navigate(role === "aluno" ? "history" : "upload"), 2600);
         }
       };
+
+      const handleDoneHome = useCallback(() => {
+        resetAttemptFlow();
+        navigate(role === "aluno" ? "history" : "upload");
+      }, [navigate, resetAttemptFlow, role]);
 
       const handleOpenActivity = useCallback(async (activityId) => {
         if (!activityId) return;
@@ -661,9 +668,14 @@ export default function App() {
                 : role === "professor"  ? "professor-home" 
                 : "login";                      "login";
 
+        const handleBack = () => {
+          if (page === "done") resetAttemptFlow();
+          navigate(backDest);
+        };
+
         return (
           <header className="topbar" role="banner">
-          <DictaLogo onClick={() => navigate(backDest)} />
+          <DictaLogo onClick={handleBack} />
           <nav className="nav-btns" aria-label="Navegação">
           
           {(role === "aluno" || role === "visitante") && (
@@ -679,7 +691,7 @@ export default function App() {
           )}
           <button
           className="topbar-back-btn"
-          onClick={() => navigate(backDest)}
+          onClick={handleBack}
           aria-label={`Voltar para ${backLabel}`}
           >
           <ArrowLeft size={16} weight="regular" />
@@ -726,7 +738,6 @@ export default function App() {
           <HistoryScreen
             username={username || "Aluno"}
             onLogout={handleLogout}
-            onNewQuestionnaire={() => navigate("upload")}
             onOpenActivity={handleOpenActivity} 
             onOpenAttempts={handleOpenAttempts}
             userId={currentUser?.id}
@@ -769,7 +780,7 @@ export default function App() {
           <DoneScreen
           role={role}
           onGenerate={handleGenerate}
-          onHome={()     => navigate(role === "aluno" ? "history" : "upload")}
+          onHome={handleDoneHome}
           />
         )}
 
