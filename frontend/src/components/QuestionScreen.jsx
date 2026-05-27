@@ -261,6 +261,18 @@ export function QuestionScreen({
           speak(`As alternativas são: ${textoOpcoes}`);
         }
       },
+      "ouvir minha resposta": () => {
+        if (!recording) {
+          if (isMultiple && selectedAlt !== null) speak(q.options[selectedAlt]);
+          else if (!isMultiple && transcription) speak(transcription);
+        }
+      },
+      "ouvir resposta": () => {
+        if (!recording) {
+          if (isMultiple && selectedAlt !== null) speak(q.options[selectedAlt]);
+          else if (!isMultiple && transcription) speak(transcription);
+        }
+      },
       "responder": () => { if (!recording) setAnswerMode(true); },
       "gravar": () => setRecording(true), 
       "parar": () => setRecording(false), 
@@ -361,6 +373,19 @@ export function QuestionScreen({
                     <button className="btn btn-outline btn-sm" onClick={() => speak(q.text)} aria-label="Ouvir questão em voz alta">
                       <SpeakerHigh size={15} weight="regular" /> Ouvir questão
                     </button>
+                    {}
+                    {((isMultiple && selectedAlt !== null) || (!isMultiple && transcription.trim().length > 0)) && (
+                      <button 
+                        className="btn btn-outline btn-sm" 
+                        onClick={() => {
+                          if (isMultiple) speak(q.options[selectedAlt]);
+                          else speak(transcription);
+                        }} 
+                        aria-label="Ouvir minha resposta atual"
+                      >
+                        <SpeakerHigh size={15} weight="regular" /> Ouvir minha resposta
+                      </button>
+                    )}
                     {isMultiple && selectedAlt !== null && (
                       <button className="btn btn-outline btn-sm" onClick={() => speak(q.options[selectedAlt])} aria-label="Ouvir alternativa selecionada">
                         <SpeakerHigh size={15} weight="regular" /> Ouvir alternativa

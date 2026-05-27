@@ -191,6 +191,7 @@ export function ActivityPreviewModal({ activity, questions = [], onBack, onConfi
                 disabled={saving}
                 aria-label={`Questao ${i + 1}`}
                 onChange={(e) => updateQuestionText(i, e.target.value)}
+                style={{ resize: "vertical" }}
               />
               
               {/* Renderiza as Alternativas Dinâmicas se for Múltipla Escolha */}
