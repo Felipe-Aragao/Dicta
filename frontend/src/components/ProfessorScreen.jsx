@@ -69,12 +69,12 @@ function CopyLinkButton({ link }) {
     <button
       className={`copy-btn${copied ? " copied" : ""}`}
       onClick={handleCopy}
-      aria-label={copied ? "Link copiado!" : "Copiar link da atividade"}
+      aria-label={copied ? "Código copiado!" : "Copiar código da atividade"}
       title={link}
     >
       {copied
         ? <><Check size={13} weight="bold" /> Copiado</>
-        : <><Link size={13} weight="regular" /> Copiar link</>}
+        : <><Link size={13} weight="regular" /> Copiar código</>}
     </button>
   );
 }
@@ -463,7 +463,7 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl, onOpen
                           </div>
                         </td>
                         <td onClick={(e) => e.stopPropagation()}>
-                          <CopyLinkButton link={q.link} />
+                          <CopyLinkButton link={q.id} />
                         </td>
                         <td onClick={(e) => e.stopPropagation()}>
                           {onOpenAttempts && (

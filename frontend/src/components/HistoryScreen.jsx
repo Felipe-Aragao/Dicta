@@ -307,7 +307,21 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenAttemp
   };
 
   const handleCodeConfirm = () => {
+    if (!activityCode.trim()) {
+      return;
+    }
+    
+    let idFinal = activityCode.trim();
+    if (idFinal.includes("?activity=")) {
+      idFinal = idFinal.split("?activity=")[1].split("#")[0];
+    }
+    
+    if (onOpenActivity) {
+      onOpenActivity(idFinal);
+    }
+    
     setShowCodeModal(false);
+    setActivityCode(""); 
   };
 
   const canDeleteActivity = (activity) => (

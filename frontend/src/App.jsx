@@ -60,7 +60,8 @@ export default function App() {
   const [questionStartIndex, setQuestionStartIndex] = useState(0);
   const [lockedAttemptNotice, setLockedAttemptNotice] = useState(null);
   const [attemptConcluded, setAttemptConcluded] = useState(false);
- 
+  
+  const [pendingActivityId, setPendingActivityId] = useState(null);
   const [prevPage, setPrevPage] = useState(null);
 
   const { stopSpeak }               = useSpeech();
@@ -712,6 +713,13 @@ export default function App() {
         }
         navigate("question");
       }, [createAttempt, navigate]);
+      
+      useEffect(() => {
+        if (currentUser?.id && role === "aluno" && pendingActivityId) {
+          handleOpenActivity(pendingActivityId);
+          setPendingActivityId(null); 
+        }
+      }, [currentUser, role, pendingActivityId, handleOpenActivity]);
       
       // Abrir lista de tentativas de uma atividade
       const handleOpenAttempts = useCallback((activity) => {
