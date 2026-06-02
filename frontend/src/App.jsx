@@ -522,7 +522,12 @@ export default function App() {
             throw new Error(detail);
           }
 
-          await response.json();
+          const data = await response.json();
+          const extractedQuestions = Array.isArray(data?.questions) ? data.questions : [];
+          if (extractedQuestions.length === 0) {
+            throw new Error("Nenhuma questão foi identificada no PDF.");
+          }
+
           setUploadStatus("success");
           setAttemptConcluded(false);
           setLockedAttemptNotice(null);
@@ -532,9 +537,7 @@ export default function App() {
           setQuestionsError("");
           setPreviewTitle(file?.name ? file.name.replace(/\.[^.]+$/, "") : "Prova");
 
-          // Cortando a lista de questões para ficar com a quantidade exata
-          const questoesLimitadas = DEMO_QUESTIONS.slice(0, numQuestions);
-          setQuestionSet(questoesLimitadas);
+          setQuestionSet(extractedQuestions);
           
           setActiveActivityId(null);
           setActiveAttemptId(null);

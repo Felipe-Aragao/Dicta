@@ -11,7 +11,7 @@ export function UploadScreen({
   const [file, setFile] = useState(null);
   const [over, setOver] = useState(false);
   
-  const [numQuestions, setNumQuestions] = useState(5); 
+  const [numQuestions, setNumQuestions] = useState(10); 
   
   const inputRef = useRef();
 
@@ -66,7 +66,7 @@ export function UploadScreen({
           </div>
           <p className="upload-title">Arraste o arquivo PDF aqui</p>
           <p className="upload-sub">ou clique para selecionar do seu computador</p>
-          <p className="upload-hint">PDF · máximo 50 MB</p>
+          <p className="upload-hint">PDF · máximo 10 MB</p>
         </div>
 
         <input
