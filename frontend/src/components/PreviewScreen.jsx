@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, CheckCircle, Eye } from "@phosphor-icons/react";
+import { ArrowLeft, CheckCircle, Eye, Plus, Trash } from "@phosphor-icons/react";
 
 const OPTION_LETTERS = ["A", "B", "C", "D", "E", "F"];
 
@@ -35,12 +35,56 @@ export function PreviewScreen({ title = "Prova", questions = [], onBack, onStart
     }));
   };
 
+  const changeQuestionType = (index, newType) => {
+    setDraftQuestions((prev) => prev.map((q, i) => {
+      if (i !== index) return q;
+      return {
+        ...q,
+        type: newType,
+        options: newType === "multiple" && (!q.options || q.options.length === 0)
+          ? ["", "", "", ""]
+          : q.options,
+      };
+    }));
+  };
+
+  const addQuestion = () => {
+    setDraftQuestions((prev) => [
+      ...prev,
+      {
+        id: `draft-${Date.now()}-${prev.length}`,
+        type: "open",
+        text: "",
+        options: [],
+      },
+    ]);
+  };
+
+  const removeQuestion = (index) => {
+    setDraftQuestions((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const addOption = (questionIndex) => {
+    setDraftQuestions((prev) => prev.map((q, i) => {
+      if (i !== questionIndex) return q;
+      if ((q.options || []).length >= OPTION_LETTERS.length) return q;
+      return { ...q, options: [...(q.options || []), ""] };
+    }));
+  };
+
+  const removeOption = (questionIndex, optionIndex) => {
+    setDraftQuestions((prev) => prev.map((q, i) => {
+      if (i !== questionIndex) return q;
+      return { ...q, options: (q.options || []).filter((_, j) => j !== optionIndex) };
+    }));
+  };
+
   const handleStart = async () => {
     if (isSubmitting) return;
     const cleaned = draftQuestions.map((q) => ({
       ...q,
       text: (q?.text ?? "").trim(),
-      options: Array.isArray(q?.options)
+      options: Array.isArray(q?.options) && q.type === "multiple"
         ? q.options.map((opt) => (opt ?? "").trim())
         : [],
     }));
@@ -82,20 +126,45 @@ export function PreviewScreen({ title = "Prova", questions = [], onBack, onStart
             <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 20 }}>
               {draftQuestions.map((question, index) => (
                 <div key={question?.id ?? index} className="preview-question-item">
-                  <p className="preview-question-num">
-                    Questão {index + 1} · {question?.type === "multiple" ? "Múltipla escolha" : "Dissertativa"}
-                  </p>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
+                    <p className="preview-question-num" style={{ margin: 0 }}>
+                      Questão {index + 1}
+                    </p>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <select
+                        value={question?.type}
+                        onChange={(e) => changeQuestionType(index, e.target.value)}
+                        className="text-input"
+                        style={{ width: "auto", padding: "4px 8px", fontSize: "0.85rem", height: "auto" }}
+                        disabled={isSubmitting}
+                      >
+                        <option value="open">Dissertativa</option>
+                        <option value="multiple">Múltipla Escolha</option>
+                      </select>
+                      <button
+                        className="icon-btn"
+                        style={{ color: "var(--red-500)", padding: "8px" }}
+                        onClick={() => removeQuestion(index)}
+                        disabled={isSubmitting || draftQuestions.length <= 1}
+                        title="Remover questão"
+                        aria-label={`Remover questão ${index + 1}`}
+                      >
+                        <Trash size={18} weight="bold" />
+                      </button>
+                    </div>
+                  </div>
                   <textarea
                     className="text-input"
                     value={question?.text ?? ""}
                     rows={3}
                     aria-label={`Questão ${index + 1}`}
+                    disabled={isSubmitting}
                     onChange={(e) => updateQuestionText(index, e.target.value)}
                   />
-                  {question?.type === "multiple" && Array.isArray(question?.options) && question.options.length > 0 && (
+                  {question?.type === "multiple" && Array.isArray(question?.options) && (
                     <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
                       {question.options.map((option, optionIndex) => (
-                        <div key={optionIndex} className="preview-alt">
+                        <div key={optionIndex} className="preview-alt" style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           <span className="preview-alt-letter">
                             {OPTION_LETTERS[optionIndex] ?? String(optionIndex + 1)}
                           </span>
@@ -103,15 +172,46 @@ export function PreviewScreen({ title = "Prova", questions = [], onBack, onStart
                             className="text-input"
                             type="text"
                             value={option}
+                            disabled={isSubmitting}
                             aria-label={`Alternativa ${OPTION_LETTERS[optionIndex] ?? String(optionIndex + 1)}`}
                             onChange={(e) => updateOptionText(index, optionIndex, e.target.value)}
+                            style={{ flex: 1 }}
                           />
+                          <button
+                            className="icon-btn"
+                            style={{ color: "var(--red-500)", padding: "8px" }}
+                            onClick={() => removeOption(index, optionIndex)}
+                            disabled={isSubmitting || question.options.length <= 2}
+                            title="Remover alternativa"
+                          >
+                            <Trash size={18} weight="bold" />
+                          </button>
                         </div>
                       ))}
+                      {question.options.length < OPTION_LETTERS.length && (
+                        <button
+                          className="btn btn-outline btn-sm"
+                          style={{ alignSelf: "flex-start", marginTop: 4 }}
+                          onClick={() => addOption(index)}
+                          disabled={isSubmitting}
+                        >
+                          <Plus size={14} weight="bold" />
+                          Adicionar Alternativa
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
               ))}
+              <button
+                className="btn btn-outline btn-sm"
+                style={{ alignSelf: "flex-start" }}
+                onClick={addQuestion}
+                disabled={isSubmitting}
+              >
+                <Plus size={14} weight="bold" />
+                Adicionar Questão
+              </button>
             </div>
           ) : (
             <div style={{ padding: "64px 32px", textAlign: "center", color: "var(--text-3)", fontSize: "0.92rem" }} role="status">

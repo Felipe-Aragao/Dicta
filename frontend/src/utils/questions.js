@@ -13,7 +13,7 @@ export const normalizeQuestions = (items = []) => {
     const options = Array.isArray(q?.options)
       ? [...q.options]
           .sort((a, b) => String(a?.letter || "").localeCompare(String(b?.letter || "")))
-          .map((opt) => opt?.text ?? "")
+          .map((opt) => typeof opt === "string" ? opt : opt?.text ?? "")
       : [];
 
     return {

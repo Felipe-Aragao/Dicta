@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { ArrowRight, ClockCounterClockwise, Plus, User, MagnifyingGlass, Trash } from "@phosphor-icons/react";
-import { DEMO_QUESTIONS } from "../data/demoData";
 import { extractApiErrorMessage } from "../utils/apiError";
 import { normalizeQuestions } from "../utils/questions";
-import { ActivityCreateModal, ActivityPreviewModal } from "./ActivityModals";
+import { ActivityCreateModal, ActivityPdfModal, ActivityPreviewModal } from "./ActivityModals";
 
 const OPTION_LETTERS = ["A", "B", "C", "D", "E", "F"];
 
@@ -61,6 +60,9 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenAttemp
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showModal, setShowModal] = useState(false);
+  const [showPdfModal, setShowPdfModal] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState("idle");
+  const [uploadError, setUploadError] = useState("");
   const [previewData, setPreviewData] = useState(null);
   const [saving, setSaving] = useState(false);
   const [showCodeModal, setShowCodeModal] = useState(false);
@@ -116,38 +118,80 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenAttemp
     fetchQuestionsForActivity(viewingActivity.id);
   }, [fetchQuestionsForActivity, viewingActivity?.id]);
 
-  const handleCreateDemo = () => {
-    setShowModal(false);
-    setPreviewData({
-      name: "Simulado de Teste",
-      discipline: "Demonstração",
-      numQuestions: 5,
-      questions: [...DEMO_QUESTIONS] 
-    });
+  const handleOpenCreate = () => {
+    setPreviewData(null);
+    setUploadStatus("idle");
+    setUploadError("");
+    setShowPdfModal(true);
+  };
+
+  const handleExtractActivityPdf = async (file) => {
+    if (!file) return;
+    setUploadStatus("loading");
+    setUploadError("");
+
+    const formData = new FormData();
+    formData.append("pdf", file);
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/pdf/receive`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        let detail = "Falha ao enviar PDF.";
+        try {
+          const data = await response.json();
+          detail = extractApiErrorMessage(data?.detail, detail);
+        } catch {
+          // Mantem a mensagem padrao quando a API nao retorna JSON.
+        }
+        throw new Error(detail);
+      }
+
+      const data = await response.json();
+      const questions = Array.isArray(data?.questions) ? normalizeQuestions(data.questions) : [];
+      if (questions.length === 0) {
+        throw new Error("Nenhuma questão foi identificada no PDF.");
+      }
+
+      setUploadStatus("success");
+      setPreviewData({
+        name: file?.name ? file.name.replace(/\.[^.]+$/, "") : "",
+        discipline: "",
+        questions,
+      });
+      setShowPdfModal(false);
+      setShowModal(true);
+    } catch (err) {
+      setUploadStatus("error");
+      setUploadError(err?.message ?? "Falha ao enviar PDF.");
+    }
   };
 
   const handlePreview = (data) => {
     setShowModal(false);
-    const numQuestions = data.numQuestions || 5;
+    const numQuestions = data.numQuestions;
 
     setPreviewData((prev) => {
-      // Pega as questões que já existiam (se houver)
       let mergedQuestions = prev?.questions || [];
 
-      // Ajusta o tamanho da lista preservando o que já foi digitado
-      if (mergedQuestions.length > numQuestions) {
-        mergedQuestions = mergedQuestions.slice(0, numQuestions); // Corta o excesso
-      } else if (mergedQuestions.length < numQuestions) {
-        const blanks = Array.from({ length: numQuestions - mergedQuestions.length }).map((_, i) => ({
-          id: `blank-${mergedQuestions.length + i}`,
-          type: "open",
-          text: "",
-          options: []
-        }));
-        mergedQuestions = [...mergedQuestions, ...blanks]; // Adiciona as brancas no final
+      if (numQuestions) {
+        if (mergedQuestions.length > numQuestions) {
+          mergedQuestions = mergedQuestions.slice(0, numQuestions);
+        } else if (mergedQuestions.length < numQuestions) {
+          const blanks = Array.from({ length: numQuestions - mergedQuestions.length }).map((_, i) => ({
+            id: `blank-${mergedQuestions.length + i}`,
+            type: "open",
+            text: "",
+            options: []
+          }));
+          mergedQuestions = [...mergedQuestions, ...blanks];
+        }
       }
 
-      return { ...prev, ...data, numQuestions, questions: mergedQuestions };
+      return { ...prev, ...data, ...(numQuestions ? { numQuestions } : {}), questions: mergedQuestions };
     });
   };
 
@@ -174,7 +218,7 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenAttemp
           const data = await questionResponse.json();
           detail = extractApiErrorMessage(data?.detail, detail);
         } catch {
-          
+          // Mantem a mensagem padrao quando a API nao retorna JSON.
         }
         throw new Error(detail);
       }
@@ -202,7 +246,7 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenAttemp
               const data = await optionResponse.json();
               detail = extractApiErrorMessage(data?.detail, detail);
             } catch {
-              
+              // Mantem a mensagem padrao quando a API nao retorna JSON.
             }
             throw new Error(detail);
           }
@@ -234,13 +278,13 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenAttemp
           const data = await response.json();
           detail = extractApiErrorMessage(data?.detail, detail);
         } catch {
-          
+          // Mantem a mensagem padrao quando a API nao retorna JSON.
         }
         throw new Error(detail);
       }
 
       createdActivity = await response.json();
-      await createQuestionsForActivity(createdActivity.id, editedQuestions ?? DEMO_QUESTIONS);
+      await createQuestionsForActivity(createdActivity.id, editedQuestions ?? previewData.questions ?? []);
       setActivities((prev) => [normalizeActivity(createdActivity, username), ...prev]);
       setPreviewData(null);
     } catch (err) {
@@ -248,7 +292,7 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenAttemp
         try {
           await fetch(`${apiBaseUrl}/activities/${createdActivity.id}`, { method: "DELETE" });
         } catch {
-          
+          // Ignora falha de rollback para preservar o erro original.
         }
       }
       setError(err?.message ?? "Falha ao criar atividade.");
@@ -284,7 +328,7 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenAttemp
           const data = await response.json();
           detail = extractApiErrorMessage(data?.detail, detail);
         } catch {
-          
+          // Mantem a mensagem padrao quando a API nao retorna JSON.
         }
         throw new Error(detail);
       }
@@ -354,19 +398,11 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenAttemp
                   
                   <button
                     className="btn btn-primary btn-sm"
-                    onClick={() => setShowModal(true)}
+                    onClick={handleOpenCreate}
                     aria-label="Criar nova atividade"
                   >
                     <Plus size={16} weight="bold" />
                     Criar Atividade
-                  </button>
-                  <button
-                    className="btn btn-outline btn-sm"
-                    onClick={handleCreateDemo}
-                    aria-label="Gerar prova de teste"
-                  >
-                    <Plus size={16} weight="bold" />
-                    Prova Teste
                   </button>
                   <button
                     className="btn btn-outline btn-sm"
@@ -511,7 +547,7 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenAttemp
                       {q.options.map((opt, j) => (
                         <div key={j} className="preview-alt">
                           <span className="preview-alt-letter">
-                            {["A","B","C","D"][j]}
+                            {OPTION_LETTERS[j] ?? String(j + 1)}
                           </span>
                           <span>{opt}</span>
                         </div>
@@ -549,6 +585,20 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenAttemp
           }}
           onPreview={handlePreview}
           initialData={previewData}
+          showQuestionCount={false}
+        />
+      )}
+
+      {showPdfModal && (
+        <ActivityPdfModal
+          onClose={() => setShowPdfModal(false)}
+          onStart={handleExtractActivityPdf}
+          uploadStatus={uploadStatus}
+          uploadError={uploadError}
+          onFileSelected={() => {
+            setUploadStatus("idle");
+            setUploadError("");
+          }}
         />
       )}
 

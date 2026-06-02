@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ArrowLeft, CheckCircle, Eye, Trash, Plus } from "@phosphor-icons/react";
+import { UploadScreen } from "./UploadScreen";
 
 const OPTION_LETTERS = ["A", "B", "C", "D", "E", "F"];
 
@@ -12,12 +13,12 @@ const normalizeQuestions = (items = []) => (
 );
 
 // Modal de criacao de atividade
-export function ActivityCreateModal({ ownerName, onClose, onPreview, loading = false, initialData}) {
+export function ActivityCreateModal({ ownerName, onClose, onPreview, loading = false, initialData, showQuestionCount = true }) {
   const [name, setName] = useState(initialData?.name || "");
   const [discipline, setDiscipline] = useState(initialData?.discipline || "");
   const [numQuestions, setNumQuestions] = useState(initialData?.numQuestions || 5);
 
-  const canNext = name.trim().length > 0 && discipline.trim().length > 0 && numQuestions > 0;
+  const canNext = name.trim().length > 0 && discipline.trim().length > 0 && (!showQuestionCount || numQuestions > 0);
 
   const handleNext = () => {
     if (!canNext || loading) return;
@@ -25,7 +26,7 @@ export function ActivityCreateModal({ ownerName, onClose, onPreview, loading = f
       name: name.trim(), 
       discipline: discipline.trim(), 
       ownerName,
-      numQuestions
+      ...(showQuestionCount ? { numQuestions } : {})
     });
   };
 
@@ -51,10 +52,12 @@ export function ActivityCreateModal({ ownerName, onClose, onPreview, loading = f
             <input id="ativ-disc" className="text-input" type="text" value={discipline} onChange={(e) => setDiscipline(e.target.value)} placeholder="Ex: Programacao 3" disabled={loading} />
           </div>
           
-          <div className="field-wrap">
-            <label className="field-label" htmlFor="ativ-qtd">Quantidade de questões</label>
-            <input id="ativ-qtd" className="text-input" type="number" min="1" max="20" value={numQuestions} onChange={(e) => setNumQuestions(Number(e.target.value))} disabled={loading} />
-          </div>
+          {showQuestionCount && (
+            <div className="field-wrap">
+              <label className="field-label" htmlFor="ativ-qtd">Quantidade de questões</label>
+              <input id="ativ-qtd" className="text-input" type="number" min="1" max="20" value={numQuestions} onChange={(e) => setNumQuestions(Number(e.target.value))} disabled={loading} />
+            </div>
+          )}
         </div>
 
         {ownerName && (
@@ -68,6 +71,37 @@ export function ActivityCreateModal({ ownerName, onClose, onPreview, loading = f
             {loading ? "Carregando..." : "Pre-visualizar"}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+export function ActivityPdfModal({
+  onClose,
+  onStart,
+  uploadStatus = "idle",
+  uploadError = "",
+  onFileSelected,
+}) {
+  return (
+    <div
+      className="modal-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="activity-pdf-h"
+      onClick={(e) => { if (e.target === e.currentTarget && uploadStatus !== "loading") onClose?.(); }}
+    >
+      <div className="modal-card modal-card-wide">
+        <UploadScreen
+          onStart={onStart}
+          uploadStatus={uploadStatus}
+          uploadError={uploadError}
+          onFileSelected={onFileSelected}
+          showQuestionCount={false}
+          title="Adicionar PDF"
+          description="Envie o PDF da atividade para extrair as questões automaticamente."
+          actionLabel="Extrair questões"
+        />
       </div>
     </div>
   );
@@ -132,6 +166,22 @@ export function ActivityPreviewModal({ activity, questions = [], onBack, onConfi
     }));
   };
 
+  const addQuestion = () => {
+    setDraftQuestions((prev) => [
+      ...prev,
+      {
+        id: `draft-${Date.now()}-${prev.length}`,
+        type: "open",
+        text: "",
+        options: [],
+      },
+    ]);
+  };
+
+  const removeQuestion = (index) => {
+    setDraftQuestions((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleConfirm = () => {
     if (saving) return;
     const cleaned = draftQuestions.map((q) => ({
@@ -171,16 +221,28 @@ export function ActivityPreviewModal({ activity, questions = [], onBack, onConfi
                 <p className="preview-question-num" style={{ margin: 0 }}>
                   Questão {i + 1}
                 </p>
-                <select
-                  value={q.type}
-                  onChange={(e) => changeQuestionType(i, e.target.value)}
-                  className="text-input"
-                  style={{ width: "auto", padding: "4px 8px", fontSize: "0.85rem", height: "auto" }}
-                  disabled={saving}
-                >
-                  <option value="open">Dissertativa</option>
-                  <option value="multiple">Múltipla Escolha</option>
-                </select>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <select
+                    value={q.type}
+                    onChange={(e) => changeQuestionType(i, e.target.value)}
+                    className="text-input"
+                    style={{ width: "auto", padding: "4px 8px", fontSize: "0.85rem", height: "auto" }}
+                    disabled={saving}
+                  >
+                    <option value="open">Dissertativa</option>
+                    <option value="multiple">Múltipla Escolha</option>
+                  </select>
+                  <button
+                    className="icon-btn"
+                    style={{ color: "var(--red-500)", padding: "8px" }}
+                    onClick={() => removeQuestion(i)}
+                    disabled={saving || draftQuestions.length <= 1}
+                    title="Remover questão"
+                    aria-label={`Remover questão ${i + 1}`}
+                  >
+                    <Trash size={18} weight="bold" />
+                  </button>
+                </div>
               </div>
 
               <textarea
@@ -239,6 +301,15 @@ export function ActivityPreviewModal({ activity, questions = [], onBack, onConfi
               )}
             </div>
           ))}
+          <button
+            className="btn btn-outline btn-sm"
+            style={{ alignSelf: "flex-start" }}
+            onClick={addQuestion}
+            disabled={saving}
+          >
+            <Plus size={14} weight="bold" />
+            Adicionar Questão
+          </button>
         </div>
 
         <div className="modal-actions" style={{ marginTop: "24px" }}>

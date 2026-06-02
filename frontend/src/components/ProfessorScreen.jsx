@@ -4,8 +4,7 @@ import {
   Link, Check, User,
   MagnifyingGlass, Trash,
 } from "@phosphor-icons/react";
-import { ActivityCreateModal, ActivityPreviewModal } from "./ActivityModals";
-import { DEMO_QUESTIONS } from "../data/demoData";
+import { ActivityCreateModal, ActivityPdfModal, ActivityPreviewModal } from "./ActivityModals";
 import { extractApiErrorMessage } from "../utils/apiError";
 import { normalizeQuestions } from "../utils/questions";
 
@@ -84,6 +83,9 @@ function CopyLinkButton({ link }) {
 export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl, onOpenAttempts }) {
   const [questionarios, setQuestionarios] = useState([]);
   const [showModal, setShowModal]         = useState(false);
+  const [showPdfModal, setShowPdfModal]   = useState(false);
+  const [uploadStatus, setUploadStatus]   = useState("idle");
+  const [uploadError, setUploadError]     = useState("");
   const [previewData, setPreviewData]     = useState(null);
   const [search, setSearch]               = useState("");
   const [viewingActivity, setViewingActivity] = useState(null);
@@ -150,28 +152,80 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl, onOpen
     q.disciplina.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handlePreview = (data) => {
-    setShowModal(false);
-    const numQuestions = data.numQuestions || 5;
+  const handleOpenCreate = () => {
+    setPreviewData(null);
+    setUploadStatus("idle");
+    setUploadError("");
+    setShowPdfModal(true);
+  };
 
-    setPreviewData((prev) => {
-      // Pega as questões que já existiam (se houver)
-      let mergedQuestions = prev?.questions || [];
+  const handleExtractActivityPdf = async (file) => {
+    if (!file) return;
+    setUploadStatus("loading");
+    setUploadError("");
 
-      // Ajusta o tamanho da lista preservando o que já foi digitado
-      if (mergedQuestions.length > numQuestions) {
-        mergedQuestions = mergedQuestions.slice(0, numQuestions); // Corta o excesso
-      } else if (mergedQuestions.length < numQuestions) {
-        const blanks = Array.from({ length: numQuestions - mergedQuestions.length }).map((_, i) => ({
-          id: `blank-${mergedQuestions.length + i}`,
-          type: "open",
-          text: "",
-          options: []
-        }));
-        mergedQuestions = [...mergedQuestions, ...blanks]; // Adiciona as brancas no final
+    const formData = new FormData();
+    formData.append("pdf", file);
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/pdf/receive`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        let detail = "Falha ao enviar PDF.";
+        try {
+          const data = await response.json();
+          detail = extractApiErrorMessage(data?.detail, detail);
+        } catch {
+          // Mantem a mensagem padrao quando a API nao retorna JSON.
+        }
+        throw new Error(detail);
       }
 
-      return { ...prev, ...data, numQuestions, questions: mergedQuestions };
+      const data = await response.json();
+      const questions = Array.isArray(data?.questions) ? normalizeQuestions(data.questions) : [];
+      if (questions.length === 0) {
+        throw new Error("Nenhuma questão foi identificada no PDF.");
+      }
+
+      setUploadStatus("success");
+      setPreviewData({
+        name: file?.name ? file.name.replace(/\.[^.]+$/, "") : "",
+        discipline: "",
+        questions,
+      });
+      setShowPdfModal(false);
+      setShowModal(true);
+    } catch (error) {
+      setUploadStatus("error");
+      setUploadError(error?.message ?? "Falha ao enviar PDF.");
+    }
+  };
+
+  const handlePreview = (data) => {
+    setShowModal(false);
+    const numQuestions = data.numQuestions;
+
+    setPreviewData((prev) => {
+      let mergedQuestions = prev?.questions || [];
+
+      if (numQuestions) {
+        if (mergedQuestions.length > numQuestions) {
+          mergedQuestions = mergedQuestions.slice(0, numQuestions);
+        } else if (mergedQuestions.length < numQuestions) {
+          const blanks = Array.from({ length: numQuestions - mergedQuestions.length }).map((_, i) => ({
+            id: `blank-${mergedQuestions.length + i}`,
+            type: "open",
+            text: "",
+            options: []
+          }));
+          mergedQuestions = [...mergedQuestions, ...blanks];
+        }
+      }
+
+      return { ...prev, ...data, ...(numQuestions ? { numQuestions } : {}), questions: mergedQuestions };
     });
   };
 
@@ -198,7 +252,7 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl, onOpen
           const data = await questionResponse.json();
           detail = extractApiErrorMessage(data?.detail, detail);
         } catch {
-          
+          // Mantem a mensagem padrao quando a API nao retorna JSON.
         }
         throw new Error(detail);
       }
@@ -226,7 +280,7 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl, onOpen
               const data = await optionResponse.json();
               detail = extractApiErrorMessage(data?.detail, detail);
             } catch {
-              
+              // Mantem a mensagem padrao quando a API nao retorna JSON.
             }
             throw new Error(detail);
           }
@@ -258,13 +312,13 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl, onOpen
           const data = await response.json();
           detail = extractApiErrorMessage(data?.detail, detail);
         } catch {
-          
+          // Mantem a mensagem padrao quando a API nao retorna JSON.
         }
         throw new Error(detail);
       }
 
       createdActivity = await response.json();
-      await createQuestionsForActivity(createdActivity.id, editedQuestions ?? DEMO_QUESTIONS);
+      await createQuestionsForActivity(createdActivity.id, editedQuestions ?? previewData.questions ?? []);
       setQuestionarios((prev) => [normalizeActivity(createdActivity, username), ...prev]);
       setPreviewData(null);
     } catch (error) {
@@ -272,7 +326,7 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl, onOpen
         try {
           await fetch(`${apiBaseUrl}/activities/${createdActivity.id}`, { method: "DELETE" });
         } catch {
-          
+          // Ignora falha de rollback para preservar o erro original.
         }
       }
       setListError(error?.message ?? "Falha ao criar atividade.");
@@ -299,7 +353,7 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl, onOpen
           const data = await response.json();
           detail = extractApiErrorMessage(data?.detail, detail);
         } catch {
-          
+          // Mantem a mensagem padrao quando a API nao retorna JSON.
         }
         throw new Error(detail);
       }
@@ -359,7 +413,7 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl, onOpen
                   <div style={{ display: "flex", marginLeft: "10px" }}>
                     <button
                       className="btn btn-primary"
-                      onClick={() => setShowModal(true)}
+                      onClick={handleOpenCreate}
                       aria-label="Criar nova atividade"
                     >
                       <Plus size={17} weight="bold" />
@@ -468,6 +522,20 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl, onOpen
           }}
           onPreview={handlePreview}
           initialData={previewData}
+          showQuestionCount={false}
+        />
+      )}
+
+      {showPdfModal && (
+        <ActivityPdfModal
+          onClose={() => setShowPdfModal(false)}
+          onStart={handleExtractActivityPdf}
+          uploadStatus={uploadStatus}
+          uploadError={uploadError}
+          onFileSelected={() => {
+            setUploadStatus("idle");
+            setUploadError("");
+          }}
         />
       )}
 
@@ -532,7 +600,7 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl, onOpen
                       {q.options.map((opt, j) => (
                         <div key={j} className="preview-alt">
                           <span className="preview-alt-letter">
-                            {["A","B","C","D"][j]}
+                            {OPTION_LETTERS[j] ?? String(j + 1)}
                           </span>
                           <span>{opt}</span>
                         </div>

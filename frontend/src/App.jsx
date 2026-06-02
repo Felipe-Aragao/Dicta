@@ -18,7 +18,6 @@ import { AttemptsScreen }       from "./components/AttemptsScreen";
 import { useSpeech } from "./hooks/useSpeech";
 import { useToast }  from "./hooks/useToast";
 
-import { DEMO_QUESTIONS } from "./data/demoData";
 import { extractApiErrorMessage } from "./utils/apiError";
 import { normalizeQuestions } from "./utils/questions";
 import "./App.css";
@@ -48,7 +47,7 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState("");
   const [answers, setAnswers]   = useState([]);
-  const [questionSet, setQuestionSet] = useState(DEMO_QUESTIONS);
+  const [questionSet, setQuestionSet] = useState([]);
   const [questionsLoading, setQuestionsLoading] = useState(false);
   const [questionsError, setQuestionsError] = useState("");
   const [activeActivityId, setActiveActivityId] = useState(null);
@@ -120,14 +119,9 @@ export default function App() {
       }
       const data = await response.json();
       const normalized = normalizeQuestions(data);
-      if (normalized.length > 0) {
-        setQuestionSet(normalized);
-      } else if (role !== "visitante") {
-        setQuestionSet(DEMO_QUESTIONS);
-      }
+      setQuestionSet(normalized);
     } catch (error) {
       setQuestionsError(error?.message ?? "Falha ao carregar questões.");
-      if (role !== "visitante") setQuestionSet(DEMO_QUESTIONS);
       showToast(error?.message ?? "Falha ao carregar questões.");
     } finally {
       setQuestionsLoading(false);
@@ -465,7 +459,7 @@ export default function App() {
         stopSpeak();
         setRole(null); setUsername(""); setAnswers([]); setCurrentUser(null);
         setAuthError("");
-        setQuestionSet(DEMO_QUESTIONS); setActiveActivityId(null); setQuestionsError("");
+        setQuestionSet([]); setActiveActivityId(null); setQuestionsError("");
         setActiveAttemptId(null); setAttemptsActivity(null);
         setQuestionSessionId(0);
         setQuestionStartIndex(0);
@@ -493,7 +487,7 @@ export default function App() {
         else navigate("history");
       };
 
-      const handleStart    = async (file, numQuestions = 5) => {
+      const handleStart    = async (file, numQuestions) => {
         const nextAfterExtracting = role === "visitante" ? "preview" : "question";
 
         if (!file) return;
@@ -503,7 +497,7 @@ export default function App() {
 
         const formData = new FormData();
         formData.append("pdf", file);
-        formData.append("num_questions", numQuestions);
+        if (numQuestions) formData.append("num_questions", numQuestions);
 
         try {
           const response = await fetch(`${API_BASE_URL}/pdf/receive`, {
@@ -537,7 +531,7 @@ export default function App() {
           setQuestionsError("");
           setPreviewTitle(file?.name ? file.name.replace(/\.[^.]+$/, "") : "Prova");
 
-          setQuestionSet(extractedQuestions);
+          setQuestionSet(normalizeQuestions(extractedQuestions));
           
           setActiveActivityId(null);
           setActiveAttemptId(null);
@@ -936,6 +930,7 @@ export default function App() {
             uploadStatus={uploadStatus}
             uploadError={uploadError}
             onFileSelected={resetUploadStatus}
+            showQuestionCount={role !== "visitante"}
           />
         )}
         {page === "extracting" && (role === "aluno" || role === "visitante") && <ExtractingScreen />}

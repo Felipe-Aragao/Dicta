@@ -11,7 +11,7 @@ import {
 } from "@phosphor-icons/react";
 import { useSpeech } from "../hooks/useSpeech";
 
-const LETTERS = ["A", "B", "C", "D", "E"];
+const LETTERS = ["A", "B", "C", "D", "E", "F"];
 
 // ─── Alternativas ────────────────────────────────────────────────
 function Alternatives({ options, selectedAlt, onSelect }) {
@@ -283,6 +283,7 @@ export function QuestionScreen({
       "letra c": () => { if (!recording && isMultiple) handleSelectAlt(2); },
       "letra d": () => { if (!recording && isMultiple) handleSelectAlt(3); },
       "letra e": () => { if (!recording && isMultiple) handleSelectAlt(4); },
+      "letra f": () => { if (!recording && isMultiple) handleSelectAlt(5); },
     });
   }, [idx, answerMode, isMultiple, selectedAlt, q, answers, transcription, recording, setCommands]);
 
