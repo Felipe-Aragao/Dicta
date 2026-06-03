@@ -424,77 +424,81 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl, onOpen
               </div>
 
               <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+                
                 {listError && (
                   <div style={{ padding: "14px 22px", color: "var(--red-600)", fontSize: "0.9rem" }} role="status">
-                    {listError}
+                     {listError}
                   </div>
                 )}
-                <table className="data-table" role="table" aria-label="Lista de questionários">
-                  <thead>
-                    <tr>
-                      <th scope="col">Questionário</th>
-                      <th scope="col">Status</th>
-                      <th scope="col">Criado em</th>
-                      <th scope="col">Alunos</th>
-                      <th scope="col">Link</th>
-                      <th scope="col">Tentativas</th>
-                      <th scope="col" style={{ width: 56 }}></th>
-                      <th scope="col"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map((q) => (
-                      <tr key={q.id} className="data-row" tabIndex={0}
-                        onClick={() => setViewingActivity(q)}
-                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setViewingActivity(q); }}
-                      >
-                        <td>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10, whiteSpace: "nowrap" }}>
-                            <FilePdf size={16} color="var(--text-3)" weight="regular" />
-                            {q.nome}
-                          </div>
-                        </td>
-                        <td><span className="badge badge-green">{q.status}</span></td>
-                        <td>{q.criadoEm}</td>
-                        <td>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--text-3)", fontSize: "0.9rem" }}>
-                            <Users size={14} weight="regular" />
-                            {q.alunos} aluno{q.alunos !== 1 ? "s" : ""}
-                          </div>
-                        </td>
-                        <td onClick={(e) => e.stopPropagation()}>
-                          <CopyLinkButton link={q.id} />
-                        </td>
-                        <td onClick={(e) => e.stopPropagation()}>
-                          {onOpenAttempts && (
-                            <button
-                              className="btn btn-outline btn-sm"
-                              onClick={() => { onOpenAttempts({ id: q.id, name: q.nome, discipline: q.disciplina }); }}
-                            >
-                              Ver tentativas
-                            </button>
-                          )}
-                        </td>
-                        <td onClick={(e) => e.stopPropagation()} style={{ textAlign: "right" }}>
-                          {deleteMode && canDeleteActivity(q) && (
-                            <button
-                              className="icon-btn icon-btn-danger"
-                              onClick={() => setDeleteTarget(q)}
-                              aria-label="Excluir atividade"
-                              title="Excluir atividade"
-                              disabled={deleting}
-                            >
-                              <Trash size={14} weight="bold" />
-                            </button>
-                          )}
-                        </td>
-                        <td style={{ textAlign: "right" }}>
-                          <ArrowRight size={15} color="var(--text-3)" />
-                        </td>
+              
+                <div style={{ overflowX: "auto", width: "100%" }}>
+                  <table className="data-table" role="table" aria-label="Lista de questionários">
+                    <thead>
+                      <tr>
+                        <th scope="col">Questionário</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Criado em</th>
+                        <th scope="col">Alunos</th>
+                        <th scope="col">Link</th>
+                        <th scope="col">Tentativas</th>
+                        <th scope="col" style={{ width: 56 }}></th>
+                        <th scope="col"></th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {filtered.map((q) => (
+                        <tr key={q.id} className="data-row" tabIndex={0}
+                          onClick={() => setViewingActivity(q)}
+                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setViewingActivity(q); }}
+                        >
+                          <td>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, whiteSpace: "nowrap" }}>
+                              <FilePdf size={16} color="var(--text-3)" weight="regular" />
+                              {q.nome}
+                            </div>
+                          </td>
+                          <td><span className="badge badge-green">{q.status}</span></td>
+                          <td>{q.criadoEm}</td>
+                          <td>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--text-3)", fontSize: "0.9rem" }}>
+                              <Users size={14} weight="regular" />
+                              {q.alunos} aluno{q.alunos !== 1 ? "s" : ""}
+                            </div>
+                          </td>
+                          <td onClick={(e) => e.stopPropagation()}>
+                            <CopyLinkButton link={q.id} />
+                          </td>
+                          <td onClick={(e) => e.stopPropagation()}>
+                            {onOpenAttempts && (
+                              <button
+                                className="btn btn-outline btn-sm"
+                                onClick={() => { onOpenAttempts({ id: q.id, name: q.nome, discipline: q.disciplina }); }}
+                              >
+                                Ver tentativas
+                              </button>
+                            )}
+                          </td>
+                          <td onClick={(e) => e.stopPropagation()} style={{ textAlign: "right" }}>
+                            {deleteMode && canDeleteActivity(q) && (
+                              <button
+                                className="icon-btn icon-btn-danger"
+                                onClick={() => setDeleteTarget(q)}
+                                aria-label="Excluir atividade"
+                                title="Excluir atividade"
+                                disabled={deleting}
+                              >
+                                <Trash size={14} weight="bold" />
+                              </button>
+                            )}
+                          </td>
+                          <td style={{ textAlign: "right" }}>
+                            <ArrowRight size={15} color="var(--text-3)" />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div> 
 
                 {!loadingList && filtered.length === 0 && (
                   <div style={{ padding: "64px 32px", textAlign: "center", color: "var(--text-3)", fontSize: "0.92rem" }} role="status">
@@ -507,7 +511,6 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl, onOpen
                   </div>
                 )}
               </div>
-
             </div>
           </div>
         </div>
