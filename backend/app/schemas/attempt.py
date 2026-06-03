@@ -49,6 +49,9 @@ class AttemptRead(ORMBase):
     activity_id: uuid.UUID
     aluno_id: Optional[uuid.UUID] = None
     aluno_name: Optional[str] = None
+    activity_name: Optional[str] = None
+    activity_discipline: Optional[str] = None
+    professor_name: Optional[str] = None
     visitor_name: Optional[str] = None
     status: Optional[AttemptStatus] = None
     pdf_url: Optional[str] = None

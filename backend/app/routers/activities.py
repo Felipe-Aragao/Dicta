@@ -1,16 +1,28 @@
 from typing import List, Optional
+from urllib.parse import parse_qs, unquote, urlparse
+import re
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.models.activities import ActivityStatus
+from app.models.activity_links import ActivityLink
 from app.models.users import RoleEnum
 from app.schemas.activity import ActivityCreate, ActivityRead, ActivityUpdate
 from app.services.activity_service import ActivityService
 from app.services.user_service import UserService
 
 router = APIRouter(prefix="/activities", tags=["activities"])
+
+SHARE_CODE_RE = re.compile(r"^[A-Z0-9]{6}$")
+
+
+def _copy_model(model, **updates):
+    if hasattr(model, "model_copy"):
+        return model.model_copy(update=updates)
+    return model.copy(update=updates)
 
 
 # Helper de busca com 404
@@ -19,6 +31,24 @@ def _get_activity_or_404(service: ActivityService, activity_id: uuid.UUID):
     if not activity:
         raise HTTPException(status_code=404, detail="Atividade não encontrada.")
     return activity
+
+
+def _normalize_share_code(value: str) -> str:
+    decoded = unquote((value or "").strip())
+    if not decoded:
+        raise HTTPException(status_code=400, detail="Código inválido.")
+
+    parsed = urlparse(decoded)
+    query = parse_qs(parsed.query)
+    if query.get("code"):
+        decoded = query["code"][0]
+    elif parsed.path and (parsed.scheme or parsed.netloc):
+        decoded = parsed.path.rstrip("/").split("/")[-1]
+
+    compact = re.sub(r"[^A-Za-z0-9]", "", decoded).upper()
+    if not SHARE_CODE_RE.match(compact):
+        raise HTTPException(status_code=400, detail="Código inválido.")
+    return f"{compact[:3]}-{compact[3:]}"
 
 
 # Criacao de atividade
@@ -30,6 +60,8 @@ def create_activity(data: ActivityCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Usuário não encontrado.")
     if owner.role not in {RoleEnum.aluno, RoleEnum.professor}:
         raise HTTPException(status_code=403, detail="Não é permitido criar atividades para este tipo de usuário.")
+    if owner.role != RoleEnum.professor:
+        data = _copy_model(data, is_shareable=False)
     return ActivityService(db).create(data)
 
 
@@ -42,6 +74,33 @@ def list_activities(
     db: Session = Depends(get_db),
 ):
     return ActivityService(db).list(owner_id=owner_id, skip=skip, limit=limit)
+
+
+@router.get("/by-code/{code:path}", response_model=ActivityRead)
+def get_activity_by_code(code: str, db: Session = Depends(get_db)):
+    normalized_code = _normalize_share_code(code)
+    link = (
+        db.query(ActivityLink)
+        .filter(ActivityLink.token == normalized_code)
+        .filter(ActivityLink.is_active.is_(True))
+        .first()
+    )
+    if not link or not link.activity:
+        raise HTTPException(status_code=404, detail="Código não encontrado.")
+
+    activity = link.activity
+    if not activity.owner or activity.owner.role != RoleEnum.professor:
+        link.is_active = False
+        activity.is_shareable = False
+        db.add(link)
+        db.add(activity)
+        db.commit()
+        raise HTTPException(status_code=404, detail="Código inativo.")
+    if not activity.is_shareable:
+        raise HTTPException(status_code=404, detail="Código inativo.")
+    if activity.status == ActivityStatus.encerrado:
+        raise HTTPException(status_code=409, detail="Atividade encerrada.")
+    return activity
 
 
 # Consulta de atividade
@@ -60,6 +119,9 @@ def update_activity(
 ):
     service = ActivityService(db)
     activity = _get_activity_or_404(service, activity_id)
+    owner = UserService(db).get(activity.owner_id)
+    if owner and owner.role != RoleEnum.professor:
+        data = _copy_model(data, is_shareable=False)
     return service.update(activity, data)
 
 

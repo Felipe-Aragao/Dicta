@@ -45,5 +45,6 @@ class ActivityRead(ORMBase):
     status: ActivityStatus
     is_shareable: bool
     total_responses: int
+    share_code: Optional[str] = None
     created_at: datetime
     published_at: Optional[datetime] = None

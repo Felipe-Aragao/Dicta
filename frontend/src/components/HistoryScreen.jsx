@@ -33,6 +33,49 @@ const normalizeActivity = (activity, ownerName) => {
   };
 };
 
+const normalizeAttemptStatus = (status) => {
+  const statusMap = {
+    concluido: "Concluido",
+    "em progresso": "Em progresso",
+  };
+  return statusMap[status] || status || "Em progresso";
+};
+
+const getAttemptDateValue = (attempt) => {
+  const value = attempt?.submitted_at || attempt?.started_at || attempt?.last_saved_at;
+  const date = value ? new Date(value) : null;
+  return date && !Number.isNaN(date.getTime()) ? date.getTime() : 0;
+};
+
+const normalizeAttemptActivity = (attempts = []) => {
+  const latestAttempt = attempts.reduce((latest, attempt) => (
+    getAttemptDateValue(attempt) > getAttemptDateValue(latest) ? attempt : latest
+  ), attempts[0]);
+
+  return {
+    id: latestAttempt.activity_id,
+    ownerId: null,
+    name: latestAttempt.activity_name || "Atividade",
+    professor: latestAttempt.professor_name || "Professor",
+    disciplina: latestAttempt.activity_discipline || "Geral",
+    criadoem: formatDate(latestAttempt.submitted_at || latestAttempt.started_at || latestAttempt.last_saved_at),
+    status: normalizeAttemptStatus(latestAttempt.status),
+    rawStatus: latestAttempt.status,
+    attemptsCount: attempts.length,
+  };
+};
+
+const groupAttemptsByActivity = (attempts = []) => {
+  const grouped = new Map();
+  for (const attempt of attempts) {
+    if (!attempt?.activity_id) continue;
+    const current = grouped.get(attempt.activity_id) || [];
+    current.push(attempt);
+    grouped.set(attempt.activity_id, current);
+  }
+  return Array.from(grouped.values()).map(normalizeAttemptActivity);
+};
+
 // Menu lateral do aluno
 function Sidebar({ username, onLogout }) {
   return (
@@ -50,7 +93,7 @@ function Sidebar({ username, onLogout }) {
 }
 
 // Tela de historico do aluno
-export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenAttempts, userId, apiBaseUrl }) {
+export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenActivityCode, onOpenAttempts, userId, apiBaseUrl }) {
   const [search, setSearch] = useState("");
   const [viewingActivity, setViewingActivity] = useState(null);
   const [viewingQuestions, setViewingQuestions] = useState([]);
@@ -76,16 +119,16 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenAttemp
     setLoading(true);
     setError("");
     try {
-      const response = await fetch(`${apiBaseUrl}/activities?owner_id=${userId}`);
-      if (!response.ok) throw new Error("Falha ao carregar atividades.");
+      const response = await fetch(`${apiBaseUrl}/attempts?aluno_id=${userId}&limit=200`);
+      if (!response.ok) throw new Error("Falha ao carregar tentativas.");
       const data = await response.json();
-      setActivities(Array.isArray(data) ? data.map((item) => normalizeActivity(item, username)) : []);
+      setActivities(Array.isArray(data) ? groupAttemptsByActivity(data) : []);
     } catch (err) {
-      setError(err?.message ?? "Falha ao carregar atividades.");
+      setError(err?.message ?? "Falha ao carregar tentativas.");
     } finally {
       setLoading(false);
     }
-  }, [apiBaseUrl, userId, username]);
+  }, [apiBaseUrl, userId]);
 
   useEffect(() => {
     fetchActivities();
@@ -268,7 +311,7 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenAttemp
           name: previewData.name,
           discipline: previewData.discipline,
           status: "ativo",
-          is_shareable: true,
+          is_shareable: false,
         }),
       });
 
@@ -316,8 +359,8 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenAttemp
       idFinal = idFinal.split("?activity=")[1].split("#")[0];
     }
     
-    if (onOpenActivity) {
-      onOpenActivity(idFinal);
+    if (onOpenActivityCode) {
+      onOpenActivityCode(idFinal);
     }
     
     setShowCodeModal(false);
@@ -479,7 +522,7 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenAttemp
                               className="btn btn-outline btn-sm"
                               onClick={() => { onOpenAttempts({ id: h.id, name: h.name, discipline: h.disciplina }); }}
                             >
-                              Ver tentativas
+                              {h.attemptsCount || 0} tentativa{h.attemptsCount !== 1 ? "s" : ""}
                             </button>
                           )}
                         </td>
@@ -573,7 +616,7 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenAttemp
             </div>
 
             <div className="modal-actions" style={{ marginTop: 0 }}>
-              {onOpenActivity && (
+              {onOpenActivity && viewingActivity.rawStatus !== "concluido" && (
                 <button
                   className="btn btn-primary"
                   onClick={() => { onOpenActivity(viewingActivity.id); setViewingActivity(null); }}

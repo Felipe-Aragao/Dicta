@@ -24,6 +24,11 @@ import "./App.css";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
+const getInitialShareCode = () => {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("code") || "";
+};
+
 // Logo da aplicacao
 function DictaLogo({ height = 40  , onClick }) {
   return (
@@ -62,6 +67,7 @@ export default function App() {
   const [attemptConcluded, setAttemptConcluded] = useState(false);
   
   const [pendingActivityId, setPendingActivityId] = useState(null);
+  const [pendingActivityCode, setPendingActivityCode] = useState(getInitialShareCode);
   const [prevPage, setPrevPage] = useState(null);
 
   const { stopSpeak }               = useSpeech();
@@ -94,6 +100,12 @@ export default function App() {
     setPage(destino);
     if (novoRole !== null) setRole(novoRole);
   }, [role, stopSpeak]);
+
+  useEffect(() => {
+    if (!pendingActivityCode || currentUser?.id) return;
+    if (page === "credentials" && role === "aluno") return;
+    navigate("credentials", "aluno");
+  }, [currentUser?.id, navigate, page, pendingActivityCode, role]);
 
   // Reset de status de upload
   const resetUploadStatus = useCallback(() => {
@@ -466,6 +478,7 @@ export default function App() {
         setQuestionStartIndex(0);
         setAttemptConcluded(false);
         setLockedAttemptNotice(null);
+        setPendingActivityCode("");
         window.history.pushState({ page: "login", role: null }, "", "#login");
         setPage("login");
       }, [stopSpeak]);
@@ -713,6 +726,32 @@ export default function App() {
         }
         navigate("question");
       }, [createAttempt, navigate]);
+
+      const handleOpenActivityCode = useCallback(async (codeOrLink) => {
+        const value = String(codeOrLink || "").trim();
+        if (!value) return;
+
+        try {
+          const response = await fetch(`${API_BASE_URL}/activities/by-code/${encodeURIComponent(value)}`);
+          if (!response.ok) {
+            let detail = "Código inválido ou atividade indisponível.";
+            try {
+              const data = await response.json();
+              detail = extractApiErrorMessage(data?.detail, detail);
+            } catch {
+              
+            }
+            throw new Error(detail);
+          }
+          const activity = await response.json();
+          if (!activity?.id) {
+            throw new Error("Atividade não encontrada.");
+          }
+          await handleOpenActivity(activity.id);
+        } catch (error) {
+          showToast(error?.message ?? "Falha ao abrir atividade.");
+        }
+      }, [API_BASE_URL, handleOpenActivity, showToast]);
       
       useEffect(() => {
         if (currentUser?.id && role === "aluno" && pendingActivityId) {
@@ -720,6 +759,13 @@ export default function App() {
           setPendingActivityId(null); 
         }
       }, [currentUser, role, pendingActivityId, handleOpenActivity]);
+
+      useEffect(() => {
+        if (currentUser?.id && role === "aluno" && pendingActivityCode) {
+          handleOpenActivityCode(pendingActivityCode);
+          setPendingActivityCode("");
+        }
+      }, [currentUser?.id, handleOpenActivityCode, pendingActivityCode, role]);
       
       // Abrir lista de tentativas de uma atividade
       const handleOpenAttempts = useCallback((activity) => {
@@ -924,6 +970,7 @@ export default function App() {
             username={username || "Aluno"}
             onLogout={handleLogout}
             onOpenActivity={handleOpenActivity} 
+            onOpenActivityCode={handleOpenActivityCode}
             onOpenAttempts={handleOpenAttempts}
             userId={currentUser?.id}
             apiBaseUrl={API_BASE_URL}
@@ -986,6 +1033,7 @@ export default function App() {
             apiBaseUrl={API_BASE_URL}
             onBack={() => navigate(role === "professor" ? "professor-home" : "history")}
             onResume={handleResumeAttempt} 
+            alunoId={role === "aluno" ? currentUser?.id : null}
           />
         )}
 

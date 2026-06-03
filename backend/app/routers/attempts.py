@@ -252,7 +252,11 @@ def create_attempt(data: AttemptCreate, db: Session = Depends(get_db)):
     if not data.aluno_id and not visitor_name:
         raise HTTPException(status_code=400, detail="Aluno ou nome do visitante deve ser fornecido.")
 
-    payload = data.model_copy(update={"visitor_name": visitor_name}) if hasattr(data, "model_copy") else data.model_copy(update={"visitor_name": visitor_name})
+    payload = (
+        data.model_copy(update={"visitor_name": visitor_name})
+        if hasattr(data, "model_copy")
+        else data.model_copy(update={"visitor_name": visitor_name})
+    )
     return AttemptService(db).create(payload)
 
 
@@ -317,6 +321,8 @@ def create_visitor_attempt(data: VisitorAttemptCreate, db: Session = Depends(get
         started_at=datetime.now(timezone.utc),
     )
     db.add(attempt)
+    activity.total_responses = 1
+    db.add(activity)
     db.commit()
     db.refresh(attempt)
 

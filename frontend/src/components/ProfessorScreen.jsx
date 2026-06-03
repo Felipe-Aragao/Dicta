@@ -29,13 +29,14 @@ const normalizeActivity = (activity, ownerName) => {
   return {
     id: activity.id,
     ownerId: activity.owner_id,
+    shareCode: activity.share_code || "",
     nome: activity.name || "Atividade",
     professor: ownerName || "Professor",
     disciplina: activity.discipline || "Geral",
     status: statusMap[activity.status] || "Ativo",
     criadoEm: formatDate(activity.created_at),
     alunos: activity.total_responses ?? 0,
-    link: `${window.location.origin}/q/${activity.id}`,
+    link: activity.share_code ? `${window.location.origin}/?code=${activity.share_code}` : "",
   };
 };
 
@@ -56,10 +57,11 @@ function Sidebar({ username, onLogout }) {
 }
 
 // Botao de copiar link
-function CopyLinkButton({ link }) {
+function CopyLinkButton({ link, code }) {
   const [copied, setCopied] = useState(false);
   const handleCopy = (e) => {
     e.stopPropagation();
+    if (!link) return;
     navigator.clipboard.writeText(link).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -70,11 +72,12 @@ function CopyLinkButton({ link }) {
       className={`copy-btn${copied ? " copied" : ""}`}
       onClick={handleCopy}
       aria-label={copied ? "Código copiado!" : "Copiar código da atividade"}
-      title={link}
+      title={link || "Código indisponível"}
+      disabled={!link}
     >
       {copied
         ? <><Check size={13} weight="bold" /> Copiado</>
-        : <><Link size={13} weight="regular" /> Copiar código</>}
+        : <><Link size={13} weight="regular" /> {code || "Sem código"}</>}
     </button>
   );
 }
@@ -463,7 +466,7 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl, onOpen
                           </div>
                         </td>
                         <td onClick={(e) => e.stopPropagation()}>
-                          <CopyLinkButton link={q.id} />
+                          <CopyLinkButton link={q.link} code={q.shareCode} />
                         </td>
                         <td onClick={(e) => e.stopPropagation()}>
                           {onOpenAttempts && (

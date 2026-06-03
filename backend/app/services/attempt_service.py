@@ -1,8 +1,10 @@
 from typing import Optional
 import uuid
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
 
+from app.models.activities import Activity
 from app.models.attempts import Attempt
 from app.schemas.attempt import AttemptCreate, AttemptUpdate
 
@@ -18,11 +20,30 @@ class AttemptService:
     def __init__(self, db: Session):
         self.db = db
 
+    def _with_read_relations(self, query):
+        return query.options(
+            selectinload(Attempt.aluno),
+            selectinload(Attempt.activity).selectinload(Activity.owner),
+        )
+
+    def _recalculate_activity_total(self, activity_id: uuid.UUID) -> None:
+        total = (
+            self.db.query(func.count(Attempt.id))
+            .filter(Attempt.activity_id == activity_id)
+            .scalar()
+        )
+        activity = self.db.query(Activity).filter(Activity.id == activity_id).first()
+        if activity:
+            activity.total_responses = int(total or 0)
+            self.db.add(activity)
+
     # Cria uma tentativa
     def create(self, data: AttemptCreate) -> Attempt:
         payload = _model_dump(data, exclude_none=True)
         attempt = Attempt(**payload)
         self.db.add(attempt)
+        self.db.flush()
+        self._recalculate_activity_total(attempt.activity_id)
         self.db.commit()
         self.db.refresh(attempt)
         return attempt
@@ -35,7 +56,7 @@ class AttemptService:
         skip: int = 0,
         limit: int = 20,
     ) -> list[Attempt]:
-        query = self.db.query(Attempt).options(selectinload(Attempt.aluno))
+        query = self._with_read_relations(self.db.query(Attempt))
         if activity_id:
             query = query.filter(Attempt.activity_id == activity_id)
         if aluno_id:
@@ -50,8 +71,7 @@ class AttemptService:
     # Busca tentativa por id
     def get(self, attempt_id: uuid.UUID) -> Optional[Attempt]:
         return (
-            self.db.query(Attempt)
-            .options(selectinload(Attempt.aluno))
+            self._with_read_relations(self.db.query(Attempt))
             .filter(Attempt.id == attempt_id)
             .first()
         )
@@ -68,5 +88,8 @@ class AttemptService:
 
     # Remove tentativa
     def delete(self, attempt: Attempt) -> None:
+        activity_id = attempt.activity_id
         self.db.delete(attempt)
+        self.db.flush()
+        self._recalculate_activity_total(activity_id)
         self.db.commit()
