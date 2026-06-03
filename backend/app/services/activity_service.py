@@ -2,6 +2,7 @@ from typing import Optional
 import secrets
 import string
 import uuid
+import re
 
 from sqlalchemy.orm import Session
 
@@ -20,6 +21,7 @@ def _model_dump(model, **kwargs):
 
 class ActivityService:
     CODE_ALPHABET = string.ascii_uppercase + string.digits
+    CODE_RE = re.compile(r"^[A-Z0-9]{3}-[A-Z0-9]{3}$")
 
     def __init__(self, db: Session):
         self.db = db
@@ -27,6 +29,10 @@ class ActivityService:
     def _generate_share_code(self) -> str:
         raw = "".join(secrets.choice(self.CODE_ALPHABET) for _ in range(6))
         return f"{raw[:3]}-{raw[3:]}"
+
+    def _assert_token_format(self, token: str) -> None:
+        if not self.CODE_RE.match(token):
+            raise ValueError("Código gerado fora do formato esperado.")
 
     def _can_share(self, activity: Activity) -> bool:
         return bool(
@@ -60,6 +66,7 @@ class ActivityService:
 
         for _ in range(20):
             token = self._generate_share_code()
+            self._assert_token_format(token)
             exists = self.db.query(ActivityLink).filter(ActivityLink.token == token).first()
             if exists:
                 continue
@@ -69,6 +76,25 @@ class ActivityService:
             return link
 
         raise RuntimeError("Não foi possível gerar um código único para a atividade.")
+
+    def set_shareable(self, activity: Activity, is_shareable: bool) -> Activity:
+        activity.is_shareable = is_shareable
+        self.db.add(activity)
+        self.db.flush()
+        self.ensure_share_link(activity)
+        self.db.commit()
+        self.db.refresh(activity)
+        return activity
+
+    def regenerate_share_link(self, activity: Activity) -> Activity:
+        activity.is_shareable = True
+        self._deactivate_share_links(activity)
+        self.db.add(activity)
+        self.db.flush()
+        self.ensure_share_link(activity)
+        self.db.commit()
+        self.db.refresh(activity)
+        return activity
 
     # Cria uma atividade
     def create(self, data: ActivityCreate) -> Activity:

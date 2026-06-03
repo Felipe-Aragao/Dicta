@@ -37,6 +37,10 @@ class ActivityUpdate(BaseModel):
     published_at: Optional[datetime] = None
 
 
+class ActivityShareUpdate(BaseModel):
+    is_shareable: bool
+
+
 class ActivityRead(ORMBase):
     id: uuid.UUID
     owner_id: uuid.UUID

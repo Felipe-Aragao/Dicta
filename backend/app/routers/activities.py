@@ -10,7 +10,7 @@ from app.core.database import get_db
 from app.models.activities import ActivityStatus
 from app.models.activity_links import ActivityLink
 from app.models.users import RoleEnum
-from app.schemas.activity import ActivityCreate, ActivityRead, ActivityUpdate
+from app.schemas.activity import ActivityCreate, ActivityRead, ActivityShareUpdate, ActivityUpdate
 from app.services.activity_service import ActivityService
 from app.services.user_service import UserService
 
@@ -31,6 +31,12 @@ def _get_activity_or_404(service: ActivityService, activity_id: uuid.UUID):
     if not activity:
         raise HTTPException(status_code=404, detail="Atividade não encontrada.")
     return activity
+
+
+def _ensure_professor_owner(db: Session, activity) -> None:
+    owner = UserService(db).get(activity.owner_id)
+    if not owner or owner.role != RoleEnum.professor:
+        raise HTTPException(status_code=403, detail="Apenas professores podem compartilhar provas.")
 
 
 def _normalize_share_code(value: str) -> str:
@@ -101,6 +107,37 @@ def get_activity_by_code(code: str, db: Session = Depends(get_db)):
     if activity.status == ActivityStatus.encerrado:
         raise HTTPException(status_code=409, detail="Atividade encerrada.")
     return activity
+
+
+@router.put("/{activity_id}/share", response_model=ActivityRead)
+def update_activity_share(
+    activity_id: uuid.UUID,
+    data: ActivityShareUpdate,
+    db: Session = Depends(get_db),
+):
+    service = ActivityService(db)
+    activity = _get_activity_or_404(service, activity_id)
+    _ensure_professor_owner(db, activity)
+    return service.set_shareable(activity, data.is_shareable)
+
+
+def _regenerate_activity_share_code(activity_id: uuid.UUID, db: Session) -> ActivityRead:
+    service = ActivityService(db)
+    activity = _get_activity_or_404(service, activity_id)
+    _ensure_professor_owner(db, activity)
+    if activity.status == ActivityStatus.encerrado:
+        raise HTTPException(status_code=409, detail="Prova encerrada não pode gerar novo código.")
+    return service.regenerate_share_link(activity)
+
+
+@router.post("/{activity_id}/regenerate-code", response_model=ActivityRead)
+def regenerate_activity_code(activity_id: uuid.UUID, db: Session = Depends(get_db)):
+    return _regenerate_activity_share_code(activity_id, db)
+
+
+@router.post("/{activity_id}/share/regenerate", response_model=ActivityRead)
+def regenerate_activity_share_code(activity_id: uuid.UUID, db: Session = Depends(get_db)):
+    return _regenerate_activity_share_code(activity_id, db)
 
 
 # Consulta de atividade

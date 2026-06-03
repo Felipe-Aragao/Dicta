@@ -748,8 +748,10 @@ export default function App() {
             throw new Error("Atividade não encontrada.");
           }
           await handleOpenActivity(activity.id);
+          return true;
         } catch (error) {
           showToast(error?.message ?? "Falha ao abrir atividade.");
+          return false;
         }
       }, [API_BASE_URL, handleOpenActivity, showToast]);
       
