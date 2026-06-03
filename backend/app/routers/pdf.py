@@ -526,7 +526,7 @@ async def receive_pdf(
         """
         
         response = client.models.generate_content(
-            model='gemini-3.1-flash-lite', # 🟢 Corrigido para o modelo veloz e barato que existe!
+            model='gemini-3.1-flash-lite',
             contents=prompt,
             config=types.GenerateContentConfig(
                 temperature=0.1,
