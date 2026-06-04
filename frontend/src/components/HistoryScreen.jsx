@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ArrowRight, ClockCounterClockwise, Plus, User, MagnifyingGlass, Trash } from "@phosphor-icons/react";
+import { ArrowRight, Article, ClockCounterClockwise, Plus, User, MagnifyingGlass, Trash } from "@phosphor-icons/react";
 import { extractApiErrorMessage } from "../utils/apiError";
 import { normalizeQuestions } from "../utils/questions";
 import { ActivityCreateModal, ActivityPdfModal, ActivityPreviewModal } from "./ActivityModals";
@@ -29,8 +29,69 @@ const normalizeActivity = (activity, ownerName) => {
     professor: ownerName || "Aluno",
     disciplina: activity.discipline || "Geral",
     criadoem: formatDate(activity.created_at),
+    sortValue: activity.created_at ? new Date(activity.created_at).getTime() || 0 : 0,
     status: statusMap[activity.status] || "Ativo",
+    rawStatus: activity.status,
+    attemptsCount: 0,
   };
+};
+
+const normalizeAttemptStatus = (status) => {
+  const statusMap = {
+    concluido: "Concluido",
+    "em progresso": "Em progresso",
+  };
+  return statusMap[status] || status || "Em progresso";
+};
+
+const getAttemptDateValue = (attempt) => {
+  const value = attempt?.submitted_at || attempt?.started_at || attempt?.last_saved_at;
+  const date = value ? new Date(value) : null;
+  return date && !Number.isNaN(date.getTime()) ? date.getTime() : 0;
+};
+
+const normalizeAttemptActivity = (attempts = []) => {
+  const latestAttempt = attempts.reduce((latest, attempt) => (
+    getAttemptDateValue(attempt) > getAttemptDateValue(latest) ? attempt : latest
+  ), attempts[0]);
+
+  return {
+    id: latestAttempt.activity_id,
+    ownerId: null,
+    name: latestAttempt.activity_name || "Atividade",
+    professor: latestAttempt.professor_name || "Professor",
+    disciplina: latestAttempt.activity_discipline || "Geral",
+    criadoem: formatDate(latestAttempt.submitted_at || latestAttempt.started_at || latestAttempt.last_saved_at),
+    sortValue: getAttemptDateValue(latestAttempt),
+    status: normalizeAttemptStatus(latestAttempt.status),
+    rawStatus: latestAttempt.status,
+    attemptsCount: attempts.length,
+  };
+};
+
+const groupAttemptsByActivity = (attempts = []) => {
+  const grouped = new Map();
+  for (const attempt of attempts) {
+    if (!attempt?.activity_id) continue;
+    const current = grouped.get(attempt.activity_id) || [];
+    current.push(attempt);
+    grouped.set(attempt.activity_id, current);
+  }
+  return Array.from(grouped.values()).map(normalizeAttemptActivity);
+};
+
+const mergeOwnedAndAttemptedActivities = (ownedActivities = [], attemptedActivities = []) => {
+  const byId = new Map();
+  for (const activity of ownedActivities) {
+    byId.set(activity.id, activity);
+  }
+  for (const activity of attemptedActivities) {
+    const existing = byId.get(activity.id);
+    byId.set(activity.id, { ...existing, ...activity });
+  }
+  return Array.from(byId.values()).sort((a, b) => {
+    return (b.sortValue || 0) - (a.sortValue || 0);
+  });
 };
 
 // Menu lateral do aluno
@@ -50,7 +111,7 @@ function Sidebar({ username, onLogout }) {
 }
 
 // Tela de historico do aluno
-export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenAttempts, userId, apiBaseUrl }) {
+export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenActivityCode, onOpenAttempts, userId, apiBaseUrl }) {
   const [search, setSearch] = useState("");
   const [viewingActivity, setViewingActivity] = useState(null);
   const [viewingQuestions, setViewingQuestions] = useState([]);
@@ -67,6 +128,8 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenAttemp
   const [saving, setSaving] = useState(false);
   const [showCodeModal, setShowCodeModal] = useState(false);
   const [activityCode, setActivityCode] = useState("");
+  const [activityCodeError, setActivityCodeError] = useState("");
+  const [activityCodeLoading, setActivityCodeLoading] = useState(false);
   const [deleteMode, setDeleteMode] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
@@ -76,10 +139,18 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenAttemp
     setLoading(true);
     setError("");
     try {
-      const response = await fetch(`${apiBaseUrl}/activities?owner_id=${userId}`);
-      if (!response.ok) throw new Error("Falha ao carregar atividades.");
-      const data = await response.json();
-      setActivities(Array.isArray(data) ? data.map((item) => normalizeActivity(item, username)) : []);
+      const [attemptsResponse, ownedResponse] = await Promise.all([
+        fetch(`${apiBaseUrl}/attempts?aluno_id=${userId}&limit=1000`),
+        fetch(`${apiBaseUrl}/activities?owner_id=${userId}&limit=1000`),
+      ]);
+      if (!attemptsResponse.ok || !ownedResponse.ok) {
+        throw new Error("Falha ao carregar atividades.");
+      }
+      const attemptsData = await attemptsResponse.json();
+      const ownedData = await ownedResponse.json();
+      const attemptedActivities = Array.isArray(attemptsData) ? groupAttemptsByActivity(attemptsData) : [];
+      const ownedActivities = Array.isArray(ownedData) ? ownedData.map((item) => normalizeActivity(item, username)) : [];
+      setActivities(mergeOwnedAndAttemptedActivities(ownedActivities, attemptedActivities));
     } catch (err) {
       setError(err?.message ?? "Falha ao carregar atividades.");
     } finally {
@@ -268,7 +339,7 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenAttemp
           name: previewData.name,
           discipline: previewData.discipline,
           status: "ativo",
-          is_shareable: true,
+          is_shareable: false,
         }),
       });
 
@@ -303,25 +374,35 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenAttemp
 
   const handleOpenCodeModal = () => {
     setActivityCode("");
+    setActivityCodeError("");
     setShowCodeModal(true);
   };
 
-  const handleCodeConfirm = () => {
+  const handleCodeConfirm = async () => {
     if (!activityCode.trim()) {
       return;
     }
+    setActivityCodeLoading(true);
+    setActivityCodeError("");
     
     let idFinal = activityCode.trim();
     if (idFinal.includes("?activity=")) {
       idFinal = idFinal.split("?activity=")[1].split("#")[0];
     }
     
-    if (onOpenActivity) {
-      onOpenActivity(idFinal);
+    let opened = false;
+    if (onOpenActivityCode) {
+      opened = await onOpenActivityCode(idFinal);
     }
-    
-    setShowCodeModal(false);
-    setActivityCode(""); 
+    setActivityCodeLoading(false);
+
+    if (opened) {
+      setShowCodeModal(false);
+      setActivityCode(""); 
+      return;
+    }
+
+    setActivityCodeError("Código não encontrado, inativo ou atividade indisponível.");
   };
 
   const canDeleteActivity = (activity) => (
@@ -430,20 +511,19 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenAttemp
               </div>
             </div>
 
-            <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+            <div className="card table-card">
               {error && (
                 <div style={{ padding: "14px 22px", color: "var(--red-600)", fontSize: "0.9rem" }} role="status">
                   {error}
                 </div>
               )}
               {!loading && filtered.length > 0 ? (
-                <table className="data-table" role="table" aria-label="Histórico de questionários respondidos">
+                <table className="data-table history-activity-table" role="table" aria-label="Histórico de questionários respondidos">
                   <thead>
                     <tr>
                       <th scope="col">Questionário</th>
                       <th scope="col">Professor · Disciplina</th>
-                      <th scope="col">Criado em</th>
-                      <th scope="col">Status</th>
+                      <th scope="col">Detalhes</th>
                       <th scope="col">Tentativas</th>
                       <th scope="col" style={{ width: 56 }}></th>
                       <th scope="col"></th>
@@ -456,30 +536,37 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenAttemp
                         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setViewingActivity(h); }}
                       >
                         <td>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10, whiteSpace: "nowrap"}}>
+                          <div className="activity-title-cell" title={h.name}>
                             <ClockCounterClockwise size={15} color="var(--text-3)" weight="regular" />
-                            {h.name}
+                            <span className="activity-title-text">{h.name}</span>
                           </div>
                         </td>
                         <td>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                            <span style={{ fontWeight: 600, color: "var(--text-1)", fontSize: "0.92rem" }}>
+                          <div className="activity-meta-cell">
+                            <span className="activity-meta-title">
                               {h.professor || "Prof. Ana Lima"}
                             </span>
-                            <span style={{ fontSize: "0.82rem", color: "var(--text-3)" }}>
+                            <span className="activity-meta-subtitle">
                               {h.disciplina || "Prog. Orientada a Objetos"}
                             </span>
                           </div>
                         </td>
-                        <td>{h.criadoem || "12/05/2026"}</td>
-                        <td><span className="badge badge-green">{h.status}</span></td>
+                        <td>
+                          <div className="activity-meta-cell">
+                            <span><span className="badge badge-green">{h.status}</span></span>
+                            <span className="activity-meta-subtitle">{h.criadoem || "12/05/2026"}</span>
+                          </div>
+                        </td>
                         <td onClick={(e) => e.stopPropagation()}>
                           {onOpenAttempts && (
                             <button
-                              className="btn btn-outline btn-sm"
+                              className="attempts-icon-btn"
                               onClick={() => { onOpenAttempts({ id: h.id, name: h.name, discipline: h.disciplina }); }}
+                              aria-label={`Ver ${h.attemptsCount || 0} tentativa${h.attemptsCount !== 1 ? "s" : ""}`}
+                              title={`${h.attemptsCount || 0} tentativa${h.attemptsCount !== 1 ? "s" : ""}`}
                             >
-                              Ver tentativas
+                              <Article size={15} weight="regular" />
+                              <span>{h.attemptsCount || 0}</span>
                             </button>
                           )}
                         </td>
@@ -573,7 +660,7 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenAttemp
             </div>
 
             <div className="modal-actions" style={{ marginTop: 0 }}>
-              {onOpenActivity && (
+              {onOpenActivity && viewingActivity.rawStatus !== "concluido" && (
                 <button
                   className="btn btn-primary"
                   onClick={() => { onOpenActivity(viewingActivity.id); setViewingActivity(null); }}
@@ -642,7 +729,7 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenAttemp
       )}
 
       {showCodeModal && (
-        <div className="modal-overlay" role="dialog" aria-modal="true" onClick={(e) => { if (e.target === e.currentTarget) setShowCodeModal(false); }}>
+        <div className="modal-overlay" role="dialog" aria-modal="true" onClick={(e) => { if (e.target === e.currentTarget && !activityCodeLoading) setShowCodeModal(false); }}>
           <div className="modal-card">
             <h2 className="modal-title" style={{ marginBottom: 10 }}>Inserir código</h2>
             <div className="field-group" style={{ marginBottom: 8 }}>
@@ -653,22 +740,29 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenAttemp
                   className="text-input"
                   type="text"
                   value={activityCode}
-                  onChange={(e) => setActivityCode(e.target.value)}
+                  onChange={(e) => {
+                    setActivityCode(e.target.value);
+                    setActivityCodeError("");
+                  }}
                   placeholder="Cole o código ou link aqui"
                   autoFocus
+                  disabled={activityCodeLoading}
                 />
+                {activityCodeError && (
+                  <p className="field-error" role="status">{activityCodeError}</p>
+                )}
               </div>
             </div>
             <div className="modal-actions">
-              <button className="btn btn-outline" onClick={() => setShowCodeModal(false)}>
+              <button className="btn btn-outline" onClick={() => setShowCodeModal(false)} disabled={activityCodeLoading}>
                 Cancelar
               </button>
               <button
                 className="btn btn-primary"
                 onClick={handleCodeConfirm}
-                disabled={activityCode.trim().length === 0}
+                disabled={activityCode.trim().length === 0 || activityCodeLoading}
               >
-                Confirmar
+                {activityCodeLoading ? "Verificando..." : "Confirmar"}
               </button>
             </div>
           </div>

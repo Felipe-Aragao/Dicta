@@ -37,6 +37,10 @@ class ActivityUpdate(BaseModel):
     published_at: Optional[datetime] = None
 
 
+class ActivityShareUpdate(BaseModel):
+    is_shareable: bool
+
+
 class ActivityRead(ORMBase):
     id: uuid.UUID
     owner_id: uuid.UUID
@@ -45,5 +49,6 @@ class ActivityRead(ORMBase):
     status: ActivityStatus
     is_shareable: bool
     total_responses: int
+    share_code: Optional[str] = None
     created_at: datetime
     published_at: Optional[datetime] = None

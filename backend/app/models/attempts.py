@@ -33,3 +33,17 @@ class Attempt(Base):
     @property
     def aluno_name(self):
         return self.aluno.name if self.aluno else None
+
+    @property
+    def activity_name(self):
+        return self.activity.name if self.activity else None
+
+    @property
+    def activity_discipline(self):
+        return self.activity.discipline if self.activity else None
+
+    @property
+    def professor_name(self):
+        if not self.activity or not self.activity.owner:
+            return None
+        return self.activity.owner.name

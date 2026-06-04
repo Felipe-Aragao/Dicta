@@ -25,7 +25,7 @@ const getStatusMeta = (status) => {
 };
 
 // Tela de tentativas
-export function AttemptsScreen({ activity, apiBaseUrl, onBack, onResume }) {
+export function AttemptsScreen({ activity, apiBaseUrl, onBack, onResume, alunoId }) {
   const [attempts, setAttempts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -41,7 +41,12 @@ export function AttemptsScreen({ activity, apiBaseUrl, onBack, onResume }) {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch(`${apiBaseUrl}/attempts?activity_id=${activity.id}&limit=200`);
+      const params = new URLSearchParams({
+        activity_id: activity.id,
+        limit: "200",
+      });
+      if (alunoId) params.set("aluno_id", alunoId);
+      const response = await fetch(`${apiBaseUrl}/attempts?${params.toString()}`);
       if (!response.ok) throw new Error("Falha ao carregar tentativas.");
       const data = await response.json();
       setAttempts(Array.isArray(data) ? data : []);
@@ -50,7 +55,7 @@ export function AttemptsScreen({ activity, apiBaseUrl, onBack, onResume }) {
     } finally {
       setLoading(false);
     }
-  }, [activity?.id, apiBaseUrl]);
+  }, [activity?.id, alunoId, apiBaseUrl]);
 
   useEffect(() => {
     fetchAttempts();

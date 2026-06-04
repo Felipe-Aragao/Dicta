@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  Plus, Users, FilePdf, ArrowRight,
+  Plus, FilePdf, ArrowRight, Article,
   Link, Check, User,
-  MagnifyingGlass, Trash,
+  ArrowsClockwise, MagnifyingGlass, PlayCircle, StopCircle, Trash,
 } from "@phosphor-icons/react";
 import { ActivityCreateModal, ActivityPdfModal, ActivityPreviewModal } from "./ActivityModals";
 import { extractApiErrorMessage } from "../utils/apiError";
@@ -29,13 +29,16 @@ const normalizeActivity = (activity, ownerName) => {
   return {
     id: activity.id,
     ownerId: activity.owner_id,
+    shareCode: activity.share_code || "",
+    isShareable: Boolean(activity.is_shareable),
+    rawStatus: activity.status,
     nome: activity.name || "Atividade",
     professor: ownerName || "Professor",
     disciplina: activity.discipline || "Geral",
     status: statusMap[activity.status] || "Ativo",
     criadoEm: formatDate(activity.created_at),
     alunos: activity.total_responses ?? 0,
-    link: `${window.location.origin}/q/${activity.id}`,
+    link: activity.share_code ? `${window.location.origin}/?code=${activity.share_code}` : "",
   };
 };
 
@@ -55,27 +58,51 @@ function Sidebar({ username, onLogout }) {
   );
 }
 
-// Botao de copiar link
-function CopyLinkButton({ link }) {
-  const [copied, setCopied] = useState(false);
-  const handleCopy = (e) => {
+function ShareControls({ activity, onToggleStatus, onRegenerate, busy }) {
+  const [copied, setCopied] = useState(null);
+  const isClosed = activity.rawStatus === "encerrado";
+  const copyValue = (e, value, kind) => {
     e.stopPropagation();
-    navigator.clipboard.writeText(link).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+    if (!value) return;
+    navigator.clipboard.writeText(value).then(() => {
+      setCopied(kind);
+      setTimeout(() => setCopied(null), 1600);
     });
   };
+
   return (
-    <button
-      className={`copy-btn${copied ? " copied" : ""}`}
-      onClick={handleCopy}
-      aria-label={copied ? "Código copiado!" : "Copiar código da atividade"}
-      title={link}
-    >
-      {copied
-        ? <><Check size={13} weight="bold" /> Copiado</>
-        : <><Link size={13} weight="regular" /> Copiar código</>}
-    </button>
+    <div className="share-controls" onClick={(e) => e.stopPropagation()}>
+      <button
+        className={`copy-btn${copied === "code" ? " copied" : ""}`}
+        onClick={(e) => copyValue(e, activity.link, "code")}
+        aria-label="Copiar link da atividade"
+        title={activity.link || "Link indisponível"}
+        disabled={!activity.link || busy}
+      >
+        {copied === "code" ? <Check size={13} weight="bold" /> : <Link size={13} weight="regular" />}
+        {activity.shareCode || "Sem código"}
+      </button>
+      <button
+        className="icon-btn"
+        onClick={(e) => { e.stopPropagation(); onRegenerate(activity); }}
+        aria-label="Gerar novo código"
+        title="Gerar novo código"
+        disabled={busy || isClosed}
+      >
+        <ArrowsClockwise size={14} weight="regular" />
+      </button>
+      <button
+        className="icon-btn"
+        onClick={(e) => { e.stopPropagation(); onToggleStatus(activity); }}
+        aria-label={isClosed ? "Reativar prova" : "Encerrar prova"}
+        title={isClosed ? "Reativar prova" : "Encerrar prova"}
+        disabled={busy}
+      >
+        {isClosed
+          ? <PlayCircle size={14} weight="regular" />
+          : <StopCircle size={14} weight="regular" />}
+      </button>
+    </div>
   );
 }
 
@@ -98,6 +125,7 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl, onOpen
   const [deleteMode, setDeleteMode] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [shareBusyId, setShareBusyId] = useState(null);
 
   const fetchActivities = useCallback(async () => {
     if (!userId) return;
@@ -369,6 +397,75 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl, onOpen
     }
   };
 
+  const updateActivityInList = useCallback((activity) => {
+    setQuestionarios((prev) => (
+      prev.map((item) => (
+        item.id === activity.id ? normalizeActivity(activity, username) : item
+      ))
+    ));
+    setViewingActivity((prev) => (
+      prev?.id === activity.id ? normalizeActivity(activity, username) : prev
+    ));
+  }, [username]);
+
+  const handleToggleActivityStatus = async (activity) => {
+    if (!activity?.id) return;
+    const shouldReactivate = activity.rawStatus === "encerrado";
+    setShareBusyId(activity.id);
+    setListError("");
+    try {
+      const response = await fetch(`${apiBaseUrl}/activities/${activity.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: shouldReactivate ? "ativo" : "encerrado",
+          is_shareable: true,
+        }),
+      });
+      if (!response.ok) {
+        let detail = shouldReactivate ? "Falha ao reativar prova." : "Falha ao encerrar prova.";
+        try {
+          const data = await response.json();
+          detail = extractApiErrorMessage(data?.detail, detail);
+        } catch {
+          // Mantem a mensagem padrao quando a API nao retorna JSON.
+        }
+        throw new Error(detail);
+      }
+      updateActivityInList(await response.json());
+    } catch (error) {
+      setListError(error?.message ?? (shouldReactivate ? "Falha ao reativar prova." : "Falha ao encerrar prova."));
+    } finally {
+      setShareBusyId(null);
+    }
+  };
+
+  const handleRegenerateShareCode = async (activity) => {
+    if (!activity?.id) return;
+    setShareBusyId(activity.id);
+    setListError("");
+    try {
+      const response = await fetch(`${apiBaseUrl}/activities/${activity.id}/regenerate-code`, {
+        method: "POST",
+      });
+      if (!response.ok) {
+        let detail = "Falha ao gerar novo código.";
+        try {
+          const data = await response.json();
+          detail = extractApiErrorMessage(data?.detail, detail);
+        } catch {
+          // Mantem a mensagem padrao quando a API nao retorna JSON.
+        }
+        throw new Error(detail);
+      }
+      updateActivityInList(await response.json());
+    } catch (error) {
+      setListError(error?.message ?? "Falha ao gerar novo código.");
+    } finally {
+      setShareBusyId(null);
+    }
+  };
+
   return (
     <>
       <div className="auth-layout page-anim">
@@ -423,82 +520,82 @@ export function ProfessorScreen({ username, onLogout, userId, apiBaseUrl, onOpen
                 </div>
               </div>
 
-              <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-                
+              <div className="card table-card">
                 {listError && (
                   <div style={{ padding: "14px 22px", color: "var(--red-600)", fontSize: "0.9rem" }} role="status">
                      {listError}
                   </div>
                 )}
-              
-                <div style={{ overflowX: "auto", width: "100%" }}>
-                  <table className="data-table" role="table" aria-label="Lista de questionários">
-                    <thead>
-                      <tr>
-                        <th scope="col">Questionário</th>
-                        <th scope="col">Status</th>
-                        <th scope="col">Criado em</th>
-                        <th scope="col">Alunos</th>
-                        <th scope="col">Link</th>
-                        <th scope="col">Tentativas</th>
-                        <th scope="col" style={{ width: 56 }}></th>
-                        <th scope="col"></th>
+                <table className="data-table professor-activity-table" role="table" aria-label="Lista de questionários">
+                  <thead>
+                    <tr>
+                      <th scope="col">Questionário</th>
+                      <th scope="col">Detalhes</th>
+                      <th scope="col">Código</th>
+                      <th scope="col">Tentativas</th>
+                      <th scope="col" style={{ width: 56 }}></th>
+                      <th scope="col"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((q) => (
+                      <tr key={q.id} className="data-row" tabIndex={0}
+                        onClick={() => setViewingActivity(q)}
+                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setViewingActivity(q); }}
+                      >
+                        <td>
+                          <div className="activity-title-cell" title={q.nome}>
+                            <FilePdf size={16} color="var(--text-3)" weight="regular" />
+                            <span className="activity-title-text">{q.nome}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="activity-meta-cell">
+                            <span><span className="badge badge-green">{q.status}</span></span>
+                            <span className="activity-meta-subtitle">{q.criadoEm}</span>
+                          </div>
+                        </td>
+                        <td onClick={(e) => e.stopPropagation()}>
+                          <ShareControls
+                            activity={q}
+                            busy={shareBusyId === q.id}
+                            onToggleStatus={handleToggleActivityStatus}
+                            onRegenerate={handleRegenerateShareCode}
+                          />
+                        </td>
+                        <td onClick={(e) => e.stopPropagation()}>
+                          {onOpenAttempts && (
+                            <button
+                              className="attempts-icon-btn"
+                              onClick={() => { onOpenAttempts({ id: q.id, name: q.nome, discipline: q.disciplina }); }}
+                              aria-label={`Ver ${q.alunos} tentativa${q.alunos !== 1 ? "s" : ""} de ${q.nome}`}
+                              title={`${q.alunos} tentativa${q.alunos !== 1 ? "s" : ""}`}
+                            >
+                              <Article size={15} weight="regular" />
+                              <span>{q.alunos}</span>
+                            </button>
+                          )}
+                        </td>
+                        <td onClick={(e) => e.stopPropagation()} style={{ textAlign: "right" }}>
+                          {deleteMode && canDeleteActivity(q) && (
+                            <button
+                              className="icon-btn icon-btn-danger"
+                              onClick={() => setDeleteTarget(q)}
+                              aria-label="Excluir atividade"
+                              title="Excluir atividade"
+                              disabled={deleting}
+                            >
+                              <Trash size={14} weight="bold" />
+                            </button>
+                          )}
+                        </td>
+                        <td style={{ textAlign: "right" }}>
+                          <ArrowRight size={15} color="var(--text-3)" />
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {filtered.map((q) => (
-                        <tr key={q.id} className="data-row" tabIndex={0}
-                          onClick={() => setViewingActivity(q)}
-                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setViewingActivity(q); }}
-                        >
-                          <td>
-                            <div style={{ display: "flex", alignItems: "center", gap: 10, whiteSpace: "nowrap" }}>
-                              <FilePdf size={16} color="var(--text-3)" weight="regular" />
-                              {q.nome}
-                            </div>
-                          </td>
-                          <td><span className="badge badge-green">{q.status}</span></td>
-                          <td>{q.criadoEm}</td>
-                          <td>
-                            <div style={{ display: "flex", alignItems: "center", gap: 6, color: "var(--text-3)", fontSize: "0.9rem" }}>
-                              <Users size={14} weight="regular" />
-                              {q.alunos} aluno{q.alunos !== 1 ? "s" : ""}
-                            </div>
-                          </td>
-                          <td onClick={(e) => e.stopPropagation()}>
-                            <CopyLinkButton link={q.id} />
-                          </td>
-                          <td onClick={(e) => e.stopPropagation()}>
-                            {onOpenAttempts && (
-                              <button
-                                className="btn btn-outline btn-sm"
-                                onClick={() => { onOpenAttempts({ id: q.id, name: q.nome, discipline: q.disciplina }); }}
-                              >
-                                Ver tentativas
-                              </button>
-                            )}
-                          </td>
-                          <td onClick={(e) => e.stopPropagation()} style={{ textAlign: "right" }}>
-                            {deleteMode && canDeleteActivity(q) && (
-                              <button
-                                className="icon-btn icon-btn-danger"
-                                onClick={() => setDeleteTarget(q)}
-                                aria-label="Excluir atividade"
-                                title="Excluir atividade"
-                                disabled={deleting}
-                              >
-                                <Trash size={14} weight="bold" />
-                              </button>
-                            )}
-                          </td>
-                          <td style={{ textAlign: "right" }}>
-                            <ArrowRight size={15} color="var(--text-3)" />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div> 
+                    ))}
+                  </tbody>
+                </table>
 
                 {!loadingList && filtered.length === 0 && (
                   <div style={{ padding: "64px 32px", textAlign: "center", color: "var(--text-3)", fontSize: "0.92rem" }} role="status">
