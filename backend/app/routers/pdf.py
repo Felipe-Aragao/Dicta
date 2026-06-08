@@ -6,6 +6,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from dotenv import load_dotenv
 from markitdown import MarkItDown
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
@@ -13,8 +14,7 @@ from pypdf.errors import PdfReadError
 from google import genai
 from google.genai import types
 
-# Inicialização do cliente Gemini
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+load_dotenv()
 
 router = APIRouter(prefix="/pdf", tags=["pdf"])
 
@@ -27,6 +27,13 @@ CHUNK_SIZE = 1024 * 1024
 BASE_DIR = Path(__file__).resolve().parents[1]
 INCOMING_DIR = BASE_DIR / "storage" / "incoming_pdfs"
 INCOMING_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def get_gemini_client():
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        raise RuntimeError("GEMINI_API_KEY não configurada.")
+    return genai.Client(api_key=api_key)
 
 
 @dataclass(frozen=True)
@@ -525,7 +532,7 @@ async def receive_pdf(
         {markdown_text}
         """
         
-        response = client.models.generate_content(
+        response = get_gemini_client().models.generate_content(
             model='gemini-3.1-flash-lite',
             contents=prompt,
             config=types.GenerateContentConfig(

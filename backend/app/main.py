@@ -1,8 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app import models
-from app.core.database import engine
 from app.routers.pdf import router as pdf_router
 from app.routers.activities import router as activities_router
 from app.routers.users import router as users_router
@@ -11,8 +9,6 @@ from app.routers.questions import router as questions_router
 from app.routers.question_options import router as question_options_router
 from app.routers.attempts import router as attempts_router
 from app.routers.answers import router as answers_router
-
-import uvicorn
 
 app = FastAPI()
 
@@ -24,9 +20,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# Inicializacao do schema no banco
-#models.Base.metadata.drop_all(bind=engine) # For testing
-models.Base.metadata.create_all(bind=engine)
 
 # Registro das rotas
 app.include_router(pdf_router)
