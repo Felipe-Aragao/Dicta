@@ -109,13 +109,14 @@ export function ActivityPdfModal({
 
 // Modal de pre-visualizacao de atividade (AGORA COM EDIÇÃO DINÂMICA)
 export function ActivityPreviewModal({ activity, questions = [], onBack, onConfirm, saving = false }) {
-  if (!activity) return null;
   const [draftQuestions, setDraftQuestions] = useState(() => normalizeQuestions(questions));
   const questionCount = draftQuestions.length;
 
   useEffect(() => {
     setDraftQuestions(normalizeQuestions(questions));
   }, [questions]);
+
+  if (!activity) return null;
 
   // Atualiza enunciado
   const updateQuestionText = (index, value) => {

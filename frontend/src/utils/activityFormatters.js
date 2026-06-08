@@ -1,0 +1,101 @@
+export const OPTION_LETTERS = ["A", "B", "C", "D", "E", "F"];
+
+export const formatDate = (value) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString("pt-BR");
+};
+
+export const normalizeActivityStatus = (status) => {
+  const statusMap = {
+    ativo: "Ativo",
+    encerrado: "Encerrado",
+    rascunho: "Rascunho",
+  };
+  return statusMap[status] || "Ativo";
+};
+
+export const normalizeAttemptStatus = (status) => {
+  const statusMap = {
+    concluido: "Concluido",
+    "em progresso": "Em progresso",
+  };
+  return statusMap[status] || status || "Em progresso";
+};
+
+export const getAttemptDateValue = (attempt) => {
+  const value = attempt?.submitted_at || attempt?.started_at || attempt?.last_saved_at;
+  const date = value ? new Date(value) : null;
+  return date && !Number.isNaN(date.getTime()) ? date.getTime() : 0;
+};
+
+export const normalizeProfessorActivity = (activity, ownerName) => ({
+  id: activity.id,
+  ownerId: activity.owner_id,
+  shareCode: activity.share_code || "",
+  isShareable: Boolean(activity.is_shareable),
+  rawStatus: activity.status,
+  nome: activity.name || "Atividade",
+  professor: ownerName || "Professor",
+  disciplina: activity.discipline || "Geral",
+  status: normalizeActivityStatus(activity.status),
+  criadoEm: formatDate(activity.created_at),
+  alunos: activity.total_responses ?? 0,
+  link: activity.share_code ? `${window.location.origin}/?code=${activity.share_code}` : "",
+});
+
+export const normalizeStudentOwnedActivity = (activity, ownerName) => ({
+  id: activity.id,
+  ownerId: activity.owner_id,
+  name: activity.name || "Atividade",
+  professor: ownerName || "Aluno",
+  disciplina: activity.discipline || "Geral",
+  criadoem: formatDate(activity.created_at),
+  sortValue: activity.created_at ? new Date(activity.created_at).getTime() || 0 : 0,
+  status: normalizeActivityStatus(activity.status),
+  rawStatus: activity.status,
+  attemptsCount: 0,
+});
+
+export const normalizeAttemptActivity = (attempts = []) => {
+  const latestAttempt = attempts.reduce((latest, attempt) => (
+    getAttemptDateValue(attempt) > getAttemptDateValue(latest) ? attempt : latest
+  ), attempts[0]);
+
+  return {
+    id: latestAttempt.activity_id,
+    ownerId: null,
+    name: latestAttempt.activity_name || "Atividade",
+    professor: latestAttempt.professor_name || "Professor",
+    disciplina: latestAttempt.activity_discipline || "Geral",
+    criadoem: formatDate(latestAttempt.submitted_at || latestAttempt.started_at || latestAttempt.last_saved_at),
+    sortValue: getAttemptDateValue(latestAttempt),
+    status: normalizeAttemptStatus(latestAttempt.status),
+    rawStatus: latestAttempt.status,
+    attemptsCount: attempts.length,
+  };
+};
+
+export const groupAttemptsByActivity = (attempts = []) => {
+  const grouped = new Map();
+  for (const attempt of attempts) {
+    if (!attempt?.activity_id) continue;
+    const current = grouped.get(attempt.activity_id) || [];
+    current.push(attempt);
+    grouped.set(attempt.activity_id, current);
+  }
+  return Array.from(grouped.values()).map(normalizeAttemptActivity);
+};
+
+export const mergeOwnedAndAttemptedActivities = (ownedActivities = [], attemptedActivities = []) => {
+  const byId = new Map();
+  for (const activity of ownedActivities) byId.set(activity.id, activity);
+  for (const activity of attemptedActivities) {
+    const existing = byId.get(activity.id);
+    byId.set(activity.id, { ...existing, ...activity });
+  }
+  return Array.from(byId.values()).sort((a, b) => (
+    (b.sortValue || 0) - (a.sortValue || 0)
+  ));
+};

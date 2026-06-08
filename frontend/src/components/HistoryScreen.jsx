@@ -1,98 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { ArrowRight, Article, ClockCounterClockwise, Plus, User, MagnifyingGlass, Trash } from "@phosphor-icons/react";
-import { extractApiErrorMessage } from "../utils/apiError";
-import { normalizeQuestions } from "../utils/questions";
 import { ActivityCreateModal, ActivityPdfModal, ActivityPreviewModal } from "./ActivityModals";
-
-const OPTION_LETTERS = ["A", "B", "C", "D", "E", "F"];
-
-// Formata data para exibicao
-const formatDate = (value) => {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleDateString("pt-BR");
-};
-
-// Normaliza dados de atividade
-const normalizeActivity = (activity, ownerName) => {
-  const statusMap = {
-    ativo: "Ativo",
-    encerrado: "Encerrado",
-    rascunho: "Rascunho",
-  };
-
-  return {
-    id: activity.id,
-    ownerId: activity.owner_id,
-    name: activity.name || "Atividade",
-    professor: ownerName || "Aluno",
-    disciplina: activity.discipline || "Geral",
-    criadoem: formatDate(activity.created_at),
-    sortValue: activity.created_at ? new Date(activity.created_at).getTime() || 0 : 0,
-    status: statusMap[activity.status] || "Ativo",
-    rawStatus: activity.status,
-    attemptsCount: 0,
-  };
-};
-
-const normalizeAttemptStatus = (status) => {
-  const statusMap = {
-    concluido: "Concluido",
-    "em progresso": "Em progresso",
-  };
-  return statusMap[status] || status || "Em progresso";
-};
-
-const getAttemptDateValue = (attempt) => {
-  const value = attempt?.submitted_at || attempt?.started_at || attempt?.last_saved_at;
-  const date = value ? new Date(value) : null;
-  return date && !Number.isNaN(date.getTime()) ? date.getTime() : 0;
-};
-
-const normalizeAttemptActivity = (attempts = []) => {
-  const latestAttempt = attempts.reduce((latest, attempt) => (
-    getAttemptDateValue(attempt) > getAttemptDateValue(latest) ? attempt : latest
-  ), attempts[0]);
-
-  return {
-    id: latestAttempt.activity_id,
-    ownerId: null,
-    name: latestAttempt.activity_name || "Atividade",
-    professor: latestAttempt.professor_name || "Professor",
-    disciplina: latestAttempt.activity_discipline || "Geral",
-    criadoem: formatDate(latestAttempt.submitted_at || latestAttempt.started_at || latestAttempt.last_saved_at),
-    sortValue: getAttemptDateValue(latestAttempt),
-    status: normalizeAttemptStatus(latestAttempt.status),
-    rawStatus: latestAttempt.status,
-    attemptsCount: attempts.length,
-  };
-};
-
-const groupAttemptsByActivity = (attempts = []) => {
-  const grouped = new Map();
-  for (const attempt of attempts) {
-    if (!attempt?.activity_id) continue;
-    const current = grouped.get(attempt.activity_id) || [];
-    current.push(attempt);
-    grouped.set(attempt.activity_id, current);
-  }
-  return Array.from(grouped.values()).map(normalizeAttemptActivity);
-};
-
-const mergeOwnedAndAttemptedActivities = (ownedActivities = [], attemptedActivities = []) => {
-  const byId = new Map();
-  for (const activity of ownedActivities) {
-    byId.set(activity.id, activity);
-  }
-  for (const activity of attemptedActivities) {
-    const existing = byId.get(activity.id);
-    byId.set(activity.id, { ...existing, ...activity });
-  }
-  return Array.from(byId.values()).sort((a, b) => {
-    return (b.sortValue || 0) - (a.sortValue || 0);
-  });
-};
+import { deleteActivity, listActivitiesByOwner } from "../services/activityService";
+import { listAttemptsByAluno } from "../services/attemptService";
+import { listQuestionsByActivity } from "../services/questionService";
+import { useActivityCreationFlow } from "../hooks/useActivityCreationFlow";
+import { ActivityPreviewDetailsModal } from "./activity/ActivityPreviewDetailsModal";
+import {
+  groupAttemptsByActivity,
+  mergeOwnedAndAttemptedActivities,
+  normalizeStudentOwnedActivity,
+} from "../utils/activityFormatters";
 
 // Menu lateral do aluno
 function Sidebar({ username, onLogout }) {
@@ -111,7 +29,7 @@ function Sidebar({ username, onLogout }) {
 }
 
 // Tela de historico do aluno
-export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenActivityCode, onOpenAttempts, userId, apiBaseUrl }) {
+export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenActivityCode, onOpenAttempts, userId }) {
   const [search, setSearch] = useState("");
   const [viewingActivity, setViewingActivity] = useState(null);
   const [viewingQuestions, setViewingQuestions] = useState([]);
@@ -120,12 +38,6 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenActivi
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [showModal, setShowModal] = useState(false);
-  const [showPdfModal, setShowPdfModal] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState("idle");
-  const [uploadError, setUploadError] = useState("");
-  const [previewData, setPreviewData] = useState(null);
-  const [saving, setSaving] = useState(false);
   const [showCodeModal, setShowCodeModal] = useState(false);
   const [activityCode, setActivityCode] = useState("");
   const [activityCodeError, setActivityCodeError] = useState("");
@@ -133,30 +45,34 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenActivi
   const [deleteMode, setDeleteMode] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const creation = useActivityCreationFlow({
+    userId,
+    username,
+    isShareable: false,
+    ownerFallback: "Aluno",
+    normalizeActivity: normalizeStudentOwnedActivity,
+    onCreated: (activity) => setActivities((prev) => [activity, ...prev]),
+    setError,
+  });
 
   const fetchActivities = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
     setError("");
     try {
-      const [attemptsResponse, ownedResponse] = await Promise.all([
-        fetch(`${apiBaseUrl}/attempts?aluno_id=${userId}&limit=1000`),
-        fetch(`${apiBaseUrl}/activities?owner_id=${userId}&limit=1000`),
+      const [attemptsData, ownedData] = await Promise.all([
+        listAttemptsByAluno(userId, 1000),
+        listActivitiesByOwner(userId, 1000),
       ]);
-      if (!attemptsResponse.ok || !ownedResponse.ok) {
-        throw new Error("Falha ao carregar atividades.");
-      }
-      const attemptsData = await attemptsResponse.json();
-      const ownedData = await ownedResponse.json();
       const attemptedActivities = Array.isArray(attemptsData) ? groupAttemptsByActivity(attemptsData) : [];
-      const ownedActivities = Array.isArray(ownedData) ? ownedData.map((item) => normalizeActivity(item, username)) : [];
+      const ownedActivities = Array.isArray(ownedData) ? ownedData.map((item) => normalizeStudentOwnedActivity(item, username)) : [];
       setActivities(mergeOwnedAndAttemptedActivities(ownedActivities, attemptedActivities));
     } catch (err) {
       setError(err?.message ?? "Falha ao carregar atividades.");
     } finally {
       setLoading(false);
     }
-  }, [apiBaseUrl, userId, username]);
+  }, [userId, username]);
 
   useEffect(() => {
     fetchActivities();
@@ -168,17 +84,14 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenActivi
     setViewingQuestionsLoading(true);
     setViewingQuestionsError("");
     try {
-      const response = await fetch(`${apiBaseUrl}/questions?activity_id=${activityId}`);
-      if (!response.ok) throw new Error("Falha ao carregar questoes.");
-      const data = await response.json();
-      setViewingQuestions(normalizeQuestions(data));
+      setViewingQuestions(await listQuestionsByActivity(activityId));
     } catch (err) {
       setViewingQuestionsError(err?.message ?? "Falha ao carregar questoes.");
       setViewingQuestions([]);
     } finally {
       setViewingQuestionsLoading(false);
     }
-  }, [apiBaseUrl]);
+  }, []);
 
   useEffect(() => {
     if (!viewingActivity?.id) {
@@ -188,189 +101,6 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenActivi
     }
     fetchQuestionsForActivity(viewingActivity.id);
   }, [fetchQuestionsForActivity, viewingActivity?.id]);
-
-  const handleOpenCreate = () => {
-    setPreviewData(null);
-    setUploadStatus("idle");
-    setUploadError("");
-    setShowPdfModal(true);
-  };
-
-  const handleExtractActivityPdf = async (file) => {
-    if (!file) return;
-    setUploadStatus("loading");
-    setUploadError("");
-
-    const formData = new FormData();
-    formData.append("pdf", file);
-
-    try {
-      const response = await fetch(`${apiBaseUrl}/pdf/receive`, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        let detail = "Falha ao enviar PDF.";
-        try {
-          const data = await response.json();
-          detail = extractApiErrorMessage(data?.detail, detail);
-        } catch {
-          // Mantem a mensagem padrao quando a API nao retorna JSON.
-        }
-        throw new Error(detail);
-      }
-
-      const data = await response.json();
-      const questions = Array.isArray(data?.questions) ? normalizeQuestions(data.questions) : [];
-      if (questions.length === 0) {
-        throw new Error("Nenhuma questão foi identificada no PDF.");
-      }
-
-      setUploadStatus("success");
-      setPreviewData({
-        name: file?.name ? file.name.replace(/\.[^.]+$/, "") : "",
-        discipline: "",
-        questions,
-      });
-      setShowPdfModal(false);
-      setShowModal(true);
-    } catch (err) {
-      setUploadStatus("error");
-      setUploadError(err?.message ?? "Falha ao enviar PDF.");
-    }
-  };
-
-  const handlePreview = (data) => {
-    setShowModal(false);
-    const numQuestions = data.numQuestions;
-
-    setPreviewData((prev) => {
-      let mergedQuestions = prev?.questions || [];
-
-      if (numQuestions) {
-        if (mergedQuestions.length > numQuestions) {
-          mergedQuestions = mergedQuestions.slice(0, numQuestions);
-        } else if (mergedQuestions.length < numQuestions) {
-          const blanks = Array.from({ length: numQuestions - mergedQuestions.length }).map((_, i) => ({
-            id: `blank-${mergedQuestions.length + i}`,
-            type: "open",
-            text: "",
-            options: []
-          }));
-          mergedQuestions = [...mergedQuestions, ...blanks];
-        }
-      }
-
-      return { ...prev, ...data, ...(numQuestions ? { numQuestions } : {}), questions: mergedQuestions };
-    });
-  };
-
-  const createQuestionsForActivity = useCallback(async (activityId, questions = []) => {
-    for (let i = 0; i < questions.length; i += 1) {
-      const question = questions[i];
-      const prompt = (question?.text ?? "").trim();
-      if (!prompt) continue;
-
-      const questionResponse = await fetch(`${apiBaseUrl}/questions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          activity_id: activityId,
-          position: i + 1,
-          type: question?.type === "multiple" ? "multiple" : "open",
-          prompt,
-        }),
-      });
-
-      if (!questionResponse.ok) {
-        let detail = "Falha ao salvar questao.";
-        try {
-          const data = await questionResponse.json();
-          detail = extractApiErrorMessage(data?.detail, detail);
-        } catch {
-          // Mantem a mensagem padrao quando a API nao retorna JSON.
-        }
-        throw new Error(detail);
-      }
-
-      const createdQuestion = await questionResponse.json();
-
-      if (question?.type === "multiple" && Array.isArray(question?.options)) {
-        for (let j = 0; j < question.options.length; j += 1) {
-          const optionText = (question.options[j] ?? "").trim();
-          if (!optionText) continue;
-
-          const optionResponse = await fetch(`${apiBaseUrl}/question-options`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              question_id: createdQuestion.id,
-              letter: OPTION_LETTERS[j] ?? String(j + 1),
-              text: optionText,
-            }),
-          });
-
-          if (!optionResponse.ok) {
-            let detail = "Falha ao salvar alternativa.";
-            try {
-              const data = await optionResponse.json();
-              detail = extractApiErrorMessage(data?.detail, detail);
-            } catch {
-              // Mantem a mensagem padrao quando a API nao retorna JSON.
-            }
-            throw new Error(detail);
-          }
-        }
-      }
-    }
-  }, [apiBaseUrl]);
-
-  const handleConfirm = async (editedQuestions) => {
-    if (!previewData || !userId) return;
-    setSaving(true);
-    let createdActivity = null;
-    try {
-      const response = await fetch(`${apiBaseUrl}/activities`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          owner_id: userId,
-          name: previewData.name,
-          discipline: previewData.discipline,
-          status: "ativo",
-          is_shareable: false,
-        }),
-      });
-
-      if (!response.ok) {
-        let detail = "Falha ao criar atividade.";
-        try {
-          const data = await response.json();
-          detail = extractApiErrorMessage(data?.detail, detail);
-        } catch {
-          // Mantem a mensagem padrao quando a API nao retorna JSON.
-        }
-        throw new Error(detail);
-      }
-
-      createdActivity = await response.json();
-      await createQuestionsForActivity(createdActivity.id, editedQuestions ?? previewData.questions ?? []);
-      setActivities((prev) => [normalizeActivity(createdActivity, username), ...prev]);
-      setPreviewData(null);
-    } catch (err) {
-      if (createdActivity?.id) {
-        try {
-          await fetch(`${apiBaseUrl}/activities/${createdActivity.id}`, { method: "DELETE" });
-        } catch {
-          // Ignora falha de rollback para preservar o erro original.
-        }
-      }
-      setError(err?.message ?? "Falha ao criar atividade.");
-    } finally {
-      setSaving(false);
-    }
-  };
 
   const handleOpenCodeModal = () => {
     setActivityCode("");
@@ -414,19 +144,7 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenActivi
     setDeleting(true);
     setError("");
     try {
-      const response = await fetch(`${apiBaseUrl}/activities/${deleteTarget.id}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) {
-        let detail = "Falha ao excluir atividade.";
-        try {
-          const data = await response.json();
-          detail = extractApiErrorMessage(data?.detail, detail);
-        } catch {
-          // Mantem a mensagem padrao quando a API nao retorna JSON.
-        }
-        throw new Error(detail);
-      }
+      await deleteActivity(deleteTarget.id);
 
       setActivities((prev) => prev.filter((item) => item.id !== deleteTarget.id));
       if (viewingActivity?.id === deleteTarget.id) setViewingActivity(null);
@@ -493,7 +211,7 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenActivi
                   
                   <button
                     className="btn btn-primary btn-sm"
-                    onClick={handleOpenCreate}
+                    onClick={creation.handleOpenCreate}
                     aria-label="Criar nova atividade"
                   >
                     <Plus size={16} weight="bold" />
@@ -605,126 +323,54 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenActivi
         </div>
       </div>
       
-      {/* Modal de pre-visualizacao */}
-      {viewingActivity && (
-        <div className="modal-overlay" role="dialog" aria-modal="true" onClick={(e) => { if (e.target === e.currentTarget) setViewingActivity(null); }}>
-          <div className="modal-card modal-card-wide">
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24 }}>
-              <div>
-                <p style={{ fontSize: "0.78rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em", color: "var(--text-3)", marginBottom: 6 }}>
-                  Pré-visualização
-                </p>
-                <h2 className="modal-title" style={{ marginBottom: 4 }}>
-                  {viewingActivity.name}
-                </h2>
-                <p style={{ fontSize: "0.88rem", color: "var(--text-3)" }}>
-                  {viewingActivity.professor || "Prof. Ana Lima"} · {viewingActivity.disciplina || "Prog. Orientada a Objetos"}
-                </p>
-              </div>
-              <span className="badge badge-indigo">
-                {viewingQuestionsLoading ? "Carregando..." : `${viewingQuestions.length} questões`}
-              </span>
-            </div>
+      <ActivityPreviewDetailsModal
+        activity={viewingActivity}
+        questions={viewingQuestions}
+        loading={viewingQuestionsLoading}
+        error={viewingQuestionsError}
+        onClose={() => setViewingActivity(null)}
+        onOpenActivity={onOpenActivity}
+        canOpenActivity={Boolean(onOpenActivity && viewingActivity?.rawStatus !== "concluido")}
+        getTitle={(activity) => activity.name}
+        getProfessor={(activity) => activity.professor || "Prof. Ana Lima"}
+        getDiscipline={(activity) => activity.disciplina || "Prog. Orientada a Objetos"}
+      />
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 28, maxHeight: "50vh", overflowY: "auto" }}>
-              {viewingQuestionsError && (
-                <div style={{ color: "var(--red-600)", fontSize: "0.9rem" }} role="status">
-                  {viewingQuestionsError}
-                </div>
-              )}
-              {!viewingQuestionsLoading && viewingQuestions.length === 0 && !viewingQuestionsError && (
-                <div style={{ color: "var(--text-3)", fontSize: "0.9rem" }} role="status">
-                  Nenhuma questão cadastrada.
-                </div>
-              )}
-              {viewingQuestions.map((q, i) => (
-                <div key={q.id ?? i} className="preview-question-item">
-                  <p className="preview-question-num">
-                    Questão {i + 1} · {q.type === "multiple" ? "Múltipla escolha" : "Dissertativa"}
-                  </p>
-                  <p className="preview-question-text">{q.text}</p>
-                  {q.type === "multiple" && q.options && (
-                    <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
-                      {q.options.map((opt, j) => (
-                        <div key={j} className="preview-alt">
-                          <span className="preview-alt-letter">
-                            {OPTION_LETTERS[j] ?? String(j + 1)}
-                          </span>
-                          <span>{opt}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            <div className="modal-actions" style={{ marginTop: 0 }}>
-              {onOpenActivity && viewingActivity.rawStatus !== "concluido" && (
-                <button
-                  className="btn btn-primary"
-                  onClick={() => { onOpenActivity(viewingActivity.id); setViewingActivity(null); }}
-                  disabled={viewingQuestionsLoading}
-                >
-                  Responder questionario
-                </button>
-              )}
-              <button className="btn btn-outline" style={{ width: "100%" }} onClick={() => setViewingActivity(null)}>
-                Fechar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showModal && (
+      {creation.showModal && (
         <ActivityCreateModal
-          ownerName={username || "Aluno"}
-          onClose={() => {
-            setShowModal(false);
-            setPreviewData(null); 
-          }}
-          onPreview={handlePreview}
-          initialData={previewData}
+          ownerName={creation.ownerName}
+          onClose={creation.closeCreateModal}
+          onPreview={creation.handlePreview}
+          initialData={creation.previewData}
           showQuestionCount={false}
         />
       )}
 
-      {showPdfModal && (
+      {creation.showPdfModal && (
         <ActivityPdfModal
-          onClose={() => setShowPdfModal(false)}
-          onStart={handleExtractActivityPdf}
-          uploadStatus={uploadStatus}
-          uploadError={uploadError}
-          onFileSelected={() => {
-            setUploadStatus("idle");
-            setUploadError("");
-          }}
+          onClose={() => creation.setShowPdfModal(false)}
+          onStart={creation.handleExtractActivityPdf}
+          uploadStatus={creation.uploadStatus}
+          uploadError={creation.uploadError}
+          onFileSelected={creation.resetUploadStatus}
         />
       )}
 
       {}
-      {previewData && !showModal && (
+      {creation.previewData && !creation.showModal && (
         <ActivityPreviewModal
           activity={{
-            name: previewData.name,
-            discipline: previewData.discipline,
-            ownerName: username || "Aluno",
+            name: creation.previewData.name,
+            discipline: creation.previewData.discipline,
+            ownerName: creation.ownerName,
           }}
-          questions={
-            previewData.questions || Array.from({ length: previewData.numQuestions }).map((_, i) => ({
-              id: `blank-${i}`,
-              type: "open", 
-              text: "",
-              options: []
-            }))
-          }
+          questions={creation.previewQuestions}
           onBack={(savedQuestions) => {
-            setPreviewData(prev => ({ ...prev, questions: savedQuestions }));
-            setShowModal(true);
+            creation.setPreviewData((prev) => ({ ...prev, questions: savedQuestions }));
+            creation.setShowModal(true);
           }}
-          onConfirm={handleConfirm}
-          saving={saving}
+          onConfirm={creation.handleConfirm}
+          saving={creation.saving}
         />
       )}
 

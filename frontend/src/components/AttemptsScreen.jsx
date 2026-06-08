@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { DownloadSimple } from "@phosphor-icons/react";
-import { extractApiErrorMessage } from "../utils/apiError";
+import { getAttemptPdf, listAnswers, listAttempts } from "../services/attemptService";
+import { downloadBlob, getFilenameFromDisposition } from "../utils/download";
 
 // Formata data e hora
 const formatDateTime = (value) => {
@@ -25,7 +26,7 @@ const getStatusMeta = (status) => {
 };
 
 // Tela de tentativas
-export function AttemptsScreen({ activity, apiBaseUrl, onBack, onResume, alunoId }) {
+export function AttemptsScreen({ activity, onBack, onResume, alunoId }) {
   const [attempts, setAttempts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -41,21 +42,14 @@ export function AttemptsScreen({ activity, apiBaseUrl, onBack, onResume, alunoId
     setLoading(true);
     setError("");
     try {
-      const params = new URLSearchParams({
-        activity_id: activity.id,
-        limit: "200",
-      });
-      if (alunoId) params.set("aluno_id", alunoId);
-      const response = await fetch(`${apiBaseUrl}/attempts?${params.toString()}`);
-      if (!response.ok) throw new Error("Falha ao carregar tentativas.");
-      const data = await response.json();
+      const data = await listAttempts({ activityId: activity.id, alunoId, limit: 200 });
       setAttempts(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err?.message ?? "Falha ao carregar tentativas.");
     } finally {
       setLoading(false);
     }
-  }, [activity?.id, alunoId, apiBaseUrl]);
+  }, [activity?.id, alunoId]);
 
   useEffect(() => {
     fetchAttempts();
@@ -67,9 +61,7 @@ export function AttemptsScreen({ activity, apiBaseUrl, onBack, onResume, alunoId
     setAnswersLoading(true);
     setAnswersError("");
     try {
-      const response = await fetch(`${apiBaseUrl}/answers?attempt_id=${attemptId}&limit=200`);
-      if (!response.ok) throw new Error("Falha ao carregar respostas.");
-      const data = await response.json();
+      const data = await listAnswers(attemptId);
       setAnswers(Array.isArray(data) ? data : []);
     } catch (err) {
       setAnswersError(err?.message ?? "Falha ao carregar respostas.");
@@ -77,7 +69,7 @@ export function AttemptsScreen({ activity, apiBaseUrl, onBack, onResume, alunoId
     } finally {
       setAnswersLoading(false);
     }
-  }, [apiBaseUrl]);
+  }, []);
 
   // Abre modal de respostas
   const handleOpenAttempt = useCallback((attempt) => {
@@ -91,42 +83,16 @@ export function AttemptsScreen({ activity, apiBaseUrl, onBack, onResume, alunoId
     setDownloadingId(attempt.id);
     setError("");
     try {
-      const response = await fetch(`${apiBaseUrl}/attempts/${attempt.id}/pdf`);
-      if (!response.ok) {
-        let detail = "Falha ao baixar PDF.";
-        try {
-          const data = await response.json();
-          detail = extractApiErrorMessage(data?.detail, detail);
-        } catch {
-          
-        }
-        throw new Error(detail);
-      }
-
-      const blob = await response.blob();
-      let filename = "respostas.pdf";
-      const disposition = response.headers.get("content-disposition") ?? "";
-      const match = /filename\*=UTF-8''([^;]+)|filename="([^"]+)"/i.exec(disposition);
-      if (match) {
-        const rawName = match[1] ? decodeURIComponent(match[1]) : match[2];
-        if (rawName) filename = rawName;
-      }
-
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
+      const { blob, headers } = await getAttemptPdf(attempt.id, "Falha ao baixar PDF.");
+      const filename = getFilenameFromDisposition(headers.get("content-disposition"), "respostas.pdf");
+      downloadBlob(blob, filename);
     } catch (err) {
       setError(err?.message ?? "Falha ao baixar PDF.");
       setTimeout(() => setError(""), 3200);
     } finally {
       setDownloadingId(null);
     }
-  }, [apiBaseUrl]);
+  }, []);
 
   // Formata texto da resposta
   const formatAnswerText = (answer) => {

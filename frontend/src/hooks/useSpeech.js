@@ -79,7 +79,9 @@ export function useSpeech() {
           if (comandoExecutado) {
             try {
               rec.stop(); // Desliga o microfone para apagar a palavra "próxima" da memória
-            } catch (e) {}
+            } catch {
+              // Ignora falha do navegador ao parar reconhecimento.
+            }
             return; // Sai da função para evitar processamento duplicado
           }
 
@@ -97,7 +99,9 @@ export function useSpeech() {
           setTimeout(() => {
             if (shouldListenRef.current) {
               recRef.current = createRecognition();
-              try { recRef.current.start(); } catch (e) {}
+              try { recRef.current.start(); } catch {
+                // Ignora falha temporaria ao reiniciar reconhecimento.
+              }
             }
           }, 250);
         }
@@ -117,7 +121,9 @@ export function useSpeech() {
     shouldListenRef.current = false;
     if (recRef.current) {
       recRef.current.onend = null;
-      try { recRef.current.stop(); } catch(e){}
+      try { recRef.current.stop(); } catch {
+        // Ignora falha do navegador ao parar reconhecimento.
+      }
       recRef.current = null;
     }
   }, []);
