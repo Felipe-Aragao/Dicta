@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ArrowRight, Article, ClockCounterClockwise, Plus, User, MagnifyingGlass, Trash } from "@phosphor-icons/react";
 import { ActivityCreateModal, ActivityPdfModal, ActivityPreviewModal } from "./ActivityModals";
-import { deleteActivity, listActivitiesByOwner } from "../services/activityService";
+import { deleteActivity, getActivity, listActivitiesByOwner } from "../services/activityService";
 import { listAttemptsByAluno } from "../services/attemptService";
 import { listQuestionsByActivity } from "../services/questionService";
 import { useActivityCreationFlow } from "../hooks/useActivityCreationFlow";
@@ -84,7 +84,14 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenActivi
     setViewingQuestionsLoading(true);
     setViewingQuestionsError("");
     try {
-      setViewingQuestions(await listQuestionsByActivity(activityId));
+      const [questions, activity] = await Promise.all([
+        listQuestionsByActivity(activityId),
+        getActivity(activityId),
+      ]);
+      setViewingQuestions(questions);
+      setViewingActivity((current) => (
+        current?.id === activityId ? { ...current, activityStatus: activity?.status } : current
+      ));
     } catch (err) {
       setViewingQuestionsError(err?.message ?? "Falha ao carregar questoes.");
       setViewingQuestions([]);
@@ -330,7 +337,11 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenActivi
         error={viewingQuestionsError}
         onClose={() => setViewingActivity(null)}
         onOpenActivity={onOpenActivity}
-        canOpenActivity={Boolean(onOpenActivity && viewingActivity?.rawStatus !== "concluido")}
+        canOpenActivity={Boolean(
+          onOpenActivity &&
+          viewingActivity?.rawStatus !== "encerrado" &&
+          viewingActivity?.activityStatus !== "encerrado"
+        )}
         getTitle={(activity) => activity.name}
         getProfessor={(activity) => activity.professor || "Prof. Ana Lima"}
         getDiscipline={(activity) => activity.disciplina || "Prog. Orientada a Objetos"}

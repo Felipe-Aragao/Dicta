@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import * as attemptService from "../services/attemptService";
 import { listQuestionsByActivity } from "../services/questionService";
 import { downloadBlob, getFilenameFromDisposition } from "../utils/download";
@@ -19,6 +19,12 @@ export function useAttemptFlow({ role, page, currentUser, username, navigate, sh
   const [questionStartIndex, setQuestionStartIndex] = useState(0);
   const [lockedAttemptNotice, setLockedAttemptNotice] = useState(null);
   const [attemptConcluded, setAttemptConcluded] = useState(false);
+  const activeAttemptIdRef = useRef(null);
+  const createAttemptPromiseRef = useRef(null);
+
+  useEffect(() => {
+    activeAttemptIdRef.current = activeAttemptId;
+  }, [activeAttemptId]);
 
   const handleLockedAttempt = useCallback(() => {
     setAttemptConcluded(true);
@@ -53,6 +59,8 @@ export function useAttemptFlow({ role, page, currentUser, username, navigate, sh
 
   const createAttempt = useCallback(async (activityId) => {
     if (!activityId) return null;
+    if (activeAttemptIdRef.current) return { id: activeAttemptIdRef.current };
+    if (createAttemptPromiseRef.current) return createAttemptPromiseRef.current;
 
     const payload = {
       activity_id: activityId,
@@ -68,15 +76,22 @@ export function useAttemptFlow({ role, page, currentUser, username, navigate, sh
       return null;
     }
 
-    try {
+    createAttemptPromiseRef.current = (async () => {
       const attempt = await attemptService.createAttempt(payload);
       setActiveAttemptId(attempt?.id ?? null);
       setAttemptConcluded(false);
       setLockedAttemptNotice(null);
+      activeAttemptIdRef.current = attempt?.id ?? null;
       return attempt;
+    })();
+
+    try {
+      return await createAttemptPromiseRef.current;
     } catch (error) {
       showToast(error?.message ?? "Falha ao criar tentativa.");
       return null;
+    } finally {
+      createAttemptPromiseRef.current = null;
     }
   }, [currentUser?.id, role, showToast, username]);
 
@@ -112,6 +127,8 @@ export function useAttemptFlow({ role, page, currentUser, username, navigate, sh
 
   const resetAttemptFlow = useCallback(() => {
     setActiveAttemptId(null);
+    activeAttemptIdRef.current = null;
+    createAttemptPromiseRef.current = null;
     setAttemptConcluded(false);
     setAnswers([]);
     setQuestionStartIndex(0);
@@ -125,6 +142,8 @@ export function useAttemptFlow({ role, page, currentUser, username, navigate, sh
     setActiveActivityId(null);
     setQuestionsError("");
     setActiveAttemptId(null);
+    activeAttemptIdRef.current = null;
+    createAttemptPromiseRef.current = null;
     setQuestionSessionId(0);
     setQuestionStartIndex(0);
     setAttemptConcluded(false);
@@ -141,6 +160,8 @@ export function useAttemptFlow({ role, page, currentUser, username, navigate, sh
     setQuestionSet(questions);
     setActiveActivityId(null);
     setActiveAttemptId(null);
+    activeAttemptIdRef.current = null;
+    createAttemptPromiseRef.current = null;
   }, []);
 
   const handleComplete = useCallback(async (result) => {
@@ -260,6 +281,7 @@ export function useAttemptFlow({ role, page, currentUser, username, navigate, sh
     setAnswers([]);
     setActiveActivityId(activityId);
     setActiveAttemptId(null);
+    activeAttemptIdRef.current = null;
     setQuestionStartIndex(0);
     setQuestionSessionId((prev) => prev + 1);
     setAttemptConcluded(false);
@@ -282,6 +304,7 @@ export function useAttemptFlow({ role, page, currentUser, username, navigate, sh
       setAnswers(existingAnswers);
       setActiveActivityId(attempt.activity_id);
       setActiveAttemptId(attempt.id);
+      activeAttemptIdRef.current = attempt.id;
       setQuestionStartIndex(existingAnswers.length);
       setQuestionSessionId((prev) => prev + 1);
       setAttemptConcluded(attempt.status === "concluido");
@@ -295,6 +318,7 @@ export function useAttemptFlow({ role, page, currentUser, username, navigate, sh
   const closeLockedAttemptNotice = useCallback(() => {
     setLockedAttemptNotice(null);
     setActiveAttemptId(null);
+    activeAttemptIdRef.current = null;
     setAnswers([]);
     setQuestionStartIndex(0);
     setQuestionSessionId((prev) => prev + 1);

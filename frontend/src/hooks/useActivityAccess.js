@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { getActivityByCode } from "../services/activityService";
+import { getActivity, getActivityByCode } from "../services/activityService";
 
 const getInitialShareCode = () => {
   const params = new URLSearchParams(window.location.search);
@@ -18,10 +18,21 @@ export function useActivityAccess({ role, page, currentUser, navigate, showToast
   }, [currentUser?.id, navigate, page, pendingActivityCode, role]);
 
   const handleOpenActivity = useCallback(async (activityId) => {
-    const attempt = await startActivityAttempt(activityId);
-    if (!attempt?.id) return;
-    navigate("question");
-  }, [navigate, startActivityAttempt]);
+    if (role !== "aluno" && role !== "visitante") return false;
+    try {
+      const activity = await getActivity(activityId);
+      if (activity?.status === "encerrado") {
+        throw new Error("Atividade encerrada.");
+      }
+      const attempt = await startActivityAttempt(activityId);
+      if (!attempt?.id) return false;
+      navigate("question");
+      return true;
+    } catch (error) {
+      showToast(error?.message ?? "Falha ao abrir atividade.");
+      return false;
+    }
+  }, [navigate, role, showToast, startActivityAttempt]);
 
   const handleOpenActivityCode = useCallback(async (codeOrLink) => {
     const value = String(codeOrLink || "").trim();

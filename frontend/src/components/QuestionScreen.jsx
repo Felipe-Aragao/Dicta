@@ -93,6 +93,7 @@ export function QuestionScreen({
   const [interimText, setInterimText]     = useState(""); 
   const [selectedAlt, setSelectedAlt]     = useState(null);
   const [answers, setAnswers]             = useState([]);
+  const [savingAnswer, setSavingAnswer]   = useState(false);
 
   const { speak, startRec, stopRec, setCommands } = useSpeech();
 
@@ -102,6 +103,7 @@ export function QuestionScreen({
   const pct        = questions?.length ? Math.round(((idx + 1) / questions.length) * 100) : 0;
 
   const isRecordingRef = useRef(false);
+  const savingAnswerRef = useRef(false);
   useEffect(() => {
     isRecordingRef.current = recording;
   }, [recording]);
@@ -197,45 +199,55 @@ export function QuestionScreen({
   };
 
   const saveAndNext = async () => {
-    const chosenLetter = isMultiple && selectedAlt !== null ? LETTERS[selectedAlt] ?? null : null;
-    const responseText = isMultiple
-      ? q.options[selectedAlt] ?? "(sem resposta)"
-      : transcription || "(sem resposta)";
+    if (savingAnswerRef.current || !q) return;
+    savingAnswerRef.current = true;
+    setSavingAnswer(true);
 
-    const ans = {
-      qIdx: idx,
-      questionId: q?.id ?? null,
-      type: isMultiple ? "multiple" : "open",
-      responseText,
-      chosenLetter,
-    };
+    try {
+      const chosenLetter = isMultiple && selectedAlt !== null ? LETTERS[selectedAlt] ?? null : null;
+      const responseText = isMultiple
+        ? q.options[selectedAlt] ?? "(sem resposta)"
+        : transcription || "(sem resposta)";
 
-    const nextAnswers = [...answers];
-    const existingIndex = nextAnswers.findIndex((item) => (
-      item?.questionId && ans.questionId
-        ? item.questionId === ans.questionId
-        : item?.qIdx === ans.qIdx
-    ));
+      const ans = {
+        qIdx: idx,
+        questionId: q?.id ?? null,
+        type: isMultiple ? "multiple" : "open",
+        responseText,
+        chosenLetter,
+      };
 
-    if (existingIndex >= 0) nextAnswers[existingIndex] = ans;
-    else nextAnswers.push(ans);
-    setAnswers(nextAnswers);
+      const nextAnswers = [...answers];
+      const existingIndex = nextAnswers.findIndex((item) => (
+        item?.questionId && ans.questionId
+          ? item.questionId === ans.questionId
+          : item?.qIdx === ans.qIdx
+      ));
 
-    if (isLast) { onComplete(nextAnswers); return; }
+      if (existingIndex >= 0) nextAnswers[existingIndex] = ans;
+      else nextAnswers.push(ans);
+      setAnswers(nextAnswers);
 
-    if (onProgress) {
-      try {
-        await onProgress(nextAnswers);
-      } catch {
+      if (isLast) {
+        await onComplete(nextAnswers);
         return;
       }
-    }
 
-    setIdx((i) => i + 1);
-    setTranscription("");
-    setInterimText("");
-    setSelectedAlt(null);
-    setRecording(false);
+      if (onProgress) {
+        await onProgress(nextAnswers);
+      }
+
+      setIdx((i) => i + 1);
+      setTranscription("");
+      setInterimText("");
+      setSelectedAlt(null);
+      setRecording(false);
+    } catch {
+      return;
+    } finally {
+      savingAnswerRef.current = false;
+      setSavingAnswer(false);
+    }
   };
 
   const goBack = () => {
@@ -250,8 +262,8 @@ export function QuestionScreen({
   //  Bloqueia ações de navegação se "recording" for verdadeiro
   useEffect(() => {
     setCommands({
-      "proxima": () => { if (!recording) saveAndNext(); },
-      "proxima questao": () => { if (!recording) saveAndNext(); },
+      "proxima": () => { if (!recording && !savingAnswerRef.current) saveAndNext(); },
+      "proxima questao": () => { if (!recording && !savingAnswerRef.current) saveAndNext(); },
       "anterior": () => { if (!recording) goBack(); },
       "repetir": () => { if (!recording && q) speak(q.text); },
       "repet": () => { if (!recording && q) speak(q.text); }, 
@@ -277,7 +289,7 @@ export function QuestionScreen({
       "gravar": () => setRecording(true), 
       "parar": () => setRecording(false), 
       "refazer": () => { setTranscription(""); setInterimText(""); setRecording(false); },
-      "finalizar": () => { if (!recording && isLast) saveAndNext(); },
+      "finalizar": () => { if (!recording && !savingAnswerRef.current && isLast) saveAndNext(); },
       "letra a": () => { if (!recording && isMultiple) handleSelectAlt(0); },
       "letra b": () => { if (!recording && isMultiple) handleSelectAlt(1); },
       "letra c": () => { if (!recording && isMultiple) handleSelectAlt(2); },
@@ -352,7 +364,7 @@ export function QuestionScreen({
                 <button className="btn btn-outline" disabled={idx === 0} onClick={goBack} aria-label="Questão anterior">
                   <ArrowLeft size={16} weight="regular" /> Anterior
                 </button>
-                <button className="btn btn-primary" onClick={saveAndNext} aria-label={isLast ? "Finalizar questionário" : "Próxima questão"}>
+                <button className="btn btn-primary" onClick={saveAndNext} disabled={savingAnswer} aria-label={isLast ? "Finalizar questionário" : "Próxima questão"}>
                   {isLast ? <><Check size={16} weight="bold" /> Finalizar</> : <>Próxima <ArrowRight size={16} weight="regular" /></>}
                 </button>
               </div>
@@ -433,7 +445,7 @@ export function QuestionScreen({
                 <button className="btn btn-outline" onClick={() => setAnswerMode(false)} aria-label="Voltar para a leitura da questão">
                   <ArrowLeft size={16} weight="regular" /> Voltar
                 </button>
-                <button className="btn btn-primary" onClick={saveAndNext} aria-label={isLast ? "Finalizar questionário" : "Próxima questão"}>
+                <button className="btn btn-primary" onClick={saveAndNext} disabled={savingAnswer} aria-label={isLast ? "Finalizar questionário" : "Próxima questão"}>
                   {isLast ? <><Check size={16} weight="bold" /> Finalizar</> : <>Próxima <ArrowRight size={16} weight="regular" /></>}
                 </button>
               </div>

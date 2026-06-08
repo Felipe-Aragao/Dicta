@@ -21,6 +21,10 @@ export const getActivityByCode = (code) => (
   )
 );
 
+export const getActivity = (activityId) => (
+  requestJson(`/activities/${activityId}`, {}, "Atividade não encontrada.")
+);
+
 export const updateActivity = (activityId, payload, fallback) => (
   requestJson(`/activities/${activityId}`, jsonOptions("PUT", payload), fallback)
 );
