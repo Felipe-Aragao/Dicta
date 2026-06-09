@@ -6,7 +6,13 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.authorization import (
+    ensure_activity_owner,
+    ensure_activity_read_access,
+    require_user,
+)
 from app.core.database import get_db
+from app.core.security import AuthContext, get_auth_context
 from app.models.activities import ActivityStatus
 from app.models.activity_links import ActivityLink
 from app.models.users import RoleEnum
@@ -59,13 +65,15 @@ def _normalize_share_code(value: str) -> str:
 
 # Criacao de atividade
 @router.post("", response_model=ActivityRead, status_code=status.HTTP_201_CREATED)
-def create_activity(data: ActivityCreate, db: Session = Depends(get_db)):
-    user_service = UserService(db)
-    owner = user_service.get(data.owner_id)
-    if not owner:
-        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+def create_activity(
+    data: ActivityCreate,
+    db: Session = Depends(get_db),
+    context: AuthContext = Depends(get_auth_context),
+):
+    owner = require_user(context)
     if owner.role not in {RoleEnum.aluno, RoleEnum.professor}:
         raise HTTPException(status_code=403, detail="Não é permitido criar atividades para este tipo de usuário.")
+    data = _copy_model(data, owner_id=owner.id)
     if owner.role != RoleEnum.professor:
         data = _copy_model(data, is_shareable=False)
     return ActivityService(db).create(data)
@@ -78,8 +86,10 @@ def list_activities(
     skip: int = 0,
     limit: int = 20,
     db: Session = Depends(get_db),
+    context: AuthContext = Depends(get_auth_context),
 ):
-    return ActivityService(db).list(owner_id=owner_id, skip=skip, limit=limit)
+    user = require_user(context)
+    return ActivityService(db).list(owner_id=user.id, skip=skip, limit=limit)
 
 
 @router.get("/by-code/{code:path}", response_model=ActivityRead)
@@ -114,16 +124,19 @@ def update_activity_share(
     activity_id: uuid.UUID,
     data: ActivityShareUpdate,
     db: Session = Depends(get_db),
+    context: AuthContext = Depends(get_auth_context),
 ):
     service = ActivityService(db)
     activity = _get_activity_or_404(service, activity_id)
+    ensure_activity_owner(context, activity)
     _ensure_professor_owner(db, activity)
     return service.set_shareable(activity, data.is_shareable)
 
 
-def _regenerate_activity_share_code(activity_id: uuid.UUID, db: Session) -> ActivityRead:
+def _regenerate_activity_share_code(activity_id: uuid.UUID, db: Session, context: AuthContext) -> ActivityRead:
     service = ActivityService(db)
     activity = _get_activity_or_404(service, activity_id)
+    ensure_activity_owner(context, activity)
     _ensure_professor_owner(db, activity)
     if activity.status == ActivityStatus.encerrado:
         raise HTTPException(status_code=409, detail="Prova encerrada não pode gerar novo código.")
@@ -131,20 +144,34 @@ def _regenerate_activity_share_code(activity_id: uuid.UUID, db: Session) -> Acti
 
 
 @router.post("/{activity_id}/regenerate-code", response_model=ActivityRead)
-def regenerate_activity_code(activity_id: uuid.UUID, db: Session = Depends(get_db)):
-    return _regenerate_activity_share_code(activity_id, db)
+def regenerate_activity_code(
+    activity_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    context: AuthContext = Depends(get_auth_context),
+):
+    return _regenerate_activity_share_code(activity_id, db, context)
 
 
 @router.post("/{activity_id}/share/regenerate", response_model=ActivityRead)
-def regenerate_activity_share_code(activity_id: uuid.UUID, db: Session = Depends(get_db)):
-    return _regenerate_activity_share_code(activity_id, db)
+def regenerate_activity_share_code(
+    activity_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    context: AuthContext = Depends(get_auth_context),
+):
+    return _regenerate_activity_share_code(activity_id, db, context)
 
 
 # Consulta de atividade
 @router.get("/{activity_id}", response_model=ActivityRead)
-def get_activity(activity_id: uuid.UUID, db: Session = Depends(get_db)):
+def get_activity(
+    activity_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    context: AuthContext = Depends(get_auth_context),
+):
     service = ActivityService(db)
-    return _get_activity_or_404(service, activity_id)
+    activity = _get_activity_or_404(service, activity_id)
+    ensure_activity_read_access(db, context, activity)
+    return activity
 
 
 # Atualizacao de atividade
@@ -153,9 +180,11 @@ def update_activity(
     activity_id: uuid.UUID,
     data: ActivityUpdate,
     db: Session = Depends(get_db),
+    context: AuthContext = Depends(get_auth_context),
 ):
     service = ActivityService(db)
     activity = _get_activity_or_404(service, activity_id)
+    ensure_activity_owner(context, activity)
     owner = UserService(db).get(activity.owner_id)
     if owner and owner.role != RoleEnum.professor:
         data = _copy_model(data, is_shareable=False)
@@ -164,8 +193,13 @@ def update_activity(
 
 # Remocao de atividade
 @router.delete("/{activity_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_activity(activity_id: uuid.UUID, db: Session = Depends(get_db)):
+def delete_activity(
+    activity_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    context: AuthContext = Depends(get_auth_context),
+):
     service = ActivityService(db)
     activity = _get_activity_or_404(service, activity_id)
+    ensure_activity_owner(context, activity)
     service.delete(activity)
     return None

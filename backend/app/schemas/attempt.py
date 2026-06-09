@@ -75,6 +75,8 @@ class VisitorAttemptCreate(BaseModel):
 
 
 class VisitorAttemptRead(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
     attempt: AttemptRead
     questions: List["QuestionRead"]
     expires_at: datetime

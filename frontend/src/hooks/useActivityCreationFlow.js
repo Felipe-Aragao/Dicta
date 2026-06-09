@@ -107,7 +107,6 @@ export function useActivityCreationFlow({
     let createdActivity = null;
     try {
       createdActivity = await createActivity({
-        owner_id: userId,
         name: previewData.name,
         discipline: previewData.discipline,
         status: "ativo",

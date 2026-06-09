@@ -1,8 +1,8 @@
 import { jsonOptions, requestJson } from "./apiClient";
 
 export const listActivitiesByOwner = (ownerId, limit) => {
-  const suffix = limit ? `&limit=${limit}` : "";
-  return requestJson(`/activities?owner_id=${ownerId}${suffix}`, {}, "Falha ao carregar atividades.");
+  const suffix = limit ? `?limit=${limit}` : "";
+  return requestJson(`/activities${suffix}`, {}, "Falha ao carregar atividades.");
 };
 
 export const createActivity = (payload) => (

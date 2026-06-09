@@ -1,6 +1,7 @@
 import {
   buildApiUrl,
   clearAuthSession,
+  clearVisitorSession,
   createApiError,
   getStoredAuthSession,
   jsonOptions,
@@ -19,6 +20,7 @@ const persistAuthResponse = (data) => {
 };
 
 export const login = async ({ email, password, role }) => {
+  clearVisitorSession();
   const response = await fetch(buildApiUrl("/auth/login"), jsonOptions("POST", {
     email: email.trim().toLowerCase(),
     password,
@@ -39,6 +41,7 @@ export const login = async ({ email, password, role }) => {
 };
 
 export const register = async ({ name, email, password, role }) => {
+  clearVisitorSession();
   const data = await requestJson(
     "/auth/register",
     jsonOptions("POST", {
@@ -64,4 +67,9 @@ export const getCurrentUser = () => (
 
 export const restoreSession = () => getStoredAuthSession();
 
-export const clearSession = () => clearAuthSession();
+export const clearSession = () => {
+  clearAuthSession();
+  clearVisitorSession();
+};
+
+export const clearUserSession = () => clearAuthSession();

@@ -1,17 +1,17 @@
 import { jsonOptions, requestBlob, requestJson } from "./apiClient";
 import { normalizeQuestions } from "../utils/questions";
+import { saveVisitorSession } from "./apiClient";
 
-export const listAttempts = ({ activityId, alunoId, limit = 200 }) => {
+export const listAttempts = ({ activityId, limit = 200 }) => {
   const params = new URLSearchParams({
     activity_id: activityId,
     limit: String(limit),
   });
-  if (alunoId) params.set("aluno_id", alunoId);
   return requestJson(`/attempts?${params.toString()}`, {}, "Falha ao carregar tentativas.");
 };
 
 export const listAttemptsByAluno = (alunoId, limit = 1000) => (
-  requestJson(`/attempts?aluno_id=${alunoId}&limit=${limit}`, {}, "Falha ao carregar atividades.")
+  requestJson(`/attempts?limit=${limit}`, {}, "Falha ao carregar atividades.")
 );
 
 export const createAttempt = (payload) => (
@@ -24,6 +24,7 @@ export const createVisitorAttempt = async (payload) => {
     jsonOptions("POST", payload),
     "Falha ao preparar tentativa do visitante.",
   );
+  saveVisitorSession({ accessToken: data?.access_token });
   return {
     ...data,
     questions: normalizeQuestions(data?.questions ?? []),

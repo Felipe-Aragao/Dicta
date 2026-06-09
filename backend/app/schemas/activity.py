@@ -26,7 +26,7 @@ class ActivityBase(BaseModel):
 
 
 class ActivityCreate(ActivityBase):
-    owner_id: uuid.UUID
+    owner_id: Optional[uuid.UUID] = None
 
 
 class ActivityUpdate(BaseModel):

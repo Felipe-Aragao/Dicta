@@ -68,11 +68,7 @@ export function useAttemptFlow({ role, page, currentUser, username, navigate, sh
       started_at: new Date().toISOString(),
     };
 
-    if (role === "aluno" && currentUser?.id) {
-      payload.aluno_id = currentUser.id;
-    } else if (role === "visitante" && username) {
-      payload.visitor_name = username;
-    } else {
+    if (role !== "aluno" || !currentUser?.id) {
       return null;
     }
 
@@ -93,7 +89,7 @@ export function useAttemptFlow({ role, page, currentUser, username, navigate, sh
     } finally {
       createAttemptPromiseRef.current = null;
     }
-  }, [currentUser?.id, role, showToast, username]);
+  }, [currentUser?.id, role, showToast]);
 
   const createVisitorAttempt = useCallback(async ({ fileName, questions }) => {
     const visitorName = (username || "Visitante").trim();

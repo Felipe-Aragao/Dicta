@@ -263,7 +263,7 @@ export function AttemptsScreen({ activity, onBack, onResume, alunoId }) {
               <button className="btn btn-outline" onClick={() => setSelectedAttempt(null)}>Fechar</button>
               
               {/*Só aparece se estiver em progresso */}
-              {selectedAttempt.status === "em progresso" && onResume && (
+              {selectedAttempt.status === "em progresso" && onResume && alunoId && selectedAttempt.aluno_id === alunoId && (
                 <button 
                   className="btn btn-primary" 
                   onClick={() => {

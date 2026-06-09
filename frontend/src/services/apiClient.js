@@ -3,6 +3,7 @@ import { extractApiErrorMessage } from "../utils/apiError";
 
 const AUTH_TOKEN_KEY = "dicta.auth.token";
 const AUTH_USER_KEY = "dicta.auth.user";
+const VISITOR_TOKEN_KEY = "dicta.visitor.token";
 
 let onUnauthorized = null;
 
@@ -12,6 +13,7 @@ export const buildApiUrl = (path) => {
 };
 
 export const getAuthToken = () => localStorage.getItem(AUTH_TOKEN_KEY);
+export const getVisitorToken = () => sessionStorage.getItem(VISITOR_TOKEN_KEY);
 
 export const getStoredAuthSession = () => {
   const token = getAuthToken();
@@ -29,6 +31,7 @@ export const getStoredAuthSession = () => {
 
 export const saveAuthSession = ({ accessToken, user }) => {
   if (!accessToken || !user) return;
+  clearVisitorSession();
   localStorage.setItem(AUTH_TOKEN_KEY, accessToken);
   localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
 };
@@ -38,6 +41,16 @@ export const clearAuthSession = () => {
   localStorage.removeItem(AUTH_USER_KEY);
 };
 
+export const saveVisitorSession = ({ accessToken }) => {
+  if (!accessToken) return;
+  clearAuthSession();
+  sessionStorage.setItem(VISITOR_TOKEN_KEY, accessToken);
+};
+
+export const clearVisitorSession = () => {
+  sessionStorage.removeItem(VISITOR_TOKEN_KEY);
+};
+
 export const setUnauthorizedHandler = (handler) => {
   onUnauthorized = handler;
 };
@@ -45,7 +58,12 @@ export const setUnauthorizedHandler = (handler) => {
 const withAuthOptions = (options = {}) => {
   const fetchOptions = { ...options };
   delete fetchOptions.handleUnauthorized;
-  const token = getAuthToken();
+  const authMode = fetchOptions.authMode;
+  delete fetchOptions.authMode;
+
+  const token = authMode === "visitor"
+    ? getVisitorToken()
+    : getAuthToken() || getVisitorToken();
   if (!token) return fetchOptions;
 
   const headers = new Headers(fetchOptions.headers || {});

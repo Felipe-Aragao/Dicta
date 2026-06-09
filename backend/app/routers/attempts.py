@@ -8,7 +8,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
+from app.core.authorization import ensure_attempt_access, ensure_attempt_write_access, require_aluno
 from app.core.database import get_db
+from app.core.security import AuthContext, create_visitor_attempt_token, get_auth_context
 from app.schemas.attempt import (
     AttemptCreate,
     AttemptRead,
@@ -28,7 +30,6 @@ from app.services.activity_service import ActivityService
 from app.services.answer_service import AnswerService
 from app.services.attempt_service import AttemptService
 from app.services.question_service import QuestionService
-from app.services.user_service import UserService
 from app.services.user_service import UserService
 
 router = APIRouter(prefix="/attempts", tags=["attempts"])
@@ -233,30 +234,27 @@ def _build_attempt_pdf(
 
 # Criacao de tentativa
 @router.post("", response_model=AttemptRead, status_code=status.HTTP_201_CREATED)
-def create_attempt(data: AttemptCreate, db: Session = Depends(get_db)):
+def create_attempt(
+    data: AttemptCreate,
+    db: Session = Depends(get_db),
+    context: AuthContext = Depends(get_auth_context),
+):
+    aluno = require_aluno(context)
     activity = ActivityService(db).get(data.activity_id)
     if not activity:
         raise HTTPException(status_code=404, detail="Atividade não encontrada.")
-
-    if data.aluno_id:
-        user = UserService(db).get(data.aluno_id)
-        if not user:
-            raise HTTPException(status_code=404, detail="Aluno não encontrado.")
-        if user.role != RoleEnum.aluno:
-            raise HTTPException(status_code=400, detail="Usuário informado não é aluno.")
+    can_open_activity = (
+        activity.owner_id == aluno.id
+        or (activity.is_shareable and activity.status != ActivityStatus.encerrado)
+    )
+    if not can_open_activity:
+        raise HTTPException(status_code=403, detail="Atividade indisponível para este aluno.")
 
     visitor_name = (data.visitor_name or "").strip()
     if data.visitor_name is not None and not visitor_name:
         raise HTTPException(status_code=400, detail="Nome do visitante não pode ser vazio.")
 
-    if not data.aluno_id and not visitor_name:
-        raise HTTPException(status_code=400, detail="Aluno ou nome do visitante deve ser fornecido.")
-
-    payload = (
-        data.model_copy(update={"visitor_name": visitor_name})
-        if hasattr(data, "model_copy")
-        else data.model_copy(update={"visitor_name": visitor_name})
-    )
+    payload = data.model_copy(update={"aluno_id": aluno.id, "visitor_name": None})
     return AttemptService(db).create(payload)
 
 
@@ -330,7 +328,19 @@ def create_visitor_attempt(data: VisitorAttemptCreate, db: Session = Depends(get
     created_at = _ensure_aware(activity.created_at) or datetime.now(timezone.utc)
     expires_at = created_at + timedelta(hours=VISITOR_RETENTION_HOURS)
 
-    return VisitorAttemptRead(attempt=attempt, questions=questions, expires_at=expires_at)
+    access_token = create_visitor_attempt_token(
+        attempt_id=attempt.id,
+        activity_id=activity.id,
+        expires_at=expires_at,
+    )
+
+    return VisitorAttemptRead(
+        access_token=access_token,
+        token_type="bearer",
+        attempt=attempt,
+        questions=questions,
+        expires_at=expires_at,
+    )
 
 
 # Listagem de tentativas
@@ -341,20 +351,47 @@ def list_attempts(
     skip: int = 0,
     limit: int = 20,
     db: Session = Depends(get_db),
+    context: AuthContext = Depends(get_auth_context),
 ):
-    return AttemptService(db).list(
-        activity_id=activity_id,
-        aluno_id=aluno_id,
-        skip=skip,
-        limit=limit,
-    )
+    if context.kind == "visitor":
+        if not context.visitor_attempt_id:
+            return []
+        attempt = AttemptService(db).get(context.visitor_attempt_id)
+        return [attempt] if attempt else []
+
+    user = context.user
+    if not user:
+        raise HTTPException(status_code=403, detail="Acesso não autorizado.")
+
+    if user.role == RoleEnum.aluno:
+        return AttemptService(db).list(
+            activity_id=activity_id,
+            aluno_id=user.id,
+            skip=skip,
+            limit=limit,
+        )
+
+    if user.role == RoleEnum.professor:
+        query = db.query(Attempt).join(Activity, Attempt.activity_id == Activity.id).filter(Activity.owner_id == user.id)
+        if activity_id:
+            query = query.filter(Attempt.activity_id == activity_id)
+        return query.order_by(Attempt.started_at.desc(), Attempt.submitted_at.desc()).offset(skip).limit(limit).all()
+
+    raise HTTPException(status_code=403, detail="Acesso não autorizado.")
 
 
 # Consulta de tentativa
 @router.get("/{attempt_id}", response_model=AttemptRead)
-def get_attempt(attempt_id: uuid.UUID, db: Session = Depends(get_db)):
+def get_attempt(
+    attempt_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    context: AuthContext = Depends(get_auth_context),
+):
     service = AttemptService(db)
-    return _get_attempt_or_404(service, attempt_id)
+    attempt = _get_attempt_or_404(service, attempt_id)
+    ensure_attempt_access(db, context, attempt)
+    ensure_attempt_write_access(context, attempt)
+    return attempt
 
 
 # Atualizacao de tentativa
@@ -363,19 +400,33 @@ def update_attempt(
     attempt_id: uuid.UUID,
     data: AttemptUpdate,
     db: Session = Depends(get_db),
+    context: AuthContext = Depends(get_auth_context),
 ):
     service = AttemptService(db)
     attempt = _get_attempt_or_404(service, attempt_id)
+    ensure_attempt_access(db, context, attempt)
+    ensure_attempt_write_access(context, attempt)
+    if context.kind == "visitor" and _is_activity_expired(attempt.activity):
+        raise HTTPException(status_code=410, detail="Tentativa expirada. Gere uma nova atividade.")
     if attempt.status == AttemptStatus.concluido:
         raise HTTPException(status_code=409, detail="Tentativa já concluída.")
+    if context.kind == "user" and context.user and context.user.role == RoleEnum.aluno:
+        data = data.model_copy(update={"aluno_id": context.user.id})
+    elif context.kind == "visitor":
+        data = data.model_copy(update={"aluno_id": None, "visitor_name": attempt.visitor_name})
     return service.update(attempt, data)
 
 
 # Remocao de tentativa
 @router.delete("/{attempt_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_attempt(attempt_id: uuid.UUID, db: Session = Depends(get_db)):
+def delete_attempt(
+    attempt_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    context: AuthContext = Depends(get_auth_context),
+):
     service = AttemptService(db)
     attempt = _get_attempt_or_404(service, attempt_id)
+    ensure_attempt_access(db, context, attempt)
     if attempt.status == AttemptStatus.concluido:
         raise HTTPException(status_code=409, detail="Tentativa já concluída.")
     service.delete(attempt)
@@ -384,9 +435,14 @@ def delete_attempt(attempt_id: uuid.UUID, db: Session = Depends(get_db)):
 
 # Geracao de PDF da tentativa
 @router.get("/{attempt_id}/pdf")
-def generate_attempt_pdf(attempt_id: uuid.UUID, db: Session = Depends(get_db)):
+def generate_attempt_pdf(
+    attempt_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    context: AuthContext = Depends(get_auth_context),
+):
     service = AttemptService(db)
     attempt = _get_attempt_or_404(service, attempt_id)
+    ensure_attempt_access(db, context, attempt)
 
     activity = ActivityService(db).get(attempt.activity_id)
     if not activity:

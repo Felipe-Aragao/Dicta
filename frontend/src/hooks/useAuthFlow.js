@@ -66,7 +66,10 @@ export function useAuthFlow({ role, navigate, showToast }) {
 
   const handleRoleSelect = useCallback((papel) => {
     setAuthError("");
-    if (papel === "visitante") navigate("visitor-name", "visitante");
+    if (papel === "visitante") {
+      authService.clearSession();
+      navigate("visitor-name", "visitante");
+    }
     else navigate("credentials", papel);
   }, [navigate]);
 
