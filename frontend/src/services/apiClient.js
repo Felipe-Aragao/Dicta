@@ -1,9 +1,59 @@
 import { API_BASE_URL } from "../config/api";
 import { extractApiErrorMessage } from "../utils/apiError";
 
+const AUTH_TOKEN_KEY = "dicta.auth.token";
+const AUTH_USER_KEY = "dicta.auth.user";
+
+let onUnauthorized = null;
+
 export const buildApiUrl = (path) => {
   if (/^https?:\/\//i.test(path)) return path;
   return `${API_BASE_URL}${path}`;
+};
+
+export const getAuthToken = () => localStorage.getItem(AUTH_TOKEN_KEY);
+
+export const getStoredAuthSession = () => {
+  const token = getAuthToken();
+  const rawUser = localStorage.getItem(AUTH_USER_KEY);
+  if (!token || !rawUser) return null;
+
+  try {
+    return { token, user: JSON.parse(rawUser) };
+  } catch {
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    localStorage.removeItem(AUTH_USER_KEY);
+    return null;
+  }
+};
+
+export const saveAuthSession = ({ accessToken, user }) => {
+  if (!accessToken || !user) return;
+  localStorage.setItem(AUTH_TOKEN_KEY, accessToken);
+  localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+};
+
+export const clearAuthSession = () => {
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+  localStorage.removeItem(AUTH_USER_KEY);
+};
+
+export const setUnauthorizedHandler = (handler) => {
+  onUnauthorized = handler;
+};
+
+const withAuthOptions = (options = {}) => {
+  const fetchOptions = { ...options };
+  delete fetchOptions.handleUnauthorized;
+  const token = getAuthToken();
+  if (!token) return fetchOptions;
+
+  const headers = new Headers(fetchOptions.headers || {});
+  if (!headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  return { ...fetchOptions, headers };
 };
 
 export const createApiError = async (response, fallback) => {
@@ -20,8 +70,14 @@ export const createApiError = async (response, fallback) => {
 };
 
 export const requestJson = async (path, options = {}, fallback = "Falha na requisição.") => {
-  const response = await fetch(buildApiUrl(path), options);
-  if (!response.ok) throw await createApiError(response, fallback);
+  const response = await fetch(buildApiUrl(path), withAuthOptions(options));
+  if (!response.ok) {
+    const error = await createApiError(response, fallback);
+    if (response.status === 401 && options.handleUnauthorized !== false && onUnauthorized) {
+      onUnauthorized(error);
+    }
+    throw error;
+  }
   if (response.status === 204) return null;
 
   const text = await response.text();
@@ -30,8 +86,14 @@ export const requestJson = async (path, options = {}, fallback = "Falha na requi
 };
 
 export const requestBlob = async (path, options = {}, fallback = "Falha na requisição.") => {
-  const response = await fetch(buildApiUrl(path), options);
-  if (!response.ok) throw await createApiError(response, fallback);
+  const response = await fetch(buildApiUrl(path), withAuthOptions(options));
+  if (!response.ok) {
+    const error = await createApiError(response, fallback);
+    if (response.status === 401 && options.handleUnauthorized !== false && onUnauthorized) {
+      onUnauthorized(error);
+    }
+    throw error;
+  }
   return {
     blob: await response.blob(),
     headers: response.headers,

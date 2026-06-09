@@ -37,3 +37,9 @@ class AuthUserRead(ORMBase):
     email: EmailStr
     created_at: datetime
     updated_at: Optional[datetime] = None
+
+
+class AuthTokenRead(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: AuthUserRead
