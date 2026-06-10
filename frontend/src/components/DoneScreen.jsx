@@ -1,8 +1,31 @@
 import { CheckCircle, DownloadSimple, ArrowLeft } from "@phosphor-icons/react";
-
+import { useEffect } from "react";
+import { useSpeech } from "../hooks/useSpeech"; 
 // Tela de finalizacao
 export function DoneScreen({ role, onGenerate, onHome }) {
   const homeLabel = role === "aluno" ? "Ir para Minha Área" : "Responder outro questionário";
+  const { startRec, setCommands, speak, stopRec } = useSpeech();
+  
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      startRec(() => {}); 
+      speak("Diga 'inicio' para retornar a tela do usuário ou 'gerar pdf' para gerar o pdf do questionário.");
+    }, 300);
+
+    return () => {
+      clearTimeout(timer);
+      stopRec(); // 
+    };
+  }, [startRec, speak, stopRec]);
+  
+  useEffect(() => {
+    setCommands({
+      "inicio": () => { if (onHome) onHome(); },
+      "início": () => { if (onHome) onHome(); }, 
+      "gerar pdf": () => { if (onGenerate) onGenerate(); },
+      "gerar o pdf": () => { if (onGenerate) onGenerate(); }
+    });
+  }, [setCommands, onHome, onGenerate ]);
 
   return (
     <div className="page-center page-anim">

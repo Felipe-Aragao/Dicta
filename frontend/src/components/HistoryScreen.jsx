@@ -11,6 +11,7 @@ import {
   mergeOwnedAndAttemptedActivities,
   normalizeStudentOwnedActivity,
 } from "../utils/activityFormatters";
+import { useSpeech } from "../hooks/useSpeech";
 
 // Menu lateral do aluno
 function Sidebar({ username, onLogout }) {
@@ -30,6 +31,7 @@ function Sidebar({ username, onLogout }) {
 
 // Tela de historico do aluno
 export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenActivityCode, onOpenAttempts, userId }) {
+  const { stopRec } = useSpeech();
   const [search, setSearch] = useState("");
   const [viewingActivity, setViewingActivity] = useState(null);
   const [viewingQuestions, setViewingQuestions] = useState([]);
@@ -108,6 +110,10 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenActivi
     }
     fetchQuestionsForActivity(viewingActivity.id);
   }, [fetchQuestionsForActivity, viewingActivity?.id]);
+
+  useEffect(() => {
+    stopRec(); 
+  }, [stopRec]);
 
   const handleOpenCodeModal = () => {
     setActivityCode("");
