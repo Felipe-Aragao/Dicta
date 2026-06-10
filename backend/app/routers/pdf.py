@@ -509,6 +509,14 @@ async def receive_pdf(
         Abaixo está o conteúdo de uma prova extraída no formato Markdown.
         Sua tarefa é extrair as questões e retornar ESTRITAMENTE um array JSON.{limite_texto}
         
+        REGRA DE SEGURANÇA MÁXIMA: 
+        Primeiro, leia e avalie o texto. Se este documento NÃO for claramente uma prova, questionário, simulado ou lista de exercícios (ex: se for um artigo, receita, manual, TCC ou slides de aula), VOCÊ É ESTRITAMENTE PROIBIDO DE INVENTAR QUESTÕES.
+        Nesse caso, você deve retornar EXATAMENTE este JSON e nada mais:
+        [
+          {{"type": "error", "text": "not_an_exam"}}
+        ]
+
+        SE O DOCUMENTO FOR UMA PROVA REAL, sua tarefa é extrair as questões reais e retornar ESTRITAMENTE um array JSON.{limite_texto}
         REGRAS DE ADAPTAÇÃO OBRIGATÓRIAS:
         1. Se a questão for de "Verdadeiro ou Falso", converta-a para o tipo "multiple" onde as opções sejam ["( ) Verdadeiro", "( ) Falso"].
         2. Se a questão for de "Preenchimento de Lacunas" ou "Associação de Colunas", adapte o enunciado para que faça sentido em formato "open" (dissertativo) ou monte alternativas correspondentes em "multiple".
@@ -548,6 +556,8 @@ async def receive_pdf(
         print("===========================================\n")
         
         questions_data = json.loads(response.text.strip())
+        if len(questions_data) == 1 and questions_data[0].get("type") == "error" and questions_data[0].get("text") == "not_an_exam":
+            raise ValueError("NOT_AN_EXAM")
 
    
     except Exception as e:
@@ -560,7 +570,9 @@ async def receive_pdf(
             
             warnings_list = list(extracted.warnings)
             warnings_list.append("O servidor de Inteligência Artificial estava indisponível. A prova foi lida usando o método de segurança offline.")
-            
+            if str(e) == "NOT_AN_EXAM":
+                if target_path.exists(): target_path.unlink()
+                raise HTTPException(status_code=422, detail="O arquivo enviado não parece ser uma prova válida. Envie apenas questionários e listas de exercícios.")
             if not questions_data:
                 warnings_list.append("Nenhuma questão foi identificada pelo método de segurança local.")
                 

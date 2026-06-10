@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { useSpeech } from "../hooks/useSpeech"; 
 // Letras das opcoes
 const OPTION_LETTERS = ["A", "B", "C", "D", "E", "F"];
 
@@ -27,6 +29,30 @@ const formatAnswer = (question, answer) => {
 // Tela de revisao de respostas
 export function ReviewScreen({ questions = [], answers = [], onEdit, onConfirm }) {
   const hasQuestions = Array.isArray(questions) && questions.length > 0;
+  
+  const { startRec, setCommands, speak, stopRec} = useSpeech();
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      startRec(() => {}); 
+      speak("Tela de revisão. Confira suas respostas. Diga confirmar para entregar o questionário, ou alterar para corrigir.");
+    }, 300);
+
+    return () => {
+      clearTimeout(timer);
+      stopRec(); 
+    };
+  }, [startRec, speak, stopRec]);
+
+  useEffect(() => {
+    setCommands({
+      "alterar": () => { if (onEdit) onEdit(); },
+      "voltar": () => { if (onEdit) onEdit(); }, 
+      "confirmar": () => { if (onConfirm) onConfirm(); },
+      "confirmar e finalizar": () => { if (onConfirm) onConfirm(); },
+      "finalizar": () => { if (onConfirm) onConfirm(); } // Garante caso o aluno repita o comando anterior
+    });
+  }, [setCommands, onEdit, onConfirm]);
+
 
   return (
     <div className="page page-anim">
