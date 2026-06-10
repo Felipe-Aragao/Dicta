@@ -16,7 +16,7 @@ from app.core.security import AuthContext, get_auth_context
 from app.models.activities import ActivityStatus
 from app.models.activity_links import ActivityLink
 from app.models.users import RoleEnum
-from app.schemas.activity import ActivityCreate, ActivityRead, ActivityShareUpdate, ActivityUpdate
+from app.schemas.activity import ActivityCreate, ActivityRead, ActivityUpdate
 from app.services.activity_service import ActivityService
 from app.services.user_service import UserService
 
@@ -119,20 +119,6 @@ def get_activity_by_code(code: str, db: Session = Depends(get_db)):
     return activity
 
 
-@router.put("/{activity_id}/share", response_model=ActivityRead)
-def update_activity_share(
-    activity_id: uuid.UUID,
-    data: ActivityShareUpdate,
-    db: Session = Depends(get_db),
-    context: AuthContext = Depends(get_auth_context),
-):
-    service = ActivityService(db)
-    activity = _get_activity_or_404(service, activity_id)
-    ensure_activity_owner(context, activity)
-    _ensure_professor_owner(db, activity)
-    return service.set_shareable(activity, data.is_shareable)
-
-
 def _regenerate_activity_share_code(activity_id: uuid.UUID, db: Session, context: AuthContext) -> ActivityRead:
     service = ActivityService(db)
     activity = _get_activity_or_404(service, activity_id)
@@ -145,15 +131,6 @@ def _regenerate_activity_share_code(activity_id: uuid.UUID, db: Session, context
 
 @router.post("/{activity_id}/regenerate-code", response_model=ActivityRead)
 def regenerate_activity_code(
-    activity_id: uuid.UUID,
-    db: Session = Depends(get_db),
-    context: AuthContext = Depends(get_auth_context),
-):
-    return _regenerate_activity_share_code(activity_id, db, context)
-
-
-@router.post("/{activity_id}/share/regenerate", response_model=ActivityRead)
-def regenerate_activity_share_code(
     activity_id: uuid.UUID,
     db: Session = Depends(get_db),
     context: AuthContext = Depends(get_auth_context),

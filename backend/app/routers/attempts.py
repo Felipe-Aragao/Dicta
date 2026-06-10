@@ -380,20 +380,6 @@ def list_attempts(
     raise HTTPException(status_code=403, detail="Acesso não autorizado.")
 
 
-# Consulta de tentativa
-@router.get("/{attempt_id}", response_model=AttemptRead)
-def get_attempt(
-    attempt_id: uuid.UUID,
-    db: Session = Depends(get_db),
-    context: AuthContext = Depends(get_auth_context),
-):
-    service = AttemptService(db)
-    attempt = _get_attempt_or_404(service, attempt_id)
-    ensure_attempt_access(db, context, attempt)
-    ensure_attempt_write_access(context, attempt)
-    return attempt
-
-
 # Atualizacao de tentativa
 @router.put("/{attempt_id}", response_model=AttemptRead)
 def update_attempt(
@@ -415,22 +401,6 @@ def update_attempt(
     elif context.kind == "visitor":
         data = data.model_copy(update={"aluno_id": None, "visitor_name": attempt.visitor_name})
     return service.update(attempt, data)
-
-
-# Remocao de tentativa
-@router.delete("/{attempt_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_attempt(
-    attempt_id: uuid.UUID,
-    db: Session = Depends(get_db),
-    context: AuthContext = Depends(get_auth_context),
-):
-    service = AttemptService(db)
-    attempt = _get_attempt_or_404(service, attempt_id)
-    ensure_attempt_access(db, context, attempt)
-    if attempt.status == AttemptStatus.concluido:
-        raise HTTPException(status_code=409, detail="Tentativa já concluída.")
-    service.delete(attempt)
-    return None
 
 
 # Geracao de PDF da tentativa

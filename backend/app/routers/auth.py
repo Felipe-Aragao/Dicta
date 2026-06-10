@@ -27,7 +27,7 @@ def register(data: RegisterRequest, db: Session = Depends(get_db)):
     if existing:
         raise HTTPException(
             status_code=409,
-            detail=f"Email cadastrado em outra função",
+            detail=f"Email já cadastrado",
         )
 
     user = service.create(

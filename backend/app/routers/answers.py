@@ -5,7 +5,6 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.authorization import (
-    ensure_answer_access,
     ensure_answer_write_access,
     ensure_attempt_access,
     ensure_attempt_write_access,
@@ -81,19 +80,6 @@ def list_answers(
     )
 
 
-# Consulta de resposta
-@router.get("/{answer_id}", response_model=AnswerRead)
-def get_answer(
-    answer_id: uuid.UUID,
-    db: Session = Depends(get_db),
-    context: AuthContext = Depends(get_auth_context),
-):
-    service = AnswerService(db)
-    answer = _get_answer_or_404(service, answer_id)
-    ensure_answer_write_access(db, context, answer)
-    return answer
-
-
 # Atualizacao de resposta
 @router.put("/{answer_id}", response_model=AnswerRead)
 def update_answer(
@@ -111,18 +97,3 @@ def update_answer(
     return service.update(answer, data)
 
 
-# Remocao de resposta
-@router.delete("/{answer_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_answer(
-    answer_id: uuid.UUID,
-    db: Session = Depends(get_db),
-    context: AuthContext = Depends(get_auth_context),
-):
-    service = AnswerService(db)
-    answer = _get_answer_or_404(service, answer_id)
-    ensure_answer_access(db, context, answer)
-    attempt = AttemptService(db).get(answer.attempt_id)
-    if attempt and attempt.status == AttemptStatus.concluido:
-        raise HTTPException(status_code=409, detail="Tentativa já concluída.")
-    service.delete(answer)
-    return None
