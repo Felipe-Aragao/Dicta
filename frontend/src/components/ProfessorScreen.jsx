@@ -148,7 +148,7 @@ export function ProfessorScreen({ username, onLogout, userId, onOpenAttempts }) 
   );
 
   const canDeleteActivity = (activity) => (
-    Boolean(activity?.ownerId && userId && activity.ownerId === userId)
+    Boolean(activity?.ownerId && userId && String(activity.ownerId) === String(userId))
   );
 
   const handleDeleteConfirm = async () => {

@@ -149,7 +149,7 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenActivi
   };
 
   const canDeleteActivity = (activity) => (
-    Boolean(activity?.ownerId && userId && activity.ownerId === userId)
+    Boolean(activity?.ownerId && userId && String(activity.ownerId) === String(userId))
   );
 
   const handleDeleteConfirm = async () => {

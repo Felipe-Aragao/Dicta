@@ -93,7 +93,12 @@ export const mergeOwnedAndAttemptedActivities = (ownedActivities = [], attempted
   for (const activity of ownedActivities) byId.set(activity.id, activity);
   for (const activity of attemptedActivities) {
     const existing = byId.get(activity.id);
-    byId.set(activity.id, { ...existing, ...activity });
+    byId.set(activity.id, {
+      ...activity,
+      ...existing,
+      attemptsCount: activity.attemptsCount ?? existing?.attemptsCount ?? 0,
+      sortValue: Math.max(existing?.sortValue || 0, activity.sortValue || 0),
+    });
   }
   return Array.from(byId.values()).sort((a, b) => (
     (b.sortValue || 0) - (a.sortValue || 0)
