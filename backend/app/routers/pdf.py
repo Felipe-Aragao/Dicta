@@ -540,7 +540,8 @@ async def receive_pdf(
         {markdown_text}
         """
         
-        response = get_gemini_client().models.generate_content(
+        client = get_gemini_client()
+        response = client.models.generate_content(
             model='gemini-3.1-flash-lite',
             contents=prompt,
             config=types.GenerateContentConfig(
