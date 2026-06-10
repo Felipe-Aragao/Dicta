@@ -10,6 +10,7 @@ import {
   PencilSimple,
 } from "@phosphor-icons/react";
 import { useSpeech } from "../hooks/useSpeech";
+import { VoiceCommandsScreen } from "./VoiceCommandsScreen";
 
 const LETTERS = ["A", "B", "C", "D", "E", "F"];
 
@@ -94,6 +95,7 @@ export function QuestionScreen({
   const [selectedAlt, setSelectedAlt]     = useState(null);
   const [answers, setAnswers]             = useState([]);
   const [savingAnswer, setSavingAnswer]   = useState(false);
+  const [showHelp, setShowHelp]           = useState(false);
 
   const { speak, startRec, stopRec, setCommands } = useSpeech();
 
@@ -285,6 +287,28 @@ export function QuestionScreen({
           else if (!isMultiple && transcription) speak(transcription);
         }
       },
+      "ajuda": () => { 
+        if (!recording) {
+          if (!isMultiple) {
+            speak(
+              "Diga responder para abrir a tela de resposta. " +
+              "Diga gravar para iniciar a sua resposta. " +
+              "Ao finalizar, diga parar para interromper a gravação."
+            );
+          } else {
+            speak(
+              "Diga responder para visualizar as opções. " +
+              "Diga ouvir alternativas para escutar os itens. " +
+              "E use os comandos letra A, letra B ou a alternativa desejada para marcar."
+            );
+          }
+        }
+      },
+      "voltar": () => { 
+        if (showHelp) { 
+          setShowHelp(false); 
+        } 
+      },
       "responder": () => { if (!recording) setAnswerMode(true); },
       "gravar": () => setRecording(true), 
       "parar": () => setRecording(false), 
@@ -297,7 +321,7 @@ export function QuestionScreen({
       "letra e": () => { if (!recording && isMultiple) handleSelectAlt(4); },
       "letra f": () => { if (!recording && isMultiple) handleSelectAlt(5); },
     });
-  }, [idx, answerMode, isMultiple, selectedAlt, q, answers, transcription, recording, setCommands]);
+  }, [idx, answerMode, isMultiple, selectedAlt, q, answers, transcription, recording, setCommands, showHelp]);
 
   if (loading) {
     return (
@@ -451,7 +475,6 @@ export function QuestionScreen({
               </div>
             </>
           )}
-
         </div>
       </div>
     </>
