@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Literal, Optional
 import uuid
 
 from pydantic import BaseModel, Field
@@ -20,7 +20,7 @@ except ImportError:
 class QuestionBase(BaseModel):
     activity_id: uuid.UUID
     position: Optional[int] = None
-    type: Optional[str] = Field(None, max_length=32)
+    type: Literal["open", "multiple"] = "open"
     prompt: str = Field(..., min_length=1)
 
 

@@ -1,6 +1,6 @@
 import enum
 import uuid
-from sqlalchemy import Column, String, DateTime, Enum as SAEnum, ForeignKey
+from sqlalchemy import CheckConstraint, Column, String, DateTime, Enum as SAEnum, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
@@ -15,12 +15,26 @@ class AttemptStatus(str, enum.Enum):
 
 class Attempt(Base):
     __tablename__ = "attempts"
+    __table_args__ = (
+        CheckConstraint(
+            "aluno_id IS NOT NULL OR (visitor_name IS NOT NULL AND btrim(visitor_name) <> '')",
+            name="attempts_has_user_or_visitor",
+        ),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    activity_id = Column(UUID(as_uuid=True), ForeignKey("activities.id"), nullable=False)
-    aluno_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    activity_id = Column(UUID(as_uuid=True), ForeignKey("activities.id", ondelete="CASCADE"), nullable=False)
+    aluno_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     visitor_name = Column(String, nullable=True)
-    status = Column(SAEnum(AttemptStatus), default=AttemptStatus.em_progresso, nullable=False)
+    status = Column(
+        SAEnum(
+            AttemptStatus,
+            name="attemptstatus",
+            values_callable=lambda enum_cls: [item.value for item in enum_cls],
+        ),
+        default=AttemptStatus.em_progresso,
+        nullable=False,
+    )
     pdf_url = Column(String, nullable=True)
     pdf_generated_at = Column(DateTime(timezone=True), nullable=True)
     started_at = Column(DateTime(timezone=True), nullable=True)

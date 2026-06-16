@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import CheckConstraint, Column, String, Boolean, DateTime, ForeignKey
+from sqlalchemy import CheckConstraint, Column, String, Boolean, DateTime, ForeignKey, Index, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import validates
@@ -14,10 +14,16 @@ class ActivityLink(Base):
             "token ~ '^[A-Z0-9]{3}-[A-Z0-9]{3}$'",
             name="activity_links_token_format",
         ),
+        Index(
+            "uq_activity_links_one_active_per_activity",
+            "activity_id",
+            unique=True,
+            postgresql_where=text("is_active IS TRUE"),
+        ),
     )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    activity_id = Column(UUID(as_uuid=True), ForeignKey("activities.id"), nullable=False)
+    activity_id = Column(UUID(as_uuid=True), ForeignKey("activities.id", ondelete="CASCADE"), nullable=False)
     token = Column(String, unique=True, nullable=False)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

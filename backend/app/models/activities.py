@@ -1,6 +1,6 @@
 import enum
 import uuid
-from sqlalchemy import Column, String, Boolean, Integer, DateTime, Enum, ForeignKey
+from sqlalchemy import CheckConstraint, Column, String, Boolean, Integer, DateTime, Enum, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
@@ -17,14 +17,17 @@ class ActivityStatus(str, enum.Enum):
 
 class Activity(Base):
     __tablename__ = "activities"
+    __table_args__ = (
+        CheckConstraint("total_responses >= 0", name="activities_total_responses_nonnegative"),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     name = Column(String, nullable=False)
     discipline = Column(String, nullable=True)
-    status = Column(Enum(ActivityStatus), default=ActivityStatus.rascunho)
-    is_shareable = Column(Boolean, default=False)
-    total_responses = Column(Integer, default=0)
+    status = Column(Enum(ActivityStatus), default=ActivityStatus.rascunho, nullable=False)
+    is_shareable = Column(Boolean, default=False, nullable=False)
+    total_responses = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     published_at = Column(DateTime(timezone=True), nullable=True)
 
