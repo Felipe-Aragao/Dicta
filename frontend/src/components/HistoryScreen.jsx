@@ -116,17 +116,6 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenActivi
     stopRec(); 
   }, [stopRec]);
 
-  useEffect(() => {
-    if (!initialWarning.current) {
-      const timer = setTimeout(() => {
-        speak("Bem-vindo ao dicta. Certifique-se de que seu microfone está habilitado para que o reconhecimento de voz funcione.");
-        initialWarning.current = true;
-      }, 500);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [speak]);
-
   const handleOpenCodeModal = () => {
     setActivityCode("");
     setActivityCodeError("");

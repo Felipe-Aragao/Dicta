@@ -11,6 +11,8 @@ import {
 } from "@phosphor-icons/react";
 import { useSpeech } from "../hooks/useSpeech";
 import { VoiceCommandsScreen } from "./VoiceCommandsScreen";
+import { SlidersHorizontal } from "@phosphor-icons/react";
+import { AudioSettings } from "./AudioSettings"; 
 
 const LETTERS = ["A", "B", "C", "D", "E", "F"];
 
@@ -96,6 +98,7 @@ export function QuestionScreen({
   const [answers, setAnswers]             = useState([]);
   const [savingAnswer, setSavingAnswer]   = useState(false);
   const [showHelp, setShowHelp]           = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   const { speak, startRec, stopRec, setCommands } = useSpeech();
 
@@ -396,10 +399,30 @@ export function QuestionScreen({
                   <button className="btn btn-outline btn-sm" onClick={() => speak(q.text)} aria-label="Ouvir questão em voz alta">
                     <SpeakerHigh size={17} weight="regular" /> Ouvir questão
                   </button>
+
+                  {/* BOTÃO DE AJUSTES */}
+                  <button 
+                    className="btn btn-outline btn-sm" 
+                    onClick={() => setShowSettings(!showSettings)} 
+                    aria-label="Ajustar velocidade e voz"
+                  >
+                    <SlidersHorizontal size={17} weight="regular" /> Ajustes de Voz
+                  </button>
+
                   <button className="btn btn-primary" onClick={() => setAnswerMode(true)} aria-label="Ir para o campo de resposta">
                     <PencilSimple size={17} weight="regular" /> Responder
                   </button>
                 </div>
+              </div>
+
+              {/*  PAINEL DE CONFIGURAÇÕES */}
+              {showSettings && (
+                <div style={{ marginTop: "16px" }}>
+                  <AudioSettings />
+                </div>
+              )}
+
+              <div className="nav-row">
               </div>
 
               <div className="nav-row">
@@ -428,6 +451,13 @@ export function QuestionScreen({
                     <button className="btn btn-outline btn-sm" onClick={() => speak(q.text)} aria-label="Ouvir questão em voz alta">
                       <SpeakerHigh size={15} weight="regular" /> Ouvir questão
                     </button>
+                    <button 
+                      className="btn btn-outline btn-sm" 
+                      onClick={() => setShowSettings(!showSettings)} 
+                      aria-label="Ajustar velocidade e voz"
+                    >
+                      <SlidersHorizontal size={15} weight="regular" /> Ajustes
+                    </button>
                     {}
                     {((isMultiple && selectedAlt !== null) || (!isMultiple && transcription.trim().length > 0)) && (
                       <button 
@@ -448,7 +478,11 @@ export function QuestionScreen({
                     )}
                   </div>
                 </div>
-
+                {showSettings && (
+                  <div style={{ marginTop: "16px" }}>
+                    <AudioSettings />
+                  </div>
+                )}
                 <div className="card">
                   <p style={{
                     fontSize: "0.78rem", fontWeight: 600, textTransform: "uppercase",
