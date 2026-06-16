@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.security import create_access_token, get_current_user
+from app.models.users import RoleEnum
 from app.schemas.auth import AuthTokenRead, AuthUserRead, LoginRequest, RegisterRequest
 from app.schemas.user import UserCreate
 from app.services.auth_service import hash_password, verify_password
@@ -22,6 +23,9 @@ def _auth_response(user) -> dict:
 # Registro de usuario
 @router.post("/register", response_model=AuthTokenRead, status_code=status.HTTP_201_CREATED)
 def register(data: RegisterRequest, db: Session = Depends(get_db)):
+    if data.role not in {RoleEnum.aluno, RoleEnum.professor}:
+        raise HTTPException(status_code=400, detail="Perfil de cadastro inválido.")
+
     service = UserService(db)
     existing = service.get_by_email(str(data.email))
     if existing:

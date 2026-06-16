@@ -76,7 +76,7 @@ def _get_or_create_visitor_owner(db: Session):
         return user
     return service.create(
         UserCreate(
-            role=RoleEnum.professor,
+            role=RoleEnum.sistema,
             name=VISITOR_OWNER_NAME,
             email=VISITOR_OWNER_EMAIL,
             password_hash=None,

@@ -29,6 +29,10 @@ class SchemaValidationTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             QuestionCreate(activity_id=uuid.uuid4(), prompt="")
 
+    def test_question_rejects_unknown_type(self):
+        with self.assertRaises(ValidationError):
+            QuestionCreate(activity_id=uuid.uuid4(), prompt="Enunciado", type="single")
+
     def test_question_option_restricts_letter_to_one_character(self):
         with self.assertRaises(ValidationError):
             QuestionOptionCreate(
