@@ -154,7 +154,8 @@ def extract_questions_from_pdf_with_llm(
     prompt = build_question_extraction_prompt(markdown_text, num_questions)
 
     try:
-        response = get_gemini_client().models.generate_content(
+        client = get_gemini_client()
+        response = client.models.generate_content(
             model=GEMINI_MODEL,
             contents=prompt,
             config=types.GenerateContentConfig(
