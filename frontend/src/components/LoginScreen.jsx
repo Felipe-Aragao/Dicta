@@ -1,7 +1,23 @@
 import { ChalkboardTeacher, Student, UserCircle } from "@phosphor-icons/react";
+import { useEffect } from "react";
+import { useSpeech } from "../hooks/useSpeech";
 
 // Tela de selecao de perfil
 export function LoginScreen({ onSelect }) {
+  const { speak } = useSpeech(); 
+
+  useEffect(() => {
+    // Texto que o Dicta vai falar assim que o aluno abrir a tela de login
+    const loginWarning = "Bem-vindo ao dicta. Certifique-se de que seu microfone está habilitado para que o reconhecimento de voz funcione.";
+    
+    // O pequeno delay de 500ms é uma boa prática para garantir que 
+    // o motor de voz do navegador já carregou completamente
+    const timer = setTimeout(() => {
+      speak(loginWarning);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [speak]);
   return (
     <div className="login-bg">
     <div className="login-card page-anim">

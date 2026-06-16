@@ -161,12 +161,23 @@ export function QuestionScreen({
     answers.find((item) => item?.qIdx === questionIndex)
   );
 
+  const initialWarning = useRef(false);
+
   useEffect(() => {
     if (!q) return;
     setAnswerMode(false);
+    
     const timer = setTimeout(() => {
-      speak(q.text);
+      // Se for a primeira questão e o aviso ainda não tiver tocado
+      if (idx === 0 && !initialWarning.current) {
+        speak(`Caso esqueça de algum comando, diga ajuda. ${q.text}`);
+        initialWarning.current = true; // Marca que já avisou
+      } else {
+        // Para todas as outras questões, lê normalmente
+        speak(q.text);
+      }
     }, 300);
+    
     return () => clearTimeout(timer);
   }, [idx, q, speak]);
 
@@ -293,13 +304,20 @@ export function QuestionScreen({
             speak(
               "Diga responder para abrir a tela de resposta. " +
               "Diga gravar para iniciar a sua resposta. " +
-              "Ao finalizar, diga parar para interromper a gravação."
+              "Ao finalizar, diga parar para interromper a gravação. " +
+              "Se desejar alterar, diga refazer para apagar o progresso. " + 
+              "Diga ouvir minha resposta para ouvir sua resposta. " +
+              "Diga próxima para avançar o questionário. " + 
+              "Diga anterior para voltar na questão anterior. "
             );
           } else {
             speak(
               "Diga responder para visualizar as opções. " +
               "Diga ouvir alternativas para escutar os itens. " +
-              "E use os comandos letra A, letra B ou a alternativa desejada para marcar."
+              "E use os comandos letra A, letra B ou a alternativa desejada para marcar." +
+              "Diga ouvir minha resposta para ouvir sua resposta. " +
+              "Diga próxima para avançar o questionário. " + 
+              "Diga anterior para uma voltar na questão anterior. "
             );
           }
         }

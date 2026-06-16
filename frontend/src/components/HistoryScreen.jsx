@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef} from "react";
 import { ArrowRight, Article, ClockCounterClockwise, Plus, User, MagnifyingGlass, Trash } from "@phosphor-icons/react";
 import { ActivityCreateModal, ActivityPdfModal, ActivityPreviewModal } from "./ActivityModals";
 import { deleteActivity, getActivity, listActivitiesByOwner } from "../services/activityService";
@@ -31,7 +31,8 @@ function Sidebar({ username, onLogout }) {
 
 // Tela de historico do aluno
 export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenActivityCode, onOpenAttempts, userId }) {
-  const { stopRec } = useSpeech();
+  const { stopRec, speak } = useSpeech();
+  const initialWarning = useRef(false);
   const [search, setSearch] = useState("");
   const [viewingActivity, setViewingActivity] = useState(null);
   const [viewingQuestions, setViewingQuestions] = useState([]);
@@ -114,6 +115,17 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenActivi
   useEffect(() => {
     stopRec(); 
   }, [stopRec]);
+
+  useEffect(() => {
+    if (!initialWarning.current) {
+      const timer = setTimeout(() => {
+        speak("Bem-vindo ao dicta. Certifique-se de que seu microfone está habilitado para que o reconhecimento de voz funcione.");
+        initialWarning.current = true;
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [speak]);
 
   const handleOpenCodeModal = () => {
     setActivityCode("");

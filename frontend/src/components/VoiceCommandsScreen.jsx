@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { ArrowLeft, Microphone, SpeakerHigh, ArrowRight,
          MagnifyingGlass, DownloadSimple, CheckCircle,
          ArrowCounterClockwise } from "@phosphor-icons/react";
-
+import { useSpeech } from "../hooks/useSpeech";
 // Tela de comandos de voz
 
 // Dados de comandos por secao
@@ -69,9 +69,49 @@ const SECTIONS = [
     ],
   },
 ];
+const lerTodosOsComandos = () => {
+  if (!window.speechSynthesis) return;
+  
+  // Cancela qualquer fala anterior
+  window.speechSynthesis.cancel();
 
+  SECTIONS.forEach((section) => {
+    // Fala o título da seção
+    const tituloSection = new SpeechSynthesisUtterance(`Seção: ${section.title}`);
+    tituloSection.lang = "pt-BR";
+    window.speechSynthesis.speak(tituloSection);
+
+    section.commands.forEach((cmd) => {
+      // Fala: "Comando: Próxima. Função: Avança para a próxima questão."
+      const msg = new SpeechSynthesisUtterance(`Comando: ${cmd.diga}. Função: ${cmd.faz}.`);
+      msg.lang = "pt-BR";
+      msg.rate = 0.95; // Velocidade confortável
+      window.speechSynthesis.speak(msg);
+    });
+  });
+};
+// Card de secao
 // Card de secao
 function SectionCard({ section }) {
+  
+  const lerSecao = () => {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    
+    // Fala o título
+    const tituloSection = new SpeechSynthesisUtterance(`Seção: ${section.title}`);
+    tituloSection.lang = "pt-BR";
+    window.speechSynthesis.speak(tituloSection);
+
+    // Fala os comandos
+    section.commands.forEach((cmd) => {
+      const msg = new SpeechSynthesisUtterance(`Comando: ${cmd.diga}. Função: ${cmd.faz}.`);
+      msg.lang = "pt-BR";
+      msg.rate = 0.95;
+      window.speechSynthesis.speak(msg);
+    });
+  };
+
   return (
     <div style={{
       background: "var(--surface)",
@@ -79,22 +119,29 @@ function SectionCard({ section }) {
       borderRadius: "var(--r-lg)",
       overflow: "hidden",
     }}>
-      {/* Cabecalho colorido */}
       <div style={{
         background: section.bg,
         padding: "18px 24px",
         display: "flex", alignItems: "center", gap: 12,
         borderBottom: "1px solid var(--border)",
       }}>
-        <div style={{
-          width: 44, height: 44,
-          borderRadius: "var(--r-md)",
-          background: section.color,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          color: "white", flexShrink: 0,
-        }}>
+        
+        <button
+          onClick={lerSecao}
+          aria-label={`Ouvir comandos de ${section.title}`}
+          title={`Ouvir comandos de ${section.title}`}
+          style={{
+            width: 44, height: 44,
+            borderRadius: "var(--r-md)",
+            background: section.color,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            color: "white", flexShrink: 0,
+            border: "none", cursor: "pointer", padding: 0 // Remove estilos padrões de botão
+          }}
+        >
           {section.icon}
-        </div>
+        </button>
+
         <h2 style={{
           fontFamily: "var(--font)",
           fontSize: "1.05rem",
@@ -161,6 +208,21 @@ export function VoiceCommandsScreen({ onClose, isIntro, onContinue }) {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
+
+  const { speak } = useSpeech(); 
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    
+    // 3. O "Speak" automático quando a tela monta
+    const welcome = "Página de comandos de voz. " +
+                       "O sistema é totalmente operável por comandos falados. " +
+                       "Para ouvir a lista completa, consulte os cards na tela," +
+                       "como navegação, leitura, e responder questões.";
+    //Delay para o navegador
+    setTimeout(() => speak(welcome), 500);
+    
+  }, [speak]);
 
   return (
     <div className="page page-anim" style={{ paddingTop: "20px" }}>
