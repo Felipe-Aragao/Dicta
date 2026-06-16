@@ -1,5 +1,5 @@
-import { API_BASE_URL } from "../config/api";
-import { extractApiErrorMessage } from "../utils/apiError";
+import { API_BASE_URL } from "../config/api.js";
+import { extractApiErrorMessage } from "../utils/apiError.js";
 
 const AUTH_TOKEN_KEY = "dicta.auth.token";
 const AUTH_USER_KEY = "dicta.auth.user";
