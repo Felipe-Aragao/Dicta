@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import {
   SpeakerHigh,
   Microphone,
+  MicrophoneSlash,
+  WarningCircle,
   StopCircle,
   ArrowLeft,
   ArrowRight,
@@ -78,6 +80,35 @@ function VoicePanel({ recording, transcription, interimText, onToggle }) {
   );
 }
 
+function FloatingMicButton({ status, onToggle }) {
+  const isActive = status === "active";
+  const isUnavailable = status === "unavailable";
+  const label = isUnavailable
+    ? "Microfone sem acesso"
+    : isActive
+    ? "Mutar microfone"
+    : "Ativar microfone";
+
+  return (
+    <button
+      type="button"
+      className={`floating-mic-btn ${status}`}
+      onClick={onToggle}
+      aria-label={label}
+      aria-pressed={isActive}
+      title={label}
+    >
+      {isUnavailable ? (
+        <WarningCircle size={28} weight="bold" />
+      ) : isActive ? (
+        <Microphone size={28} weight="bold" />
+      ) : (
+        <MicrophoneSlash size={28} weight="bold" />
+      )}
+    </button>
+  );
+}
+
 // ─── Tela principal ──────────────────────────────────────────────
 export function QuestionScreen({
   questions,
@@ -99,8 +130,9 @@ export function QuestionScreen({
   const [savingAnswer, setSavingAnswer]   = useState(false);
   const [showHelp, setShowHelp]           = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [micEnabled, setMicEnabled] = useState(true);
 
-  const { speak, startRec, stopRec, setCommands } = useSpeech();
+  const { speak, startRec, stopRec, setCommands, recognitionError, clearRecognitionError } = useSpeech();
 
   const q          = questions?.[idx];
   const isLast     = idx === (questions?.length ?? 0) - 1;
@@ -115,8 +147,13 @@ export function QuestionScreen({
 
   // LIGA O MICROFONE E CAPTURA TEXTO (Com filtro anti-vazamento de comandos)
   useEffect(() => {
+    if (!micEnabled || recognitionError) {
+      stopRec();
+      return undefined;
+    }
+
     const timer = setTimeout(() => {
-      startRec((textoFinal, textoTemporario) => {
+      const started = startRec((textoFinal, textoTemporario) => {
         if (!isRecordingRef.current) return; 
 
         if (textoFinal) {
@@ -136,13 +173,17 @@ export function QuestionScreen({
           .replace(/^parar\s*/i, "");
         setInterimText(temporarioLimpo || "");
       });
+
+      if (!started) {
+        setRecording(false);
+      }
     }, 500);
 
     return () => {
       clearTimeout(timer);
       stopRec();
     };
-  }, [startRec, stopRec]);
+  }, [micEnabled, recognitionError, startRec, stopRec]);
 
   useEffect(() => {
     const normalizedIndex = Math.max(0, Math.min(initialIndex ?? 0, Math.max((questions?.length ?? 1) - 1, 0)));
@@ -206,7 +247,25 @@ export function QuestionScreen({
   }, [answers, idx, q]);
 
   const toggleRec = () => {
+    if (!micEnabled || recognitionError) return;
     setRecording(!recording);
+  };
+
+  const toggleMicListening = () => {
+    if (recognitionError) {
+      clearRecognitionError();
+      setMicEnabled(true);
+      return;
+    }
+
+    setMicEnabled((enabled) => {
+      const nextEnabled = !enabled;
+      if (!nextEnabled) {
+        setRecording(false);
+        setInterimText("");
+      }
+      return nextEnabled;
+    });
   };
 
   const handleSelectAlt = (i) => {
@@ -331,7 +390,7 @@ export function QuestionScreen({
         } 
       },
       "responder": () => { if (!recording) setAnswerMode(true); },
-      "gravar": () => setRecording(true), 
+      "gravar": () => { if (micEnabled && !recognitionError) setRecording(true); }, 
       "parar": () => setRecording(false), 
       "refazer": () => { setTranscription(""); setInterimText(""); setRecording(false); },
       "finalizar": () => { if (!recording && !savingAnswerRef.current && isLast) saveAndNext(); },
@@ -342,7 +401,9 @@ export function QuestionScreen({
       "letra e": () => { if (!recording && isMultiple) handleSelectAlt(4); },
       "letra f": () => { if (!recording && isMultiple) handleSelectAlt(5); },
     });
-  }, [idx, answerMode, isMultiple, selectedAlt, q, answers, transcription, recording, setCommands, showHelp]);
+  }, [idx, answerMode, isMultiple, selectedAlt, q, answers, transcription, recording, micEnabled, recognitionError, setCommands, showHelp]);
+
+  const micStatus = recognitionError ? "unavailable" : micEnabled ? "active" : "muted";
 
   if (loading) {
     return (
@@ -370,6 +431,8 @@ export function QuestionScreen({
 
   return (
     <>
+      <FloatingMicButton status={micStatus} onToggle={toggleMicListening} />
+
       <div className="prog-bar-wrap">
         <div className="prog-bar-inner" style={{ maxWidth: "var(--shell-max)" }}>
           <div className="prog-meta">

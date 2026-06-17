@@ -10,6 +10,7 @@ export function useSpeech() {
   const [voices, setVoices] = useState([]);
   const [selectedVoiceURI, setSelectedVoiceURI] = useState(localStorage.getItem("dicta_voice") || "");
   const [rate, setRate] = useState(parseFloat(localStorage.getItem("dicta_rate")) || 0.95);
+  const [recognitionError, setRecognitionError] = useState("");
 
   useEffect(() => {
     const loadVoices = () => {
@@ -76,18 +77,34 @@ export function useSpeech() {
     commandsRef.current = commands;
   }, []);
 
+  const clearRecognitionError = useCallback(() => {
+    setRecognitionError("");
+  }, []);
+
   const startRec = useCallback((onResult) => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) return false;
+    if (!SpeechRecognition) {
+      setRecognitionError("unsupported");
+      return false;
+    }
 
     onResultRef.current = onResult;
     shouldListenRef.current = true;
+    setRecognitionError("");
 
     const createRecognition = () => {
       const rec = new SpeechRecognition();
       rec.lang = "pt-BR";
       rec.continuous = true;
       rec.interimResults = true;
+
+      rec.onerror = (event) => {
+        const error = event?.error || "unknown";
+        if (["not-allowed", "service-not-allowed", "audio-capture"].includes(error)) {
+          shouldListenRef.current = false;
+          setRecognitionError(error);
+        }
+      };
 
       rec.onresult = (event) => {
         let textoFinal = "";
@@ -160,7 +177,13 @@ export function useSpeech() {
 
     if (!recRef.current) {
       recRef.current = createRecognition();
-      try { recRef.current.start(); } catch (e) { console.error(e); }
+      try {
+        recRef.current.start();
+      } catch (e) {
+        setRecognitionError("start-failed");
+        console.error(e);
+        return false;
+      }
     }
     return true;
   }, []);
@@ -182,6 +205,8 @@ export function useSpeech() {
     startRec, 
     stopRec, 
     setCommands,
+    recognitionError,
+    clearRecognitionError,
     voices,       // Lista de vozes para você montar um <select>
     changeVoice,  // Função para mudar a voz
     selectedVoiceURI,

@@ -694,6 +694,34 @@ body {
 .mic-btn:hover         { border-color: var(--accent); color: var(--accent); background: var(--indigo-50); }
 .mic-btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
 .mic-btn.rec           { background: var(--red-50); border-color: #FECDD3; color: var(--red-600); }
+.floating-mic-btn {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 60;
+  width: 64px;
+  height: 64px;
+  border: 0;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
+  cursor: pointer;
+  box-shadow: 0 14px 30px rgba(24, 24, 27, .22);
+  transition: transform .16s ease, box-shadow .16s ease, background .16s ease;
+}
+.floating-mic-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 36px rgba(24, 24, 27, .26);
+}
+.floating-mic-btn:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 4px;
+}
+.floating-mic-btn.active { background: var(--accent); }
+.floating-mic-btn.muted { background: var(--zinc-500); }
+.floating-mic-btn.unavailable { background: var(--red-600); }
 .voice-label     { font-size: 0.98rem; font-weight: 500; color: var(--text-3); }
 .voice-label.rec { color: var(--red-600); font-weight: 600; }
 .waveform { display: flex; align-items: center; gap: 4px; height: 30px; }
