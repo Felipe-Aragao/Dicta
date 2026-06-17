@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import { AttemptsScreen } from "./components/AttemptsScreen";
 import { CredentialsScreen } from "./components/CredentialsScreen";
@@ -141,25 +141,34 @@ function ActivityResponderRoute({ auth, role, activityAccess, attempt }) {
   const { activityId } = useParams();
   const navigate = useNavigate();
   const [opening, setOpening] = useState(false);
+  const openingRef = useRef(false);
   const { handleOpenActivityReference } = activityAccess;
   const canUseCurrentState = attempt.questionSet.length > 0 || attempt.questionsLoading;
   const canBootstrapActivity = auth.currentUser?.role === "aluno" && activityId && activityId !== "local";
 
   useEffect(() => {
-    if (canUseCurrentState || opening || !canBootstrapActivity) return;
+    if (!canUseCurrentState) return;
+    openingRef.current = false;
+    setOpening(false);
+  }, [canUseCurrentState]);
+
+  useEffect(() => {
+    if (canUseCurrentState || openingRef.current || !canBootstrapActivity) return;
 
     let active = true;
+    openingRef.current = true;
     setOpening(true);
     handleOpenActivityReference(activityId, { replace: true }).then((opened) => {
       if (active && !opened) navigate(ROUTES.studentHome, { replace: true });
     }).finally(() => {
+      openingRef.current = false;
       if (active) setOpening(false);
     });
 
     return () => {
       active = false;
     };
-  }, [activityId, canBootstrapActivity, canUseCurrentState, handleOpenActivityReference, navigate, opening]);
+  }, [activityId, canBootstrapActivity, canUseCurrentState, handleOpenActivityReference, navigate]);
 
   if (role === "visitante") {
     return (
