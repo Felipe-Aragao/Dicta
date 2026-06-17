@@ -4,9 +4,7 @@ import { ArrowLeft, Microphone, SpeakerHigh, ArrowRight,
          ArrowCounterClockwise } from "@phosphor-icons/react";
 import { useSpeech } from "../hooks/useSpeech";
 import { AudioSettings } from "./AudioSettings";
-// Tela de comandos de voz
 
-// Dados de comandos por secao
 const SECTIONS = [
   {
     icon: <SpeakerHigh size={22} weight="regular" />,
@@ -70,20 +68,16 @@ const SECTIONS = [
     ],
   },
 ];
-// Card de secao
-// Card de secao
+
 function SectionCard({ section }) {
-  
   const lerSecao = () => {
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
-    
-    // Fala o título
+
     const tituloSection = new SpeechSynthesisUtterance(`Seção: ${section.title}`);
     tituloSection.lang = "pt-BR";
     window.speechSynthesis.speak(tituloSection);
 
-    // Fala os comandos
     section.commands.forEach((cmd) => {
       const msg = new SpeechSynthesisUtterance(`Comando: ${cmd.diga}. Função: ${cmd.faz}.`);
       msg.lang = "pt-BR";
@@ -93,97 +87,50 @@ function SectionCard({ section }) {
   };
 
   return (
-    <div style={{
-      background: "var(--surface)",
-      border: "1px solid var(--border)",
-      borderRadius: "var(--r-lg)",
-      overflow: "hidden",
-    }}>
-      <div style={{
-        background: section.bg,
-        padding: "18px 24px",
-        display: "flex", alignItems: "center", gap: 12,
-        borderBottom: "1px solid var(--border)",
-      }}>
-        
+    <section className="voice-command-card">
+      <div className="voice-command-card-header" style={{ background: section.bg }}>
         <button
           onClick={lerSecao}
           aria-label={`Ouvir comandos de ${section.title}`}
           title={`Ouvir comandos de ${section.title}`}
+          className="voice-command-listen-btn"
           style={{
-            width: 44, height: 44,
-            borderRadius: "var(--r-md)",
             background: section.color,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            color: "white", flexShrink: 0,
-            border: "none", cursor: "pointer", padding: 0 // Remove estilos padrões de botão
           }}
         >
           {section.icon}
         </button>
 
-        <h2 style={{
-          fontFamily: "var(--font)",
-          fontSize: "1.05rem",
-          fontWeight: 700,
-          color: "var(--text-1)",
-          letterSpacing: "-0.2px",
-        }}>
-          {section.title}
-        </h2>
+        <h2 className="voice-command-card-title">{section.title}</h2>
       </div>
 
-      {/* Lista de comandos */}
-      <div style={{ display: "flex", flexDirection: "column" }}>
+      <div className="voice-command-list">
         {section.commands.map((cmd, i) => (
-          <div key={i} style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 16,
-            padding: "16px 24px",
-            borderBottom: i < section.commands.length - 1 ? "1px solid var(--border)" : "none",
-          }}>
-            {/* Comando */}
-            <div style={{
-              display: "flex", alignItems: "center", gap: 8,
-              flex: "0 0 auto",
-              minWidth: 200,
-            }}>
+          <div key={i} className="voice-command-row">
+            <div className="voice-command-phrase-wrap">
               <Microphone size={14} color="var(--text-3)" weight="regular" />
-              <span style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "0.88rem",
-                fontWeight: 600,
-                color: section.color,
-                background: section.bg,
-                padding: "4px 12px",
-                borderRadius: "99px",
-                border: `1px solid ${section.color}30`,
-                whiteSpace: "nowrap",
-              }}>
+              <span
+                className="voice-command-phrase"
+                style={{
+                  color: section.color,
+                  background: section.bg,
+                  borderColor: `${section.color}30`,
+                }}
+              >
                 "{cmd.diga}"
               </span>
             </div>
 
-            <ArrowRight size={14} color="var(--text-3)" weight="regular" style={{ flexShrink: 0 }} />
+            <ArrowRight className="voice-command-arrow" size={14} color="var(--text-3)" weight="regular" />
 
-            {/* O que faz */}
-            <p style={{
-              fontSize: "0.95rem",
-              color: "var(--text-2)",
-              lineHeight: 1.5,
-              flex: 1,
-            }}>
-              {cmd.faz}
-            </p>
+            <p className="voice-command-desc">{cmd.faz}</p>
           </div>
         ))}
       </div>
-    </div>
+    </section>
   );
 }
 
-// Tela principal
 export function VoiceCommandsScreen({ onClose, isIntro, onContinue }) {
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -193,111 +140,50 @@ export function VoiceCommandsScreen({ onClose, isIntro, onContinue }) {
 
   useEffect(() => {
     window.scrollTo(0, 0);
-    
-    // 3. O "Speak" automático quando a tela monta
+
     const welcome = "Página de comandos de voz. " +
                        "O sistema é totalmente operável por comandos falados. " +
                        "Para ouvir a lista completa, consulte os cards na tela," +
                        "como navegação, leitura, e responder questões.";
-    //Delay para o navegador
+
     setTimeout(() => speak(welcome), 500);
-    
   }, [speak]);
 
   return (
-    <div className="page page-anim" style={{ paddingTop: "20px" }}>
-      
-      
-
+    <div className="page page-anim voice-commands-page">
       <div className="page-wide">
-
-        {/* Hero */}
-        <div style={{
-          background: "linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%)",
-          borderRadius: "var(--r-xl)",
-          padding: "48px 52px",
-          marginBottom: 40,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 32,
-          flexWrap: "wrap",
-        }}>
-          <div>
-            <div style={{
-              display: "inline-flex", alignItems: "center", gap: 8,
-              background: "rgba(255,255,255,0.15)",
-              borderRadius: "99px", padding: "5px 16px",
-              marginBottom: 16,
-            }}>
-              <CheckCircle size={14} color="white" weight="fill" />
-              <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "white", textTransform: "uppercase", letterSpacing: ".08em" }}>
-                Acessibilidade por Voz
-              </span>
-            </div>
-            <h1 style={{
-              fontFamily: "var(--font)",
-              fontSize: "2rem",
-              fontWeight: 800,
-              color: "white",
-              letterSpacing: "-0.5px",
-              marginBottom: 12,
-              lineHeight: 1.2,
-            }}>
-              Comandos de Voz
-            </h1>
-            <p style={{
-              fontSize: "1rem",
-              color: "rgba(255,255,255,0.75)",
-              lineHeight: 1.65,
-              maxWidth: 480,
-            }}>
-              O Dicta foi desenvolvido para ser totalmente operável por voz.
-              Abaixo estão todos os comandos disponíveis — diga em voz alta para ativar.
-            </p>
+        <header className="voice-commands-header">
+          <div className="voice-commands-kicker">
+            <CheckCircle size={14} weight="fill" />
+            Acessibilidade por voz
           </div>
+          <h1>Comandos de Voz</h1>
+          <p>
+            O Dicta pode ser operado por fala. Use os comandos abaixo em português
+            para navegar, responder, revisar e finalizar questionários.
+          </p>
+        </header>
 
-          {/* Icone decorativo */}
-          <div style={{
-            width: 100, height: 100,
-            borderRadius: "50%",
-            background: "rgba(255,255,255,0.12)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            flexShrink: 0,
-          }}>
-            <Microphone size={52} color="white" weight="thin" />
-          </div>
-        </div>
         <AudioSettings />
-        {/* Aviso de uso */}
-        <div style={{
-          display: "flex", alignItems: "flex-start", gap: 14,
-          background: "#FFFBEB",
-          border: "1px solid #FDE68A",
-          borderRadius: "var(--r-md)",
-          padding: "16px 20px",
-          marginBottom: 32,
-        }}>
-          <SpeakerHigh size={20} color="#D97706" weight="regular" style={{ flexShrink: 0, marginTop: 2 }} />
-          <p style={{ fontSize: "0.92rem", color: "#92400E", lineHeight: 1.6 }}>
+
+        <div className="voice-commands-note">
+          <SpeakerHigh size={18} color="#D97706" weight="regular" />
+          <p>
             <strong>Como usar:</strong> certifique-se que o microfone está ativo e diga o comando claramente em português.
             O Dicta reconhece variações — por exemplo, "próxima questão" e "próxima" funcionam da mesma forma.
           </p>
         </div>
 
-        {/* Secoes de comandos */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 20, marginBottom: 40 }}>
+        <div className="voice-command-grid">
           {SECTIONS.map((s, i) => (
             <SectionCard key={i} section={s} />
           ))}
         </div>
 
-        {/* Botao de fechar ou avancar */}
-        <div style={{ display: "flex", justifyContent: "center" }}>
+        <div className="voice-commands-actions">
           {isIntro ? (
             <button
               className="btn btn-primary btn-lg"
-              style={{ minWidth: 240 }}
               onClick={onContinue}
               aria-label="Avançar para a tela inicial"
             >
@@ -308,7 +194,6 @@ export function VoiceCommandsScreen({ onClose, isIntro, onContinue }) {
           ) : (
             <button
               className="btn btn-primary btn-lg"
-              style={{ minWidth: 240 }}
               onClick={onClose}
               aria-label="Fechar e voltar"
             >
@@ -317,7 +202,6 @@ export function VoiceCommandsScreen({ onClose, isIntro, onContinue }) {
             </button>
           )}
         </div>
-        
       </div>
     </div>
   );
