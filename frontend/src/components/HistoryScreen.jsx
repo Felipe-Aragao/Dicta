@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useRef} from "react";
+import { useCallback, useEffect, useMemo, useState, useRef} from "react";
 import { ArrowRight, Article, ClockCounterClockwise, Plus, User, MagnifyingGlass, Trash } from "@phosphor-icons/react";
 import { ActivityCreateModal, ActivityPdfModal, ActivityPreviewModal } from "./ActivityModals";
 import { deleteActivity, getActivity, listActivitiesByOwner } from "../services/activityService";
@@ -6,6 +6,8 @@ import { listAttemptsByAluno } from "../services/attemptService";
 import { listQuestionsByActivity } from "../services/questionService";
 import { useActivityCreationFlow } from "../hooks/useActivityCreationFlow";
 import { ActivityPreviewDetailsModal } from "./activity/ActivityPreviewDetailsModal";
+import { ActivitySearchFilters } from "./activity/ActivitySearchFilters";
+import { buildActivityFilterOptions, matchesActivityFilters } from "../utils/activityFilters";
 import {
   groupAttemptsByActivity,
   mergeOwnedAndAttemptedActivities,
@@ -34,6 +36,8 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenActivi
   const { stopRec, speak } = useSpeech();
   const initialWarning = useRef(false);
   const [search, setSearch] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filters, setFilters] = useState({ professor: "", discipline: "", status: "" });
   const [viewingActivity, setViewingActivity] = useState(null);
   const [viewingQuestions, setViewingQuestions] = useState([]);
   const [viewingQuestionsLoading, setViewingQuestionsLoading] = useState(false);
@@ -182,15 +186,37 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenActivi
     }
   };
 
+  const filterOptions = useMemo(() => (
+    buildActivityFilterOptions(activities, {
+      professor: (activity) => activity.professor || "Prof. Ana Lima",
+      discipline: (activity) => activity.disciplina || "Prog. Orientada a Objetos",
+      status: (activity) => activity.status,
+    })
+  ), [activities]);
+
+  const handleFilterChange = (field, value) => {
+    setFilters((current) => ({ ...current, [field]: value }));
+  };
+
+  const clearFilters = () => {
+    setFilters({ professor: "", discipline: "", status: "" });
+  };
+
   const filtered = activities.filter((h) => {
     const s = search.toLowerCase();
     // Busca ampla em todos os campos
-    return (
+    const matchesSearch = (
       (h.name || "").toLowerCase().includes(s) ||
       (h.professor || "Prof. Ana Lima").toLowerCase().includes(s) ||
       (h.disciplina || "Prog. Orientada a Objetos").toLowerCase().includes(s) ||
       (h.criadoem || "12/05/2026").toLowerCase().includes(s)
     );
+
+    return matchesSearch && matchesActivityFilters(h, filters, {
+      professor: (activity) => activity.professor || "Prof. Ana Lima",
+      discipline: (activity) => activity.disciplina || "Prog. Orientada a Objetos",
+      status: (activity) => activity.status,
+    });
   });
 
   return (
@@ -231,6 +257,16 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenActivi
                     aria-label="Buscar no histórico"
                   />
                 </div>
+                <ActivitySearchFilters
+                  idPrefix="student-history"
+                  filters={filters}
+                  options={filterOptions}
+                  open={filtersOpen}
+                  onToggle={() => setFiltersOpen((current) => !current)}
+                  onClose={() => setFiltersOpen(false)}
+                  onChange={handleFilterChange}
+                  onClear={clearFilters}
+                />
                 
                 <div style={{ display: "flex", gap: "10px", marginLeft: "10px" }}>
                   

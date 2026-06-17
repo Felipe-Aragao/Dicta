@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Plus, FilePdf, ArrowRight, Article,
   Link, Check, User,
@@ -9,6 +9,8 @@ import { deleteActivity, listActivitiesByOwner, regenerateShareCode, updateActiv
 import { listQuestionsByActivity } from "../services/questionService";
 import { useActivityCreationFlow } from "../hooks/useActivityCreationFlow";
 import { ActivityPreviewDetailsModal } from "./activity/ActivityPreviewDetailsModal";
+import { ActivitySearchFilters } from "./activity/ActivitySearchFilters";
+import { buildActivityFilterOptions, matchesActivityFilters } from "../utils/activityFilters";
 import { normalizeProfessorActivity } from "../utils/activityFormatters";
 
 // Menu lateral do professor
@@ -79,6 +81,8 @@ function ShareControls({ activity, onToggleStatus, onRegenerate, busy }) {
 export function ProfessorScreen({ username, onLogout, userId, onOpenAttempts }) {
   const [questionarios, setQuestionarios] = useState([]);
   const [search, setSearch]               = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filters, setFilters] = useState({ professor: "", discipline: "", status: "" });
   const [viewingActivity, setViewingActivity] = useState(null);
   const [viewingQuestions, setViewingQuestions] = useState([]);
   const [viewingQuestionsLoading, setViewingQuestionsLoading] = useState(false);
@@ -141,11 +145,36 @@ export function ProfessorScreen({ username, onLogout, userId, onOpenAttempts }) 
     fetchQuestionsForActivity(viewingActivity.id);
   }, [fetchQuestionsForActivity, viewingActivity?.id]);
 
-  const filtered = questionarios.filter((q) =>
-    q.nome.toLowerCase().includes(search.toLowerCase()) ||
-    q.professor.toLowerCase().includes(search.toLowerCase()) ||
-    q.disciplina.toLowerCase().includes(search.toLowerCase())
-  );
+  const filterOptions = useMemo(() => (
+    buildActivityFilterOptions(questionarios, {
+      professor: (activity) => activity.professor,
+      discipline: (activity) => activity.disciplina,
+      status: (activity) => activity.status,
+    })
+  ), [questionarios]);
+
+  const handleFilterChange = (field, value) => {
+    setFilters((current) => ({ ...current, [field]: value }));
+  };
+
+  const clearFilters = () => {
+    setFilters({ professor: "", discipline: "", status: "" });
+  };
+
+  const filtered = questionarios.filter((q) => {
+    const s = search.toLowerCase();
+    const matchesSearch = (
+      q.nome.toLowerCase().includes(s) ||
+      q.professor.toLowerCase().includes(s) ||
+      q.disciplina.toLowerCase().includes(s)
+    );
+
+    return matchesSearch && matchesActivityFilters(q, filters, {
+      professor: (activity) => activity.professor,
+      discipline: (activity) => activity.disciplina,
+      status: (activity) => activity.status,
+    });
+  });
 
   const canDeleteActivity = (activity) => (
     Boolean(activity?.ownerId && userId && String(activity.ownerId) === String(userId))
@@ -255,6 +284,17 @@ export function ProfessorScreen({ username, onLogout, userId, onOpenAttempts }) 
                       aria-label="Buscar atividades"
                     />
                   </div>
+                  <ActivitySearchFilters
+                    idPrefix="professor-activity"
+                    filters={filters}
+                    options={filterOptions}
+                    open={filtersOpen}
+                    fields={["discipline", "status"]}
+                    onToggle={() => setFiltersOpen((current) => !current)}
+                    onClose={() => setFiltersOpen(false)}
+                    onChange={handleFilterChange}
+                    onClear={clearFilters}
+                  />
                   
                   <div style={{ display: "flex", marginLeft: "10px" }}>
                     <button
