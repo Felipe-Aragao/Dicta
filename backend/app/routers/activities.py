@@ -92,23 +92,28 @@ def list_activities(
     return ActivityService(db).list(owner_id=user.id, skip=skip, limit=limit)
 
 
+@router.get("/by-code/{code}/resolve", response_model=ActivityRead)
+def resolve_activity_by_code(
+    code: str,
+    db: Session = Depends(get_db),
+    context: AuthContext = Depends(get_auth_context),
+):
+    normalized_code = _normalize_share_code(code)
+    activity = ActivityService(db).get_by_code(normalized_code)
+    if not activity:
+        raise HTTPException(status_code=404, detail="Código não encontrado.")
+    ensure_activity_read_access(db, context, activity)
+    return activity
+
+
 @router.get("/by-code/{code:path}", response_model=ActivityRead)
 def get_activity_by_code(code: str, db: Session = Depends(get_db)):
     normalized_code = _normalize_share_code(code)
-    link = (
-        db.query(ActivityLink)
-        .filter(ActivityLink.token == normalized_code)
-        .filter(ActivityLink.is_active.is_(True))
-        .first()
-    )
-    if not link or not link.activity:
+    activity = ActivityService(db).get_by_code(normalized_code)
+    if not activity:
         raise HTTPException(status_code=404, detail="Código não encontrado.")
-
-    activity = link.activity
     if not activity.owner or activity.owner.role != RoleEnum.professor:
-        link.is_active = False
         activity.is_shareable = False
-        db.add(link)
         db.add(activity)
         db.commit()
         raise HTTPException(status_code=404, detail="Código inativo.")

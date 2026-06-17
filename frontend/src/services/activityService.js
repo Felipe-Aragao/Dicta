@@ -21,6 +21,14 @@ export const getActivityByCode = (code) => (
   )
 );
 
+export const resolveActivityByCode = (code) => (
+  requestJson(
+    `/activities/by-code/${encodeURIComponent(code)}/resolve`,
+    {},
+    "Atividade não encontrada.",
+  )
+);
+
 export const getActivity = (activityId) => (
   requestJson(`/activities/${activityId}`, {}, "Atividade não encontrada.")
 );

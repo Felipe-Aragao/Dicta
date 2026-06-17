@@ -42,12 +42,13 @@ export const normalizeProfessorActivity = (activity, ownerName) => ({
   status: normalizeActivityStatus(activity.status),
   criadoEm: formatDate(activity.created_at),
   alunos: activity.total_responses ?? 0,
-  link: activity.share_code ? `${window.location.origin}/?code=${activity.share_code}` : "",
+  link: activity.share_code ? `${window.location.origin}/atividade/codigo/${activity.share_code}` : "",
 });
 
 export const normalizeStudentOwnedActivity = (activity, ownerName) => ({
   id: activity.id,
   ownerId: activity.owner_id,
+  shareCode: activity.share_code || "",
   name: activity.name || "Atividade",
   professor: ownerName || "Aluno",
   disciplina: activity.discipline || "Geral",
@@ -66,6 +67,7 @@ export const normalizeAttemptActivity = (attempts = []) => {
   return {
     id: latestAttempt.activity_id,
     ownerId: null,
+    shareCode: latestAttempt.activity_share_code || "",
     name: latestAttempt.activity_name || "Atividade",
     professor: latestAttempt.professor_name || "Professor",
     disciplina: latestAttempt.activity_discipline || "Geral",

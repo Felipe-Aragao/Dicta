@@ -6,7 +6,6 @@ from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
-from app.models.users import RoleEnum
 
 
 class ActivityStatus(str, enum.Enum):
@@ -38,8 +37,6 @@ class Activity(Base):
 
     @property
     def share_code(self):
-        if self.owner and self.owner.role != RoleEnum.professor:
-            return None
         for link in self.links or []:
             if link.is_active:
                 return link.token

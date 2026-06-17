@@ -1,26 +1,51 @@
 import { useCallback, useState } from "react";
-import { getActivity, getActivityByCode } from "../services/activityService";
+import { getActivity, getActivityByCode, resolveActivityByCode } from "../services/activityService";
 import { ROUTES } from "../routes";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function useActivityAccess({ role, navigate, showToast, startActivityAttempt }) {
   const [attemptsActivity, setAttemptsActivity] = useState(null);
 
-  const handleOpenActivity = useCallback(async (activityId, options = {}) => {
+  const openActivity = useCallback(async (activity, options = {}) => {
     if (role !== "aluno" && role !== "visitante") return false;
+    if (!activity?.id) return false;
     try {
-      const activity = await getActivity(activityId);
       if (activity?.status === "encerrado") {
         throw new Error("Atividade encerrada.");
       }
-      const attempt = await startActivityAttempt(activityId);
+      const attempt = await startActivityAttempt(activity.id, activity.share_code ?? null);
       if (!attempt?.id) return false;
-      navigate(ROUTES.activityResponder(activityId), options);
+      navigate(ROUTES.activityResponder(activity.share_code || activity.id), options);
       return true;
     } catch (error) {
       showToast(error?.message ?? "Falha ao abrir atividade.");
       return false;
     }
   }, [navigate, role, showToast, startActivityAttempt]);
+
+  const handleOpenActivity = useCallback(async (activityId, options = {}) => {
+    try {
+      return await openActivity(await getActivity(activityId), options);
+    } catch (error) {
+      showToast(error?.message ?? "Falha ao abrir atividade.");
+      return false;
+    }
+  }, [openActivity, showToast]);
+
+  const handleOpenActivityReference = useCallback(async (activityRef, options = {}) => {
+    const value = String(activityRef || "").trim();
+    if (!value) return false;
+    try {
+      const activity = UUID_RE.test(value)
+        ? await getActivity(value)
+        : await resolveActivityByCode(value);
+      return await openActivity(activity, options);
+    } catch (error) {
+      showToast(error?.message ?? "Falha ao abrir atividade.");
+      return false;
+    }
+  }, [openActivity, showToast]);
 
   const handleOpenActivityCode = useCallback(async (codeOrLink) => {
     const value = String(codeOrLink || "").trim();
@@ -68,6 +93,7 @@ export function useActivityAccess({ role, navigate, showToast, startActivityAtte
   return {
     attemptsActivity,
     handleOpenActivity,
+    handleOpenActivityReference,
     handleOpenActivityCode,
     handleOpenAttempts,
     loadAttemptsActivity,

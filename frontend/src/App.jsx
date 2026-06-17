@@ -127,7 +127,7 @@ function ActivityResponderRoute({ auth, role, activityAccess, attempt }) {
   const { activityId } = useParams();
   const navigate = useNavigate();
   const [opening, setOpening] = useState(false);
-  const { handleOpenActivity } = activityAccess;
+  const { handleOpenActivityReference } = activityAccess;
   const canUseCurrentState = attempt.questionSet.length > 0 || attempt.questionsLoading;
   const canBootstrapActivity = auth.currentUser?.role === "aluno" && activityId && activityId !== "local";
 
@@ -136,7 +136,7 @@ function ActivityResponderRoute({ auth, role, activityAccess, attempt }) {
 
     let active = true;
     setOpening(true);
-    handleOpenActivity(activityId, { replace: true }).then((opened) => {
+    handleOpenActivityReference(activityId, { replace: true }).then((opened) => {
       if (active && !opened) navigate(ROUTES.studentHome, { replace: true });
     }).finally(() => {
       if (active) setOpening(false);
@@ -145,7 +145,7 @@ function ActivityResponderRoute({ auth, role, activityAccess, attempt }) {
     return () => {
       active = false;
     };
-  }, [activityId, canBootstrapActivity, canUseCurrentState, handleOpenActivity, navigate, opening]);
+  }, [activityId, canBootstrapActivity, canUseCurrentState, handleOpenActivityReference, navigate, opening]);
 
   if (role === "visitante") {
     return (

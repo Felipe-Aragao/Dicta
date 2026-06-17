@@ -15,6 +15,7 @@ export function useAttemptFlow({ role, page, currentUser, username, navigate, sh
   const [questionsLoading, setQuestionsLoading] = useState(false);
   const [questionsError, setQuestionsError] = useState("");
   const [activeActivityId, setActiveActivityId] = useState(null);
+  const [activeActivityCode, setActiveActivityCode] = useState(null);
   const [activeAttemptId, setActiveAttemptId] = useState(null);
   const [questionSessionId, setQuestionSessionId] = useState(0);
   const [questionStartIndex, setQuestionStartIndex] = useState(0);
@@ -111,6 +112,7 @@ export function useAttemptFlow({ role, page, currentUser, username, navigate, sh
       const data = await attemptService.createVisitorAttempt(payload);
       const attempt = data?.attempt ?? null;
       setActiveActivityId(attempt?.activity_id ?? null);
+      setActiveActivityCode(attempt?.activity_share_code ?? null);
       setActiveAttemptId(attempt?.id ?? null);
       if (data.questions.length > 0) setQuestionSet(data.questions);
       setAttemptConcluded(false);
@@ -137,6 +139,7 @@ export function useAttemptFlow({ role, page, currentUser, username, navigate, sh
     setAnswers([]);
     setQuestionSet([]);
     setActiveActivityId(null);
+    setActiveActivityCode(null);
     setQuestionsError("");
     setActiveAttemptId(null);
     activeAttemptIdRef.current = null;
@@ -156,6 +159,7 @@ export function useAttemptFlow({ role, page, currentUser, username, navigate, sh
     setQuestionsError("");
     setQuestionSet(questions);
     setActiveActivityId(null);
+    setActiveActivityCode(null);
     setActiveAttemptId(null);
     activeAttemptIdRef.current = null;
     createAttemptPromiseRef.current = null;
@@ -201,8 +205,8 @@ export function useAttemptFlow({ role, page, currentUser, username, navigate, sh
   const handleReviewEdit = useCallback(() => {
     setQuestionStartIndex(0);
     setQuestionSessionId((prev) => prev + 1);
-    navigate(ROUTES.activityResponder(activeActivityId || "local"));
-  }, [activeActivityId, navigate]);
+    navigate(ROUTES.activityResponder(activeActivityCode || activeActivityId || "local"));
+  }, [activeActivityCode, activeActivityId, navigate]);
 
   const handleReviewConfirm = useCallback(async () => {
     let attemptId = activeAttemptId;
@@ -237,6 +241,7 @@ export function useAttemptFlow({ role, page, currentUser, username, navigate, sh
 
     setQuestionSet(normalizedQuestions);
 
+    let nextActivityRef = activeActivityCode || activeActivityId || "local";
     if (role === "visitante") {
       const bootstrap = await createVisitorAttempt({
         fileName: previewTitle,
@@ -247,11 +252,12 @@ export function useAttemptFlow({ role, page, currentUser, username, navigate, sh
         setUploadError("Falha ao preparar tentativa do visitante.");
         return;
       }
+      nextActivityRef = bootstrap.attempt?.activity_share_code || bootstrap.attempt?.activity_id || "local";
     }
 
     setQuestionStartIndex(0);
-    navigate(ROUTES.activityResponder(activeActivityId || "local"));
-  }, [activeActivityId, createVisitorAttempt, navigate, questionSet, role]);
+    navigate(ROUTES.activityResponder(nextActivityRef));
+  }, [activeActivityCode, activeActivityId, createVisitorAttempt, navigate, questionSet, role]);
 
   const handleGenerate = useCallback(async () => {
     const attemptId = activeAttemptId;
@@ -274,10 +280,11 @@ export function useAttemptFlow({ role, page, currentUser, username, navigate, sh
     navigate(role === "aluno" ? ROUTES.studentHome : ROUTES.upload, { replace: true });
   }, [navigate, resetAttemptFlow, role]);
 
-  const startActivityAttempt = useCallback(async (activityId) => {
+  const startActivityAttempt = useCallback(async (activityId, activityCode = null) => {
     if (!activityId) return null;
     setAnswers([]);
     setActiveActivityId(activityId);
+    setActiveActivityCode(activityCode);
     setActiveAttemptId(null);
     activeAttemptIdRef.current = null;
     setQuestionStartIndex(0);
@@ -301,6 +308,7 @@ export function useAttemptFlow({ role, page, currentUser, username, navigate, sh
 
       setAnswers(existingAnswers);
       setActiveActivityId(attempt.activity_id);
+      setActiveActivityCode(attempt.activity_share_code ?? null);
       setActiveAttemptId(attempt.id);
       activeAttemptIdRef.current = attempt.id;
       setQuestionStartIndex(existingAnswers.length);
@@ -310,7 +318,7 @@ export function useAttemptFlow({ role, page, currentUser, username, navigate, sh
       navigate(
         attempt.status === "concluido"
           ? ROUTES.attemptReview(attempt.id)
-          : ROUTES.activityResponder(attempt.activity_id)
+          : ROUTES.activityResponder(attempt.activity_share_code || attempt.activity_id)
       );
     } catch {
       showToast("Falha ao retomar a tentativa.");

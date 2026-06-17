@@ -69,27 +69,6 @@ const SECTIONS = [
     ],
   },
 ];
-const lerTodosOsComandos = () => {
-  if (!window.speechSynthesis) return;
-  
-  // Cancela qualquer fala anterior
-  window.speechSynthesis.cancel();
-
-  SECTIONS.forEach((section) => {
-    // Fala o título da seção
-    const tituloSection = new SpeechSynthesisUtterance(`Seção: ${section.title}`);
-    tituloSection.lang = "pt-BR";
-    window.speechSynthesis.speak(tituloSection);
-
-    section.commands.forEach((cmd) => {
-      // Fala: "Comando: Próxima. Função: Avança para a próxima questão."
-      const msg = new SpeechSynthesisUtterance(`Comando: ${cmd.diga}. Função: ${cmd.faz}.`);
-      msg.lang = "pt-BR";
-      msg.rate = 0.95; // Velocidade confortável
-      window.speechSynthesis.speak(msg);
-    });
-  });
-};
 // Card de secao
 // Card de secao
 function SectionCard({ section }) {
