@@ -1,13 +1,24 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { setUnauthorizedHandler } from "../services/apiClient";
 import * as authService from "../services/authService";
+import { ROUTES, getHomePathForRole } from "../routes";
 
-export function useAuthFlow({ role, navigate, showToast }) {
+const shouldRedirectRestoredSession = () => {
+  const pathname = window.location.pathname;
+  return (
+    pathname === "/" ||
+    pathname === ROUTES.login ||
+    pathname === ROUTES.visitorName ||
+    pathname.startsWith("/entrar/")
+  );
+};
+
+export function useAuthFlow({ role, navigate, showToast, onRoleChange }) {
   const [username, setUsername] = useState("");
   const [currentUser, setCurrentUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
   const [authError, setAuthError] = useState("");
-  const restoreAttemptedRef = useRef(false);
 
   const applyUser = useCallback((user) => {
     setCurrentUser(user);
@@ -21,57 +32,65 @@ export function useAuthFlow({ role, navigate, showToast }) {
     setAuthError("");
   }, []);
 
-  const getHomePageForRole = useCallback((userRole) => {
-    if (userRole === "professor") return "professor-home";
-    if (userRole === "aluno") return "history";
-    return "login";
-  }, []);
-
   useEffect(() => {
     let active = true;
-    if (restoreAttemptedRef.current) return undefined;
-    restoreAttemptedRef.current = true;
 
     const session = authService.restoreSession();
-    if (!session?.user) return undefined;
+    if (!session?.user) {
+      setAuthReady(true);
+      return undefined;
+    }
 
     applyUser(session.user);
-    navigate(getHomePageForRole(session.user.role), session.user.role);
+    onRoleChange?.(session.user.role);
+    if (shouldRedirectRestoredSession()) {
+      navigate(getHomePathForRole(session.user.role), { replace: true });
+    }
 
     authService.getCurrentUser()
       .then((user) => {
         if (!active) return;
         applyUser(user);
-        navigate(getHomePageForRole(user.role), user.role);
+        onRoleChange?.(user.role);
+        if (shouldRedirectRestoredSession()) {
+          navigate(getHomePathForRole(user.role), { replace: true });
+        }
       })
       .catch(() => {
         if (!active) return;
         clearLocalAuth();
-        navigate("login", null);
+        onRoleChange?.(null);
+        navigate(ROUTES.login, { replace: true });
+      })
+      .finally(() => {
+        if (active) setAuthReady(true);
       });
 
     return () => {
       active = false;
     };
-  }, [applyUser, clearLocalAuth, getHomePageForRole, navigate]);
+  }, [applyUser, clearLocalAuth, navigate, onRoleChange]);
 
   useEffect(() => {
     setUnauthorizedHandler(() => {
       clearLocalAuth();
+      onRoleChange?.(null);
+      setAuthReady(true);
       showToast("Sessão expirada. Entre novamente.");
-      navigate("login", null);
+      navigate(ROUTES.login, { replace: true });
     });
     return () => setUnauthorizedHandler(null);
-  }, [clearLocalAuth, navigate, showToast]);
+  }, [clearLocalAuth, navigate, onRoleChange, showToast]);
 
   const handleRoleSelect = useCallback((papel) => {
     setAuthError("");
+    onRoleChange?.(papel);
     if (papel === "visitante") {
       authService.clearSession();
-      navigate("visitor-name", "visitante");
+      navigate(ROUTES.visitorName);
     }
-    else navigate("credentials", papel);
-  }, [navigate]);
+    else navigate(ROUTES.credentials(papel));
+  }, [navigate, onRoleChange]);
 
   const handleLogin = useCallback(async ({ email, password }) => {
     if (!role) return;
@@ -80,8 +99,9 @@ export function useAuthFlow({ role, navigate, showToast }) {
     try {
       const user = await authService.login({ email, password, role });
       applyUser(user);
+      onRoleChange?.(user.role || role);
       setAuthError("");
-      navigate("voice-commands-intro");
+      navigate(ROUTES.voiceIntro, { replace: true });
     } catch (error) {
       setAuthError(error?.message ?? "Falha ao entrar.");
       showToast(error?.message ?? "Falha ao entrar.");
@@ -89,7 +109,7 @@ export function useAuthFlow({ role, navigate, showToast }) {
     } finally {
       setAuthLoading(false);
     }
-  }, [applyUser, navigate, role, showToast]);
+  }, [applyUser, navigate, onRoleChange, role, showToast]);
 
   const handleRegister = useCallback(async ({ name, email, password }) => {
     if (!role) return;
@@ -98,8 +118,9 @@ export function useAuthFlow({ role, navigate, showToast }) {
     try {
       const user = await authService.register({ name, email, password, role });
       applyUser(user);
+      onRoleChange?.(user.role || role);
       setAuthError("");
-      navigate("voice-commands-intro");
+      navigate(ROUTES.voiceIntro, { replace: true });
     } catch (error) {
       setAuthError(error?.message ?? "Falha ao cadastrar.");
       showToast(error?.message ?? "Falha ao cadastrar.");
@@ -107,22 +128,26 @@ export function useAuthFlow({ role, navigate, showToast }) {
     } finally {
       setAuthLoading(false);
     }
-  }, [applyUser, navigate, role, showToast]);
+  }, [applyUser, navigate, onRoleChange, role, showToast]);
 
   const handleVisitorName = useCallback((nome) => {
     setUsername(nome);
-    navigate("voice-commands-intro");
-  }, [navigate]);
+    onRoleChange?.("visitante");
+    navigate(ROUTES.voiceIntro, { replace: true });
+  }, [navigate, onRoleChange]);
 
   const resetAuth = useCallback(() => {
     clearLocalAuth();
-  }, [clearLocalAuth]);
+    onRoleChange?.(null);
+    setAuthReady(true);
+  }, [clearLocalAuth, onRoleChange]);
 
   return {
     username,
     setUsername,
     currentUser,
     authLoading,
+    authReady,
     authError,
     handleRoleSelect,
     handleLogin,

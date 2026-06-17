@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import * as attemptService from "../services/attemptService";
 import { listQuestionsByActivity } from "../services/questionService";
 import { downloadBlob, getFilenameFromDisposition } from "../utils/download";
+import { ROUTES } from "../routes";
 
 const isAttemptLockedError = (error) => {
   const message = String(error?.message ?? "").toLowerCase();
@@ -162,8 +163,9 @@ export function useAttemptFlow({ role, page, currentUser, username, navigate, sh
 
   const handleComplete = useCallback(async (result) => {
     setAnswers(result);
+    let attemptId = activeAttemptId;
     try {
-      const attemptId = activeAttemptId ?? (await createAttempt(activeActivityId))?.id;
+      attemptId = attemptId ?? (await createAttempt(activeActivityId))?.id;
       if (!attemptId) {
         showToast("Tentativa nao encontrada.");
         return;
@@ -177,7 +179,7 @@ export function useAttemptFlow({ role, page, currentUser, username, navigate, sh
       showToast(error?.message ?? "Falha ao salvar respostas.");
       return;
     }
-    navigate("review");
+    navigate(ROUTES.attemptReview(attemptId));
   }, [activeActivityId, activeAttemptId, createAttempt, handleLockedAttempt, navigate, showToast]);
 
   const handleProgress = useCallback(async (result) => {
@@ -199,8 +201,8 @@ export function useAttemptFlow({ role, page, currentUser, username, navigate, sh
   const handleReviewEdit = useCallback(() => {
     setQuestionStartIndex(0);
     setQuestionSessionId((prev) => prev + 1);
-    navigate("question");
-  }, [navigate]);
+    navigate(ROUTES.activityResponder(activeActivityId || "local"));
+  }, [activeActivityId, navigate]);
 
   const handleReviewConfirm = useCallback(async () => {
     let attemptId = activeAttemptId;
@@ -220,12 +222,12 @@ export function useAttemptFlow({ role, page, currentUser, username, navigate, sh
       showToast(error?.message ?? "Falha ao salvar respostas.");
       return;
     }
-    setAttemptConcluded(true);
+    setAttemptConcluded(false);
     setActiveAttemptId(attemptId ?? null);
     setAnswers([]);
     setQuestionStartIndex(0);
     setQuestionSessionId((prev) => prev + 1);
-    navigate("done");
+    navigate(ROUTES.attemptDone(attemptId), { replace: true });
   }, [activeActivityId, activeAttemptId, answers, createAttempt, handleLockedAttempt, navigate, showToast]);
 
   const handlePreviewStart = useCallback(async ({ editedQuestions = [], previewTitle, setUploadStatus, setUploadError }) => {
@@ -248,8 +250,8 @@ export function useAttemptFlow({ role, page, currentUser, username, navigate, sh
     }
 
     setQuestionStartIndex(0);
-    navigate("question");
-  }, [createVisitorAttempt, navigate, questionSet, role]);
+    navigate(ROUTES.activityResponder(activeActivityId || "local"));
+  }, [activeActivityId, createVisitorAttempt, navigate, questionSet, role]);
 
   const handleGenerate = useCallback(async () => {
     const attemptId = activeAttemptId;
@@ -269,7 +271,7 @@ export function useAttemptFlow({ role, page, currentUser, username, navigate, sh
 
   const handleDoneHome = useCallback(() => {
     resetAttemptFlow();
-    navigate(role === "aluno" ? "history" : "upload");
+    navigate(role === "aluno" ? ROUTES.studentHome : ROUTES.upload, { replace: true });
   }, [navigate, resetAttemptFlow, role]);
 
   const startActivityAttempt = useCallback(async (activityId) => {
@@ -305,7 +307,11 @@ export function useAttemptFlow({ role, page, currentUser, username, navigate, sh
       setQuestionSessionId((prev) => prev + 1);
       setAttemptConcluded(attempt.status === "concluido");
       setLockedAttemptNotice(attempt.status === "concluido" ? "Esta tentativa já foi concluída e não pode ser editada." : null);
-      navigate(attempt.status === "concluido" ? "review" : "question");
+      navigate(
+        attempt.status === "concluido"
+          ? ROUTES.attemptReview(attempt.id)
+          : ROUTES.activityResponder(attempt.activity_id)
+      );
     } catch {
       showToast("Falha ao retomar a tentativa.");
     }
@@ -318,7 +324,7 @@ export function useAttemptFlow({ role, page, currentUser, username, navigate, sh
     setAnswers([]);
     setQuestionStartIndex(0);
     setQuestionSessionId((prev) => prev + 1);
-    navigate(role === "aluno" ? "history" : "upload");
+    navigate(role === "aluno" ? ROUTES.studentHome : ROUTES.upload, { replace: true });
   }, [navigate, role]);
 
   return {

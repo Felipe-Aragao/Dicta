@@ -1,23 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { getActivity, getActivityByCode } from "../services/activityService";
+import { ROUTES } from "../routes";
 
-const getInitialShareCode = () => {
-  const params = new URLSearchParams(window.location.search);
-  return params.get("code") || "";
-};
-
-export function useActivityAccess({ role, page, currentUser, navigate, showToast, startActivityAttempt }) {
+export function useActivityAccess({ role, navigate, showToast, startActivityAttempt }) {
   const [attemptsActivity, setAttemptsActivity] = useState(null);
-  const [pendingActivityId, setPendingActivityId] = useState(null);
-  const [pendingActivityCode, setPendingActivityCode] = useState(getInitialShareCode);
 
-  useEffect(() => {
-    if (!pendingActivityCode || currentUser?.id) return;
-    if (page === "credentials" && role === "aluno") return;
-    navigate("credentials", "aluno");
-  }, [currentUser?.id, navigate, page, pendingActivityCode, role]);
-
-  const handleOpenActivity = useCallback(async (activityId) => {
+  const handleOpenActivity = useCallback(async (activityId, options = {}) => {
     if (role !== "aluno" && role !== "visitante") return false;
     try {
       const activity = await getActivity(activityId);
@@ -26,7 +14,7 @@ export function useActivityAccess({ role, page, currentUser, navigate, showToast
       }
       const attempt = await startActivityAttempt(activityId);
       if (!attempt?.id) return false;
-      navigate("question");
+      navigate(ROUTES.activityResponder(activityId), options);
       return true;
     } catch (error) {
       showToast(error?.message ?? "Falha ao abrir atividade.");
@@ -41,7 +29,7 @@ export function useActivityAccess({ role, page, currentUser, navigate, showToast
     try {
       const activity = await getActivityByCode(value);
       if (!activity?.id) throw new Error("Atividade não encontrada.");
-      await handleOpenActivity(activity.id);
+      await handleOpenActivity(activity.id, { replace: true });
       return true;
     } catch (error) {
       showToast(error?.message ?? "Falha ao abrir atividade.");
@@ -49,29 +37,32 @@ export function useActivityAccess({ role, page, currentUser, navigate, showToast
     }
   }, [handleOpenActivity, showToast]);
 
-  useEffect(() => {
-    if (currentUser?.id && role === "aluno" && pendingActivityId) {
-      handleOpenActivity(pendingActivityId);
-      setPendingActivityId(null);
-    }
-  }, [currentUser, handleOpenActivity, pendingActivityId, role]);
-
-  useEffect(() => {
-    if (currentUser?.id && role === "aluno" && pendingActivityCode) {
-      handleOpenActivityCode(pendingActivityCode);
-      setPendingActivityCode("");
-    }
-  }, [currentUser?.id, handleOpenActivityCode, pendingActivityCode, role]);
-
   const handleOpenAttempts = useCallback((activity) => {
     if (!activity?.id) return;
     setAttemptsActivity(activity);
-    navigate("attempts");
+    navigate(ROUTES.attempts(activity.id));
   }, [navigate]);
+
+  const loadAttemptsActivity = useCallback(async (activityId) => {
+    if (!activityId) return null;
+    if (attemptsActivity?.id && String(attemptsActivity.id) === String(activityId)) return attemptsActivity;
+    try {
+      const activity = await getActivity(activityId);
+      const normalized = {
+        id: activity.id,
+        name: activity.name,
+        discipline: activity.discipline,
+      };
+      setAttemptsActivity(normalized);
+      return normalized;
+    } catch (error) {
+      showToast(error?.message ?? "Falha ao carregar atividade.");
+      return null;
+    }
+  }, [attemptsActivity, showToast]);
 
   const resetActivityAccess = useCallback(() => {
     setAttemptsActivity(null);
-    setPendingActivityCode("");
   }, []);
 
   return {
@@ -79,6 +70,7 @@ export function useActivityAccess({ role, page, currentUser, navigate, showToast
     handleOpenActivity,
     handleOpenActivityCode,
     handleOpenAttempts,
+    loadAttemptsActivity,
     resetActivityAccess,
   };
 }

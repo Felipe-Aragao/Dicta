@@ -1,5 +1,6 @@
 import { ArrowLeft, ArrowRight, SpeakerHigh } from "@phosphor-icons/react";
 import { DictaLogo } from "./DictaLogo";
+import { ROUTES } from "../../routes";
 
 export function Topbar({
   page,
@@ -53,7 +54,7 @@ export function Topbar({
   if (page === "professor-home") {
     return (
       <header className="topbar" role="banner">
-        <DictaLogo onClick={() => navigate("professor-home")} />
+        <DictaLogo onClick={() => navigate(ROUTES.professorHome)} />
         <div className="topbar-area">
           <span className="topbar-area-label">Área do Professor</span>
         </div>
@@ -64,7 +65,7 @@ export function Topbar({
   if (page === "history" && role === "aluno") {
     return (
       <header className="topbar" role="banner">
-        <DictaLogo onClick={() => navigate("history")} />
+        <DictaLogo onClick={() => navigate(ROUTES.studentHome)} />
         <div className="topbar-area">
           <span className="topbar-area-label">Minha Área</span>
           <button
@@ -87,15 +88,15 @@ export function Topbar({
     : role === "professor" ? "Área do Professor"
     : "Início";
 
-  const backDest = page === "preview" ? "upload"
-    : role === "aluno" ? "history"
-    : role === "visitante" ? "login"
-    : role === "professor" ? "professor-home"
-    : "login";
+  const backDest = page === "preview" ? ROUTES.upload
+    : role === "aluno" ? ROUTES.studentHome
+    : role === "visitante" ? ROUTES.login
+    : role === "professor" ? ROUTES.professorHome
+    : ROUTES.login;
 
   const handleBack = () => {
     if (page === "done") onDoneBack?.();
-    navigate(backDest);
+    navigate(backDest, { replace: page === "done" });
   };
 
   return (

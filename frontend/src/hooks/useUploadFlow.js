@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { extractQuestionsFromPdf } from "../services/pdfService";
+import { ROUTES } from "../routes";
 
-export function useUploadFlow({ page, role, navigate, prepareExtractedQuestions }) {
+export function useUploadFlow({ isUploadPage, role, navigate, prepareExtractedQuestions }) {
   const [uploadStatus, setUploadStatus] = useState("idle");
   const [uploadError, setUploadError] = useState("");
   const [previewTitle, setPreviewTitle] = useState("Mock test");
@@ -12,11 +13,11 @@ export function useUploadFlow({ page, role, navigate, prepareExtractedQuestions 
   }, []);
 
   useEffect(() => {
-    if (page === "upload") resetUploadStatus();
-  }, [page, resetUploadStatus]);
+    if (isUploadPage) resetUploadStatus();
+  }, [isUploadPage, resetUploadStatus]);
 
   const handleStart = useCallback(async (file, numQuestions) => {
-    const nextAfterExtracting = role === "visitante" ? "preview" : "question";
+    const nextAfterExtracting = role === "visitante" ? ROUTES.preview : ROUTES.activityResponder("local");
     if (!file) return;
 
     setUploadStatus("loading");
@@ -29,8 +30,8 @@ export function useUploadFlow({ page, role, navigate, prepareExtractedQuestions 
       prepareExtractedQuestions(questions);
 
       setTimeout(() => {
-        navigate("extracting");
-        setTimeout(() => navigate(nextAfterExtracting), 2300);
+        navigate(ROUTES.extracting, { replace: true });
+        setTimeout(() => navigate(nextAfterExtracting, { replace: true }), 2300);
       }, 400);
     } catch (error) {
       setUploadStatus("error");
