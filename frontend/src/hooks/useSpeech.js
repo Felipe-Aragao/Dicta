@@ -93,7 +93,6 @@ export function useSpeech() {
         let textoFinal = "";
         let textoIntermediario = "";
 
-        // Separa o que já foi confirmado do que ainda está sendo dito
         for (let i = event.resultIndex; i < event.results.length; i++) {
           if (event.results[i].isFinal) {
             textoFinal += event.results[i][0].transcript;
@@ -108,13 +107,71 @@ export function useSpeech() {
           const cleanText = sanitizeText(textoParaAvaliar);
           let comandoExecutado = false;
 
-          // Verifica se a frase dita é um comando
+          // COMANDO POR VOZ: "MUDAR VOZ" ou "ALTERAR VOZ"
+          if (cleanText.includes("mudar voz") || cleanText.includes("alterar voz") || cleanText.includes("trocar voz")) {
+            const disponiveis = window.speechSynthesis.getVoices().filter(v => v.lang.startsWith("pt"));
+            const atualURI = localStorage.getItem("dicta_voice") || "";
+            
+            if (disponiveis.length > 1) {
+              const indexAtual = disponiveis.findIndex(v => v.voiceURI === atualURI);
+              const proximoIndex = (indexAtual + 1) % disponiveis.length;
+              const proximaVoz = disponiveis[proximoIndex];
+              
+              changeVoice(proximaVoz.voiceURI);
+              comandoExecutado = true;
+              
+              // Feedback falado imediato com a nova voz instalada
+              setTimeout(() => {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance("Voz alterada.");
+                utterance.lang = "pt-BR";
+                utterance.voice = proximaVoz;
+                utterance.rate = parseFloat(localStorage.getItem("dicta_rate")) || 0.95;
+                window.speechSynthesis.speak(utterance);
+              }, 100);
+            }
+          }
+
+          // COMANDO POR VOZ: "VELOCIDADE [NÚMERO]" (Ex: "velocidade 1.3" ou "velocidade 2")
+          // A API do navegador é otimizada para transcrever números falados diretamente como dígitos (ex: "1.5" ou "1,5")
+          const matchVelocidade = cleanText.match(/velocidade\s*(\d+([.,]\d+)?)/);
+          if (matchVelocidade) {
+            const valorTexto = matchVelocidade[1].replace(",", "."); // Padroniza o separador decimal
+            const novoRate = parseFloat(valorTexto);
+            
+            // Limita a velocidade entre os parâmetros seguros da  UI (0.5x até 2.0x)
+            if (!isNaN(novoRate) && novoRate >= 0.5 && novoRate <= 2.0) {
+              changeRate(novoRate);
+              comandoExecutado = true;
+              
+              // Feedback falado na velocidade configurada
+              setTimeout(() => {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(`Velocidade ${novoRate}.`);
+                utterance.lang = "pt-BR";
+                utterance.rate = novoRate;
+                
+                const disponiveis = window.speechSynthesis.getVoices().filter(v => v.lang.startsWith("pt"));
+                const atualURI = localStorage.getItem("dicta_voice") || "";
+                const chosenVoice = disponiveis.find(v => v.voiceURI === atualURI);
+                if (chosenVoice) utterance.voice = chosenVoice;
+                
+                window.speechSynthesis.speak(utterance);
+              }, 100);
+            }
+          }
+
+          // Se um comando de ajuste de áudio foi executado, reinicia o buffer e encerra
+          if (comandoExecutado) {
+            try { rec.stop(); } catch {}
+            return;
+          }
+
           Object.keys(commandsRef.current).forEach((cmdKey) => {
-            if (comandoExecutado) return; // Se já achou um comando, ignora o resto
+            if (comandoExecutado) return;
 
             if (cleanText.includes(sanitizeText(cmdKey))) {
               const now = Date.now();
-              // Trava de segurança de 1 segundo
               if (now - lastCommandTimeRef.current > 1000) {
                 commandsRef.current[cmdKey]();
                 lastCommandTimeRef.current = now;
@@ -123,17 +180,11 @@ export function useSpeech() {
             }
           });
 
-          //  Limpar a memória do navegador 
           if (comandoExecutado) {
-            try {
-              rec.stop(); // Desliga o microfone para apagar a palavra "próxima" da memória
-            } catch {
-              // Ignora falha do navegador ao parar reconhecimento.
-            }
-            return; // Sai da função para evitar processamento duplicado
+            try { rec.stop(); } catch {}
+            return;
           }
 
-          // Se não for comando, envia o texto para a tela de respostas
           if (onResultRef.current) {
             onResultRef.current(textoFinal, textoIntermediario);
           }
@@ -147,9 +198,7 @@ export function useSpeech() {
           setTimeout(() => {
             if (shouldListenRef.current) {
               recRef.current = createRecognition();
-              try { recRef.current.start(); } catch {
-                // Ignora falha temporaria ao reiniciar reconhecimento.
-              }
+              try { recRef.current.start(); } catch {}
             }
           }, 250);
         }
@@ -163,7 +212,7 @@ export function useSpeech() {
       try { recRef.current.start(); } catch (e) { console.error(e); }
     }
     return true;
-  }, []);
+  }, [changeRate, changeVoice]);
 
   const stopRec = useCallback(() => {
     shouldListenRef.current = false;
@@ -182,10 +231,10 @@ export function useSpeech() {
     startRec, 
     stopRec, 
     setCommands,
-    voices,       // Lista de vozes para você montar um <select>
+    voices,       
     changeVoice,  // Função para mudar a voz
     selectedVoiceURI,
-    rate,         // Velocidade atual para você mostrar no UI
+    rate,         
     changeRate    // Função para mudar a velocidade
   };
 }

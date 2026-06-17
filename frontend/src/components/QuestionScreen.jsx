@@ -301,6 +301,8 @@ export function QuestionScreen({
           else if (!isMultiple && transcription) speak(transcription);
         }
       },
+      "ajustar voz": () => { if (!recording) setShowSettings(true); },
+      "fechar ajustes": () => { if (!recording) setShowSettings(false); },
       "ajuda": () => { 
         if (!recording) {
           if (!isMultiple) {
