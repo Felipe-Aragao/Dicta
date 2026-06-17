@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ArrowLeft, CheckCircle, Eye, Trash, Plus } from "@phosphor-icons/react";
+import { ExtractingScreen } from "./ExtractingScreen";
 import { UploadScreen } from "./UploadScreen";
 
 const OPTION_LETTERS = ["A", "B", "C", "D", "E", "F"];
@@ -81,27 +82,35 @@ export function ActivityPdfModal({
   onStart,
   uploadStatus = "idle",
   uploadError = "",
+  uploadFileName = "",
   onFileSelected,
 }) {
+  const isLoading = uploadStatus === "loading";
+
   return (
     <div
       className="modal-overlay"
       role="dialog"
       aria-modal="true"
       aria-labelledby="activity-pdf-h"
-      onClick={(e) => { if (e.target === e.currentTarget && uploadStatus !== "loading") onClose?.(); }}
+      onClick={(e) => { if (e.target === e.currentTarget && !isLoading) onClose?.(); }}
     >
       <div className="modal-card modal-card-wide">
-        <UploadScreen
-          onStart={onStart}
-          uploadStatus={uploadStatus}
-          uploadError={uploadError}
-          onFileSelected={onFileSelected}
-          showQuestionCount={false}
-          title="Adicionar PDF"
-          description="Envie o PDF da atividade para extrair as questões automaticamente."
-          actionLabel="Extrair questões"
-        />
+        {isLoading ? (
+          <ExtractingScreen />
+        ) : (
+          <UploadScreen
+            onStart={onStart}
+            uploadStatus={uploadStatus}
+            uploadError={uploadError}
+            selectedFileName={uploadFileName}
+            onFileSelected={onFileSelected}
+            showQuestionCount={false}
+            title="Adicionar PDF"
+            description="Envie o PDF da atividade para extrair as questões automaticamente."
+            actionLabel="Extrair questões"
+          />
+        )}
       </div>
     </div>
   );

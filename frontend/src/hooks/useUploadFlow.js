@@ -5,11 +5,13 @@ import { ROUTES } from "../routes";
 export function useUploadFlow({ isUploadPage, role, navigate, prepareExtractedQuestions }) {
   const [uploadStatus, setUploadStatus] = useState("idle");
   const [uploadError, setUploadError] = useState("");
+  const [uploadFileName, setUploadFileName] = useState("");
   const [previewTitle, setPreviewTitle] = useState("Mock test");
 
   const resetUploadStatus = useCallback(() => {
     setUploadStatus("idle");
     setUploadError("");
+    setUploadFileName("");
   }, []);
 
   useEffect(() => {
@@ -22,26 +24,26 @@ export function useUploadFlow({ isUploadPage, role, navigate, prepareExtractedQu
 
     setUploadStatus("loading");
     setUploadError("");
+    setUploadFileName(file.name || "");
+    navigate(ROUTES.extracting, { replace: true });
 
     try {
       const questions = await extractQuestionsFromPdf(file, numQuestions);
       setUploadStatus("success");
       setPreviewTitle(file?.name ? file.name.replace(/\.[^.]+$/, "") : "Prova");
       prepareExtractedQuestions(questions);
-
-      setTimeout(() => {
-        navigate(ROUTES.extracting, { replace: true });
-        setTimeout(() => navigate(nextAfterExtracting, { replace: true }), 2300);
-      }, 400);
+      navigate(nextAfterExtracting, { replace: true });
     } catch (error) {
       setUploadStatus("error");
       setUploadError(error?.message ?? "Falha ao enviar PDF.");
+      navigate(ROUTES.upload, { replace: true });
     }
   }, [navigate, prepareExtractedQuestions, role]);
 
   return {
     uploadStatus,
     uploadError,
+    uploadFileName,
     previewTitle,
     setUploadStatus,
     setUploadError,

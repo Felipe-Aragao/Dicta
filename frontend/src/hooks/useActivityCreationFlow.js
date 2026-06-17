@@ -17,6 +17,7 @@ export function useActivityCreationFlow({
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [uploadStatus, setUploadStatus] = useState("idle");
   const [uploadError, setUploadError] = useState("");
+  const [uploadFileName, setUploadFileName] = useState("");
   const [previewData, setPreviewData] = useState(null);
   const [saving, setSaving] = useState(false);
 
@@ -24,6 +25,7 @@ export function useActivityCreationFlow({
     setPreviewData(null);
     setUploadStatus("idle");
     setUploadError("");
+    setUploadFileName("");
     setShowPdfModal(true);
   }, []);
 
@@ -31,10 +33,12 @@ export function useActivityCreationFlow({
     if (!file) return;
     setUploadStatus("loading");
     setUploadError("");
+    setUploadFileName(file.name || "");
 
     try {
       const questions = await extractQuestionsFromPdf(file);
       setUploadStatus("success");
+      setUploadFileName("");
       setPreviewData({
         name: file?.name ? file.name.replace(/\.[^.]+$/, "") : "",
         discipline: "",
@@ -149,6 +153,7 @@ export function useActivityCreationFlow({
     setShowPdfModal,
     uploadStatus,
     uploadError,
+    uploadFileName,
     previewData,
     saving,
     previewQuestions,
@@ -161,6 +166,7 @@ export function useActivityCreationFlow({
     resetUploadStatus: () => {
       setUploadStatus("idle");
       setUploadError("");
+      setUploadFileName("");
     },
   };
 }

@@ -378,6 +378,7 @@ export function ProfessorScreen({ username, onLogout, userId, onOpenAttempts }) 
           onStart={creation.handleExtractActivityPdf}
           uploadStatus={creation.uploadStatus}
           uploadError={creation.uploadError}
+          uploadFileName={creation.uploadFileName}
           onFileSelected={creation.resetUploadStatus}
         />
       )}

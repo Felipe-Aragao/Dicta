@@ -70,13 +70,25 @@ function RequireAttemptState({ role, attempt, children }) {
 function CredentialsRoute({ auth, setSelectedRole, navigate }) {
   const { role } = useParams();
   const normalizedRole = role === "professor" || role === "aluno" ? role : null;
+  const pendingCode = normalizedRole === "aluno"
+    ? sessionStorage.getItem(PENDING_ACTIVITY_CODE_KEY)
+    : "";
 
   useEffect(() => {
     setSelectedRole(normalizedRole);
   }, [normalizedRole, setSelectedRole]);
 
   if (!normalizedRole) return <Navigate to={ROUTES.login} replace />;
-  if (auth.currentUser) return <Navigate to={getHomePathForRole(auth.currentUser.role)} replace />;
+  if (auth.currentUser) {
+    return (
+      <Navigate
+        to={auth.currentUser.role === "aluno" && pendingCode
+          ? ROUTES.activityCode(pendingCode)
+          : getHomePathForRole(auth.currentUser.role)}
+        replace
+      />
+    );
+  }
 
   return (
     <CredentialsScreen
@@ -105,12 +117,14 @@ function ActivityCodeRoute({ auth, activityAccess, setSelectedRole, showToast, n
     }
 
     if (auth.currentUser.role !== "aluno") {
+      sessionStorage.removeItem(PENDING_ACTIVITY_CODE_KEY);
       showToast("Entre como aluno para responder atividades por código.");
       navigate(getHomePathForRole(auth.currentUser.role), { replace: true });
       return;
     }
 
     let active = true;
+    sessionStorage.removeItem(PENDING_ACTIVITY_CODE_KEY);
     handleOpenActivityCode(code).then((opened) => {
       if (active && !opened) navigate(ROUTES.studentHome, { replace: true });
     });
@@ -375,6 +389,7 @@ export default function App() {
                   onStart={upload.handleStart}
                   uploadStatus={upload.uploadStatus}
                   uploadError={upload.uploadError}
+                  selectedFileName={upload.uploadFileName}
                   onFileSelected={upload.resetUploadStatus}
                   showQuestionCount
                 />
@@ -385,6 +400,7 @@ export default function App() {
                   onStart={upload.handleStart}
                   uploadStatus={upload.uploadStatus}
                   uploadError={upload.uploadError}
+                  selectedFileName={upload.uploadFileName}
                   onFileSelected={upload.resetUploadStatus}
                   showQuestionCount={false}
                 />
@@ -395,9 +411,13 @@ export default function App() {
         <Route
           path={ROUTES.extracting}
           element={
-            <RequireAttemptState role={role} attempt={attempt}>
+            upload.uploadStatus === "loading" ? (
               <ExtractingScreen />
-            </RequireAttemptState>
+            ) : (
+              <RequireAttemptState role={role} attempt={attempt}>
+                <ExtractingScreen />
+              </RequireAttemptState>
+            )
           }
         />
         <Route

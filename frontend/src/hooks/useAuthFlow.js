@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { setUnauthorizedHandler } from "../services/apiClient";
 import * as authService from "../services/authService";
-import { ROUTES, getHomePathForRole } from "../routes";
+import { PENDING_ACTIVITY_CODE_KEY, ROUTES, getHomePathForRole } from "../routes";
 
 const shouldRedirectRestoredSession = () => {
   const pathname = window.location.pathname;
@@ -12,6 +12,8 @@ const shouldRedirectRestoredSession = () => {
     pathname.startsWith("/entrar/")
   );
 };
+
+const getPendingActivityCode = () => sessionStorage.getItem(PENDING_ACTIVITY_CODE_KEY) || "";
 
 export function useAuthFlow({ role, navigate, showToast, onRoleChange }) {
   const [username, setUsername] = useState("");
@@ -101,7 +103,8 @@ export function useAuthFlow({ role, navigate, showToast, onRoleChange }) {
       applyUser(user);
       onRoleChange?.(user.role || role);
       setAuthError("");
-      navigate(ROUTES.voiceIntro, { replace: true });
+      const pendingCode = user.role === "aluno" ? getPendingActivityCode() : "";
+      navigate(pendingCode ? ROUTES.activityCode(pendingCode) : ROUTES.voiceIntro, { replace: true });
     } catch (error) {
       setAuthError(error?.message ?? "Falha ao entrar.");
       showToast(error?.message ?? "Falha ao entrar.");
@@ -120,7 +123,8 @@ export function useAuthFlow({ role, navigate, showToast, onRoleChange }) {
       applyUser(user);
       onRoleChange?.(user.role || role);
       setAuthError("");
-      navigate(ROUTES.voiceIntro, { replace: true });
+      const pendingCode = user.role === "aluno" ? getPendingActivityCode() : "";
+      navigate(pendingCode ? ROUTES.activityCode(pendingCode) : ROUTES.voiceIntro, { replace: true });
     } catch (error) {
       setAuthError(error?.message ?? "Falha ao cadastrar.");
       showToast(error?.message ?? "Falha ao cadastrar.");

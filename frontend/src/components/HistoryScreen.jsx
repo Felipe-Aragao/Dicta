@@ -381,6 +381,7 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenActivi
           onStart={creation.handleExtractActivityPdf}
           uploadStatus={creation.uploadStatus}
           uploadError={creation.uploadError}
+          uploadFileName={creation.uploadFileName}
           onFileSelected={creation.resetUploadStatus}
         />
       )}

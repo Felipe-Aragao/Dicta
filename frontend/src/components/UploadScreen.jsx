@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { FilePdf, CheckCircle, XCircle, SpinnerGap } from "@phosphor-icons/react";
+import { validatePdfUpload } from "../services/pdfService";
 
 // Tela de envio de PDF
 export function UploadScreen({
@@ -11,24 +12,42 @@ export function UploadScreen({
   title = "Enviar Material",
   description = "Envie o arquivo PDF com as questões para iniciar o questionário.",
   actionLabel = "Iniciar Questionário",
+  selectedFileName = "",
 }) {
   const [file, setFile] = useState(null);
   const [over, setOver] = useState(false);
+  const [validationStatus, setValidationStatus] = useState("idle");
+  const [validationError, setValidationError] = useState("");
   
   const [numQuestions, setNumQuestions] = useState(10); 
   
   const inputRef = useRef();
 
-  const handleFile = (f) => {
-    if (f?.type === "application/pdf") {
-      setFile(f);
-      onFileSelected?.();
+  const handleFile = async (f) => {
+    if (!f) return;
+    setFile(f);
+    setValidationStatus("checking");
+    setValidationError("");
+    onFileSelected?.();
+
+    try {
+      await validatePdfUpload(f);
+    } catch (error) {
+      setValidationStatus("error");
+      setValidationError(error?.message ?? "Arquivo PDF inválido.");
+      return;
     }
+
+    setValidationStatus("valid");
   };
 
   const isLoading = uploadStatus === "loading";
   const isSuccess = uploadStatus === "success";
-  const isError = uploadStatus === "error";
+  const isChecking = validationStatus === "checking";
+  const isValid = validationStatus === "valid";
+  const isError = uploadStatus === "error" || validationStatus === "error";
+  const displayError = uploadError || validationError;
+  const displayFileName = file?.name || selectedFileName;
 
   return (
     <div className="page page-anim">
@@ -83,27 +102,27 @@ export function UploadScreen({
         />
 
         {/* Arquivo selecionado */}
-        {file && (
+        {displayFileName && (
           <div>
             <div
-              className={`file-pill${isLoading ? " loading" : ""}${isSuccess ? " success" : ""}${isError ? " error" : ""}`}
+              className={`file-pill${isLoading || isChecking ? " loading" : ""}${isSuccess || isValid ? " success" : ""}${isError ? " error" : ""}`}
               role="status"
               aria-live="polite"
             >
-              {isLoading ? (
+              {isLoading || isChecking ? (
                 <SpinnerGap size={16} weight="bold" className="file-spinner" />
               ) : isError ? (
                 <XCircle size={16} weight="fill" />
-              ) : isSuccess ? (
+              ) : isSuccess || isValid ? (
                 <CheckCircle size={16} weight="fill" />
               ) : (
                 <FilePdf size={16} weight="regular" />
               )}
-              {isLoading ? "Verificando PDF..." : file.name}
+              {isLoading ? "Extraindo questões..." : isChecking ? "Verificando PDF..." : displayFileName}
             </div>
-            {isError && uploadError && (
+            {isError && displayError && (
               <div className="file-error" role="alert">
-                {uploadError}
+                {displayError}
               </div>
             )}
           </div>
@@ -137,7 +156,7 @@ export function UploadScreen({
           <button
             className="btn btn-primary btn-lg"
             style={{ width: "100%" }}
-            disabled={!file || isLoading}
+            disabled={!file || !isValid || isLoading || isChecking}
             onClick={() => onStart(file, showQuestionCount ? numQuestions : undefined)}
             aria-label="Iniciar questionário"
           >

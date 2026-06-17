@@ -30,6 +30,12 @@ async def _save_uploaded_pdf(pdf: UploadFile) -> Path:
     if pdf.content_type and pdf.content_type.lower() != "application/pdf":
         raise HTTPException(status_code=400, detail="Arquivo deve ser PDF.")
 
+    if pdf.size is not None and pdf.size > MAX_PDF_SIZE_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Arquivo acima do limite de {MAX_PDF_SIZE_MB} MB.",
+        )
+
     header = await pdf.read(5)
     if len(header) < 5 or header != b"%PDF-":
         raise HTTPException(status_code=400, detail="Arquivo não parece um PDF válido.")
@@ -100,3 +106,10 @@ async def receive_pdf(
         "questions": questions,
         "warnings": [],
     }
+
+
+@router.post("/validate")
+async def validate_pdf(pdf: UploadFile = File(...)):
+    target_path = await _save_uploaded_pdf(pdf)
+    _remove_file(target_path)
+    return {"ok": True}

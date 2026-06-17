@@ -1,6 +1,20 @@
 import { requestJson } from "./apiClient";
 import { normalizeQuestions } from "../utils/questions";
 
+export const validatePdfUpload = async (file) => {
+  const formData = new FormData();
+  formData.append("pdf", file);
+
+  await requestJson(
+    "/pdf/validate",
+    {
+      method: "POST",
+      body: formData,
+    },
+    "Arquivo PDF inválido.",
+  );
+};
+
 export const extractQuestionsFromPdf = async (file, numQuestions) => {
   const formData = new FormData();
   formData.append("pdf", file);

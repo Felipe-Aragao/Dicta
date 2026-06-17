@@ -47,6 +47,26 @@ class PdfEndpointTests(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["detail"], "Arquivo não parece um PDF válido.")
 
+    def test_validate_pdf_accepts_valid_pdf_header(self):
+        response = self.client.post(
+            "/pdf/validate",
+            files={"pdf": ("prova.pdf", b"%PDF-1.4\nconteudo", "application/pdf")},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"ok": True})
+
+    def test_validate_pdf_rejects_file_above_size_limit(self):
+        oversized_pdf = b"%PDF-" + (b"0" * (10 * 1024 * 1024))
+
+        response = self.client.post(
+            "/pdf/validate",
+            files={"pdf": ("grande.pdf", oversized_pdf, "application/pdf")},
+        )
+
+        self.assertEqual(response.status_code, 413)
+        self.assertEqual(response.json()["detail"], "Arquivo acima do limite de 10 MB.")
+
 
 if __name__ == "__main__":
     unittest.main()
