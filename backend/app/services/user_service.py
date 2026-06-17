@@ -3,6 +3,8 @@ import uuid
 
 from sqlalchemy.orm import Session
 
+from app.models.activities import Activity
+from app.models.attempts import Attempt
 from app.models.users import User
 from app.schemas.user import UserCreate, UserUpdate
 
@@ -51,5 +53,12 @@ class UserService:
 
     # Remove usuario
     def delete(self, user: User) -> None:
+        self.db.delete(user)
+        self.db.commit()
+
+    # Remove a propria conta e dados dependentes que pertencem ao usuario
+    def delete_account(self, user: User) -> None:
+        self.db.query(Attempt).filter(Attempt.aluno_id == user.id).delete(synchronize_session=False)
+        self.db.query(Activity).filter(Activity.owner_id == user.id).delete(synchronize_session=False)
         self.db.delete(user)
         self.db.commit()

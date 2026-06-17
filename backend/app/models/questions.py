@@ -27,4 +27,4 @@ class Question(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     options = relationship("QuestionOption", backref="question", cascade="all, delete-orphan")
-    answers = relationship("Answer", backref="question_rel", cascade="all, delete-orphan")
+    answers = relationship("Answer", back_populates="question", cascade="all, delete-orphan")

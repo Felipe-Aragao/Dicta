@@ -1,6 +1,15 @@
-import { CaretLeft, CaretRight, SignOut, User } from "@phosphor-icons/react";
+import { CaretLeft, CaretRight, SignOut, User, UserCircleGear } from "@phosphor-icons/react";
 
-export function Sidebar({ username, roleLabel, fallbackName, onLogout, collapsed, onToggleCollapsed }) {
+export function Sidebar({
+  username,
+  roleLabel,
+  fallbackName,
+  profileImageUrl,
+  onEditProfile,
+  onLogout,
+  collapsed,
+  onToggleCollapsed,
+}) {
   const displayName = username || fallbackName;
 
   return (
@@ -16,25 +25,44 @@ export function Sidebar({ username, roleLabel, fallbackName, onLogout, collapsed
       </button>
 
       <div className="sidebar-avatar" aria-label={`Perfil de ${displayName}`}>
-        <User size={30} weight="regular" color="white" />
+        {profileImageUrl ? (
+          <img src={profileImageUrl} alt="" />
+        ) : (
+          <User size={30} weight="regular" color="white" />
+        )}
       </div>
 
       {collapsed ? (
-        <button
-          className="sidebar-logout sidebar-logout-icon"
-          onClick={onLogout}
-          aria-label="Sair da conta"
-          title="Sair"
-        >
-          <SignOut size={20} weight="bold" />
-        </button>
+        <div className="sidebar-bottom-actions">
+          <button
+            className="sidebar-action sidebar-action-icon"
+            onClick={onEditProfile}
+            aria-label="Editar perfil"
+            title="Editar perfil"
+          >
+            <UserCircleGear size={20} weight="bold" />
+          </button>
+          <button
+            className="sidebar-logout sidebar-logout-icon"
+            onClick={onLogout}
+            aria-label="Sair da conta"
+            title="Sair"
+          >
+            <SignOut size={20} weight="bold" />
+          </button>
+        </div>
       ) : (
         <>
           <p className="sidebar-welcome">Bem vindo,<br />{displayName}!</p>
           <p className="sidebar-role">{roleLabel}</p>
-          <button className="sidebar-logout" onClick={onLogout} aria-label="Sair da conta">
-            Sair
-          </button>
+          <div className="sidebar-bottom-actions">
+            <button className="sidebar-action" onClick={onEditProfile} aria-label="Editar perfil">
+              Editar perfil
+            </button>
+            <button className="sidebar-logout" onClick={onLogout} aria-label="Sair da conta">
+              Sair
+            </button>
+          </div>
         </>
       )}
     </aside>

@@ -4,8 +4,8 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import create_access_token, get_current_user
 from app.models.users import RoleEnum
-from app.schemas.auth import AuthTokenRead, AuthUserRead, LoginRequest, RegisterRequest
-from app.schemas.user import UserCreate
+from app.schemas.auth import AuthTokenRead, AuthUserRead, LoginRequest, ProfileUpdateRequest, RegisterRequest
+from app.schemas.user import UserCreate, UserUpdate
 from app.services.auth_service import hash_password, verify_password
 from app.services.user_service import UserService
 
@@ -60,3 +60,27 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
 @router.get("/me", response_model=AuthUserRead)
 def me(current_user=Depends(get_current_user)):
     return current_user
+
+
+@router.patch("/me", response_model=AuthUserRead)
+def update_me(
+    data: ProfileUpdateRequest,
+    current_user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    fields_set = getattr(data, "model_fields_set", getattr(data, "__fields_set__", set()))
+    updates = {}
+    if "name" in fields_set and data.name is not None:
+        name = data.name.strip()
+        if not name:
+            raise HTTPException(status_code=422, detail="Nome não pode ser vazio.")
+        updates["name"] = name
+    if "profile_image_url" in fields_set:
+        updates["profile_image_url"] = data.profile_image_url
+    return UserService(db).update(current_user, UserUpdate(**updates))
+
+
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
+def delete_me(current_user=Depends(get_current_user), db: Session = Depends(get_db)):
+    UserService(db).delete_account(current_user)
+    return None

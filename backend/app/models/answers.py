@@ -39,7 +39,7 @@ class Answer(Base):
     answered_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    question = relationship("Question", backref="answers_rel")
+    question = relationship("Question", back_populates="answers")
 
     @property
     def question_prompt(self):

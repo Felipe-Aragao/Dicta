@@ -22,6 +22,7 @@ class UserBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     email: EmailStr
     password_hash: Optional[str] = Field(None, max_length=255)
+    profile_image_url: Optional[str] = None
 
 
 class UserCreate(UserBase):
@@ -33,6 +34,7 @@ class UserUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     email: Optional[EmailStr] = None
     password_hash: Optional[str] = Field(None, max_length=255)
+    profile_image_url: Optional[str] = None
 
 
 class UserRead(ORMBase):
@@ -40,5 +42,6 @@ class UserRead(ORMBase):
     role: RoleEnum
     name: str
     email: EmailStr
+    profile_image_url: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None

@@ -146,6 +146,22 @@ export function useAuthFlow({ role, navigate, showToast, onRoleChange }) {
     setAuthReady(true);
   }, [clearLocalAuth, onRoleChange]);
 
+  const updateProfile = useCallback(async (profile) => {
+    const user = await authService.updateProfile(profile);
+    applyUser(user);
+    onRoleChange?.(user.role);
+    return user;
+  }, [applyUser, onRoleChange]);
+
+  const deleteAccount = useCallback(async () => {
+    await authService.deleteCurrentUser();
+    setUsername("");
+    setCurrentUser(null);
+    setAuthError("");
+    onRoleChange?.(null);
+    setAuthReady(true);
+  }, [onRoleChange]);
+
   return {
     username,
     setUsername,
@@ -158,5 +174,7 @@ export function useAuthFlow({ role, navigate, showToast, onRoleChange }) {
     handleRegister,
     handleVisitorName,
     resetAuth,
+    updateProfile,
+    deleteAccount,
   };
 }

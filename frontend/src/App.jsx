@@ -316,6 +316,14 @@ export default function App() {
     navigate(ROUTES.login, { replace: true });
   };
 
+  const handleDeleteAccount = async () => {
+    stopSpeak();
+    await auth.deleteAccount();
+    attempt.resetAllAttemptState();
+    activityAccess.resetActivityAccess();
+    navigate(ROUTES.login, { replace: true });
+  };
+
   const openVoiceCommands = () => {
     stopSpeak();
     navigate(ROUTES.voiceCommands, { state: { from: location.pathname } });
@@ -367,7 +375,10 @@ export default function App() {
             <RequireAuth auth={auth} role="professor">
               <ProfessorScreen
                 username={auth.username || "Professor"}
+                currentUser={auth.currentUser}
                 onLogout={handleLogout}
+                onProfileSave={auth.updateProfile}
+                onDeleteAccount={handleDeleteAccount}
                 onOpenAttempts={activityAccess.handleOpenAttempts}
                 userId={auth.currentUser?.id}
               />
@@ -380,7 +391,10 @@ export default function App() {
             <RequireAuth auth={auth} role="aluno">
               <HistoryScreen
                 username={auth.username || "Aluno"}
+                currentUser={auth.currentUser}
                 onLogout={handleLogout}
+                onProfileSave={auth.updateProfile}
+                onDeleteAccount={handleDeleteAccount}
                 onOpenActivity={activityAccess.handleOpenActivity}
                 onOpenActivityCode={activityAccess.handleOpenActivityCode}
                 onOpenAttempts={activityAccess.handleOpenAttempts}

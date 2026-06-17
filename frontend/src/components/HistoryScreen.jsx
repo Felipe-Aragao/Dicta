@@ -8,6 +8,7 @@ import { useActivityCreationFlow } from "../hooks/useActivityCreationFlow";
 import { ActivityPreviewDetailsModal } from "./activity/ActivityPreviewDetailsModal";
 import { ActivitySearchFilters } from "./activity/ActivitySearchFilters";
 import { Sidebar } from "./layout/Sidebar";
+import { ProfileScreen } from "./ProfileScreen";
 import { buildActivityFilterOptions, matchesActivityFilters } from "../utils/activityFilters";
 import {
   groupAttemptsByActivity,
@@ -18,10 +19,21 @@ import {
 import { useSpeech } from "../hooks/useSpeech";
 
 // Tela de historico do aluno
-export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenActivityCode, onOpenAttempts, userId }) {
+export function HistoryScreen({
+  username,
+  currentUser,
+  onLogout,
+  onProfileSave,
+  onDeleteAccount,
+  onOpenActivity,
+  onOpenActivityCode,
+  onOpenAttempts,
+  userId,
+}) {
   const { stopRec } = useSpeech();
   const [search, setSearch] = useState("");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [activePanel, setActivePanel] = useState("activities");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filters, setFilters] = useState({ professor: "", discipline: "", status: "" });
   const [viewingActivity, setViewingActivity] = useState(null);
@@ -200,12 +212,23 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenActivi
         username={username}
         roleLabel="Aluno"
         fallbackName="Aluno"
+        profileImageUrl={currentUser?.profile_image_url}
+        onEditProfile={() => setActivePanel("profile")}
         onLogout={onLogout}
         collapsed={sidebarCollapsed}
         onToggleCollapsed={() => setSidebarCollapsed((current) => !current)}
       />
 
       <div className="sidebar-main">
+        {activePanel === "profile" ? (
+          <ProfileScreen
+            user={currentUser}
+            fallbackName="Aluno"
+            onSave={onProfileSave}
+            onDeleteAccount={onDeleteAccount}
+            onBack={() => setActivePanel("activities")}
+          />
+        ) : (
         <div className="page">
           <div className="page-wide">
 
@@ -367,6 +390,7 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenActivi
 
           </div>
         </div>
+        )}
       </div>
       
       <ActivityPreviewDetailsModal

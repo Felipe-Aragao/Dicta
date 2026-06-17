@@ -195,8 +195,14 @@ body {
   width: 64px; height: 64px;
   border-radius: 50%;
   background: rgba(255,255,255,0.18);
+  overflow: hidden;
   display: flex; align-items: center; justify-content: center;
   color: white; margin-bottom: 18px;
+}
+.sidebar-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 .sidebar-welcome {
   font-size: 0.95rem; font-weight: 700; color: white;
@@ -206,13 +212,25 @@ body {
   font-size: 0.78rem; font-weight: 500; color: rgba(255,255,255,0.6);
   text-transform: uppercase; letter-spacing: .08em; text-align: center;
 }
-.sidebar-logout {
+.sidebar-bottom-actions {
   margin-top: auto;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.sidebar-action,
+.sidebar-logout {
   background: none; border: none; cursor: pointer;
   font-family: var(--font); font-size: 0.82rem; font-weight: 700;
   color: rgba(255,255,255,0.55); text-transform: uppercase; letter-spacing: .1em;
   padding: 10px 16px; border-radius: var(--r-sm); transition: all .15s;
   min-height: 44px;
+}
+.sidebar-action:hover {
+  color: white;
+  background: rgba(255,255,255,0.14);
 }
 .sidebar-logout-icon {
   width: 44px;
@@ -223,7 +241,17 @@ body {
   justify-content: center;
   letter-spacing: 0;
 }
+.sidebar-action-icon {
+  width: 44px;
+  min-width: 44px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 0;
+}
 .sidebar-logout:hover         { color: var(--red-600); background: rgba(255,255,255,0.92); }
+.sidebar-action:focus-visible,
 .sidebar-logout:focus-visible { outline: 2px solid white; outline-offset: 2px; }
 .sidebar-main {
   flex: 1; overflow-y: visible;
@@ -541,7 +569,100 @@ body {
   line-height: 1.45;
   font-weight: 600;
 }
+.field-success {
+  font-size: 0.84rem;
+  color: var(--green-700);
+  line-height: 1.45;
+  font-weight: 600;
+}
 
+/* ─── PROFILE ───────────────────────────────────────────────────── */
+.profile-header {
+  align-items: center;
+}
+.profile-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.profile-success-toast {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid var(--green-100);
+  border-radius: var(--r-sm);
+  background: var(--green-50);
+  color: var(--green-700);
+  font-size: 0.86rem;
+  font-weight: 700;
+  box-shadow: 0 10px 28px rgba(21,128,61,.12);
+  z-index: 2;
+}
+.profile-photo-row {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+.profile-photo-preview {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: var(--indigo-50);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.profile-photo-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.profile-photo-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.profile-file-btn {
+  position: relative;
+  overflow: hidden;
+}
+.profile-file-btn input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.profile-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+.profile-danger-zone {
+  margin-top: 10px;
+  padding-top: 22px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+}
+.profile-danger-zone h3 {
+  font-size: 1rem;
+  color: var(--text-1);
+  margin-bottom: 2px;
+}
+.profile-danger-zone p {
+  font-size: 0.88rem;
+  color: var(--text-3);
+}
 /* ─── SECTION HEADER ─────────────────────────────────────────────── */
 .section-header {
   display: flex; justify-content: space-between; align-items: flex-start;
@@ -933,6 +1054,16 @@ body {
   }
   .activity-primary-actions .btn {
     flex: 1;
+  }
+  .profile-photo-row,
+  .profile-danger-zone {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .profile-actions,
+  .profile-actions .btn,
+  .profile-danger-zone .btn {
+    width: 100%;
   }
   .data-table { min-width: 760px; }
 }

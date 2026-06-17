@@ -65,6 +65,25 @@ export const getCurrentUser = () => (
   requestJson("/auth/me", { handleUnauthorized: false }, "Sessão expirada. Entre novamente.")
 );
 
+export const updateProfile = async ({ name, profileImageUrl }) => {
+  const user = await requestJson(
+    "/auth/me",
+    jsonOptions("PATCH", {
+      name,
+      profile_image_url: profileImageUrl,
+    }),
+    "Falha ao atualizar perfil.",
+  );
+  const session = getStoredAuthSession();
+  saveAuthSession({ accessToken: session?.token, user });
+  return user;
+};
+
+export const deleteCurrentUser = async () => {
+  await requestJson("/auth/me", { method: "DELETE" }, "Falha ao excluir conta.");
+  clearSession();
+};
+
 export const restoreSession = () => getStoredAuthSession();
 
 export const clearSession = () => {

@@ -11,6 +11,7 @@ import { useActivityCreationFlow } from "../hooks/useActivityCreationFlow";
 import { ActivityPreviewDetailsModal } from "./activity/ActivityPreviewDetailsModal";
 import { ActivitySearchFilters } from "./activity/ActivitySearchFilters";
 import { Sidebar } from "./layout/Sidebar";
+import { ProfileScreen } from "./ProfileScreen";
 import { buildActivityFilterOptions, matchesActivityFilters } from "../utils/activityFilters";
 import { getDetailsBadgeClass, normalizeProfessorActivity } from "../utils/activityFormatters";
 
@@ -63,10 +64,19 @@ function ShareControls({ activity, onToggleStatus, onRegenerate, busy }) {
 }
 
 // Tela principal do professor
-export function ProfessorScreen({ username, onLogout, userId, onOpenAttempts }) {
+export function ProfessorScreen({
+  username,
+  currentUser,
+  onLogout,
+  onProfileSave,
+  onDeleteAccount,
+  userId,
+  onOpenAttempts,
+}) {
   const [questionarios, setQuestionarios] = useState([]);
   const [search, setSearch]               = useState("");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [activePanel, setActivePanel] = useState("activities");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filters, setFilters] = useState({ professor: "", discipline: "", status: "" });
   const [viewingActivity, setViewingActivity] = useState(null);
@@ -237,12 +247,23 @@ export function ProfessorScreen({ username, onLogout, userId, onOpenAttempts }) 
           username={username}
           roleLabel="Professor"
           fallbackName="Professor"
+          profileImageUrl={currentUser?.profile_image_url}
+          onEditProfile={() => setActivePanel("profile")}
           onLogout={onLogout}
           collapsed={sidebarCollapsed}
           onToggleCollapsed={() => setSidebarCollapsed((current) => !current)}
         />
 
         <div className="sidebar-main">
+          {activePanel === "profile" ? (
+            <ProfileScreen
+              user={currentUser}
+              fallbackName="Professor"
+              onSave={onProfileSave}
+              onDeleteAccount={onDeleteAccount}
+              onBack={() => setActivePanel("activities")}
+            />
+          ) : (
           <div className="page">
             <div className="page-wide">
 
@@ -396,6 +417,7 @@ export function ProfessorScreen({ username, onLogout, userId, onOpenAttempts }) 
               </div>
             </div>
           </div>
+          )}
         </div>
       </div>
 

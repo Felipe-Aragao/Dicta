@@ -35,6 +35,7 @@ class AuthUserRead(ORMBase):
     role: RoleEnum
     name: str
     email: EmailStr
+    profile_image_url: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -43,3 +44,8 @@ class AuthTokenRead(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: AuthUserRead
+
+
+class ProfileUpdateRequest(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=255)
+    profile_image_url: Optional[str] = None
