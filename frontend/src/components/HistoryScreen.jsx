@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState, useRef} from "react";
-import { ArrowRight, Article, ClockCounterClockwise, Plus, User, MagnifyingGlass, Trash } from "@phosphor-icons/react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArrowRight, Article, ClockCounterClockwise, Plus, MagnifyingGlass, Trash } from "@phosphor-icons/react";
 import { ActivityCreateModal, ActivityPdfModal, ActivityPreviewModal } from "./ActivityModals";
 import { deleteActivity, getActivity, listActivitiesByOwner } from "../services/activityService";
 import { listAttemptsByAluno } from "../services/attemptService";
@@ -7,6 +7,7 @@ import { listQuestionsByActivity } from "../services/questionService";
 import { useActivityCreationFlow } from "../hooks/useActivityCreationFlow";
 import { ActivityPreviewDetailsModal } from "./activity/ActivityPreviewDetailsModal";
 import { ActivitySearchFilters } from "./activity/ActivitySearchFilters";
+import { Sidebar } from "./layout/Sidebar";
 import { buildActivityFilterOptions, matchesActivityFilters } from "../utils/activityFilters";
 import {
   groupAttemptsByActivity,
@@ -16,27 +17,11 @@ import {
 } from "../utils/activityFormatters";
 import { useSpeech } from "../hooks/useSpeech";
 
-// Menu lateral do aluno
-function Sidebar({ username, onLogout }) {
-  return (
-    <aside className="sidebar" aria-label="Menu lateral">
-      <div className="sidebar-avatar" aria-hidden="true">
-        <User size={30} weight="regular" color="white" />
-      </div>
-      <p className="sidebar-welcome">Bem vindo,<br />{username || "Aluno"}!</p>
-      <p className="sidebar-role">Aluno</p>
-      <button className="sidebar-logout" onClick={onLogout} aria-label="Sair da conta">
-        Sair
-      </button>
-    </aside>
-  );
-}
-
 // Tela de historico do aluno
 export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenActivityCode, onOpenAttempts, userId }) {
-  const { stopRec, speak } = useSpeech();
-  const initialWarning = useRef(false);
+  const { stopRec } = useSpeech();
   const [search, setSearch] = useState("");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filters, setFilters] = useState({ professor: "", discipline: "", status: "" });
   const [viewingActivity, setViewingActivity] = useState(null);
@@ -210,8 +195,15 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenActivi
   });
 
   return (
-    <div className="auth-layout page-anim">
-      <Sidebar username={username} onLogout={onLogout} />
+    <div className={`auth-layout page-anim${sidebarCollapsed ? " sidebar-layout-collapsed" : ""}`}>
+      <Sidebar
+        username={username}
+        roleLabel="Aluno"
+        fallbackName="Aluno"
+        onLogout={onLogout}
+        collapsed={sidebarCollapsed}
+        onToggleCollapsed={() => setSidebarCollapsed((current) => !current)}
+      />
 
       <div className="sidebar-main">
         <div className="page">

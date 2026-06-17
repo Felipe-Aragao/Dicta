@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Plus, FilePdf, ArrowRight, Article,
-  Link, Check, User,
+  Link, Check,
   ArrowsClockwise, MagnifyingGlass, PlayCircle, StopCircle, Trash,
 } from "@phosphor-icons/react";
 import { ActivityCreateModal, ActivityPdfModal, ActivityPreviewModal } from "./ActivityModals";
@@ -10,24 +10,9 @@ import { listQuestionsByActivity } from "../services/questionService";
 import { useActivityCreationFlow } from "../hooks/useActivityCreationFlow";
 import { ActivityPreviewDetailsModal } from "./activity/ActivityPreviewDetailsModal";
 import { ActivitySearchFilters } from "./activity/ActivitySearchFilters";
+import { Sidebar } from "./layout/Sidebar";
 import { buildActivityFilterOptions, matchesActivityFilters } from "../utils/activityFilters";
 import { getDetailsBadgeClass, normalizeProfessorActivity } from "../utils/activityFormatters";
-
-// Menu lateral do professor
-function Sidebar({ username, onLogout }) {
-  return (
-    <aside className="sidebar" aria-label="Menu lateral">
-      <div className="sidebar-avatar" aria-hidden="true">
-        <User size={30} weight="regular" color="white" />
-      </div>
-      <p className="sidebar-welcome">Bem vindo,<br />{username || "Professor"}!</p>
-      <p className="sidebar-role">Professor</p>
-      <button className="sidebar-logout" onClick={onLogout} aria-label="Sair da conta">
-        Sair
-      </button>
-    </aside>
-  );
-}
 
 function ShareControls({ activity, onToggleStatus, onRegenerate, busy }) {
   const [copied, setCopied] = useState(null);
@@ -81,6 +66,7 @@ function ShareControls({ activity, onToggleStatus, onRegenerate, busy }) {
 export function ProfessorScreen({ username, onLogout, userId, onOpenAttempts }) {
   const [questionarios, setQuestionarios] = useState([]);
   const [search, setSearch]               = useState("");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filters, setFilters] = useState({ professor: "", discipline: "", status: "" });
   const [viewingActivity, setViewingActivity] = useState(null);
@@ -246,8 +232,15 @@ export function ProfessorScreen({ username, onLogout, userId, onOpenAttempts }) 
 
   return (
     <>
-      <div className="auth-layout page-anim">
-        <Sidebar username={username} onLogout={onLogout} />
+      <div className={`auth-layout page-anim${sidebarCollapsed ? " sidebar-layout-collapsed" : ""}`}>
+        <Sidebar
+          username={username}
+          roleLabel="Professor"
+          fallbackName="Professor"
+          onLogout={onLogout}
+          collapsed={sidebarCollapsed}
+          onToggleCollapsed={() => setSidebarCollapsed((current) => !current)}
+        />
 
         <div className="sidebar-main">
           <div className="page">
