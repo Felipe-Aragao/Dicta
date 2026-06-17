@@ -1,4 +1,4 @@
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useState, useEffect } from "react";
 
 export function useSpeech() {
   const recRef = useRef(null);
@@ -7,14 +7,62 @@ export function useSpeech() {
   const onResultRef = useRef(null);
   const lastCommandTimeRef = useRef(0);
 
+  const [voices, setVoices] = useState([]);
+  const [selectedVoiceURI, setSelectedVoiceURI] = useState(localStorage.getItem("dicta_voice") || "");
+  const [rate, setRate] = useState(parseFloat(localStorage.getItem("dicta_rate")) || 0.95);
+
+  useEffect(() => {
+    const loadVoices = () => {
+      const availableVoices = window.speechSynthesis.getVoices();
+      // Filtra apenas as vozes em português
+      const ptVoices = availableVoices.filter(v => v.lang.startsWith("pt"));
+      setVoices(ptVoices);
+      
+      // Se não tiver voz selecionada ainda, pega a primeira da lista
+      if (!localStorage.getItem("dicta_voice") && ptVoices.length > 0) {
+        setSelectedVoiceURI(ptVoices[0].voiceURI);
+      }
+    };
+
+    loadVoices();
+    // O Chrome carrega as vozes com atraso, então precisamos deste evento:
+    if (window.speechSynthesis.onvoiceschanged !== undefined) {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+  }, []);
+
+  const changeRate = useCallback((newRate) => {
+    setRate(newRate);
+    localStorage.setItem("dicta_rate", newRate);
+  }, []);
+
+  const changeVoice = useCallback((voiceURI) => {
+    setSelectedVoiceURI(voiceURI);
+    localStorage.setItem("dicta_voice", voiceURI);
+  }, []);
+
   const speak = useCallback((text) => {
     if (!window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
+    window.speechSynthesis.cancel(); // Para a fala atual antes de começar a nova
+
+    // Pegamos os valores direto do navegador no momento do disparo
+    const atualRate = parseFloat(localStorage.getItem("dicta_rate")) || 0.95;
+    const atualVoiceURI = localStorage.getItem("dicta_voice") || "";
+
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = "pt-BR";
-    utterance.rate = 0.95;
+    utterance.rate = atualRate; // Aplica a velocidade atualizada na hora
+
+    // Busca as vozes disponíveis e aplica a correta
+    const disponiveis = window.speechSynthesis.getVoices();
+    if (atualVoiceURI && disponiveis.length > 0) {
+      const chosenVoice = disponiveis.find(v => v.voiceURI === atualVoiceURI);
+      if (chosenVoice) utterance.voice = chosenVoice;
+    }
+
     window.speechSynthesis.speak(utterance);
   }, []);
+
 
   const stopSpeak = useCallback(() => {
     if (window.speechSynthesis) window.speechSynthesis.cancel();
@@ -128,5 +176,16 @@ export function useSpeech() {
     }
   }, []);
 
-  return { speak, stopSpeak, startRec, stopRec, setCommands };
+  return { 
+    speak, 
+    stopSpeak, 
+    startRec, 
+    stopRec, 
+    setCommands,
+    voices,       // Lista de vozes para você montar um <select>
+    changeVoice,  // Função para mudar a voz
+    selectedVoiceURI,
+    rate,         // Velocidade atual para você mostrar no UI
+    changeRate    // Função para mudar a velocidade
+  };
 }

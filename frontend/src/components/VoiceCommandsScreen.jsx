@@ -3,6 +3,7 @@ import { ArrowLeft, Microphone, SpeakerHigh, ArrowRight,
          MagnifyingGlass, DownloadSimple, CheckCircle,
          ArrowCounterClockwise } from "@phosphor-icons/react";
 import { useSpeech } from "../hooks/useSpeech";
+import { AudioSettings } from "./AudioSettings";
 // Tela de comandos de voz
 
 // Dados de comandos por secao
@@ -267,7 +268,7 @@ export function VoiceCommandsScreen({ onClose, isIntro, onContinue }) {
             <Microphone size={52} color="white" weight="thin" />
           </div>
         </div>
-
+        <AudioSettings />
         {/* Aviso de uso */}
         <div style={{
           display: "flex", alignItems: "flex-start", gap: 14,
