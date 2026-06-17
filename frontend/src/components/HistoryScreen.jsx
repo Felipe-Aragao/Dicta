@@ -10,6 +10,7 @@ import { ActivitySearchFilters } from "./activity/ActivitySearchFilters";
 import { buildActivityFilterOptions, matchesActivityFilters } from "../utils/activityFilters";
 import {
   groupAttemptsByActivity,
+  getDetailsBadgeClass,
   mergeOwnedAndAttemptedActivities,
   normalizeStudentOwnedActivity,
 } from "../utils/activityFormatters";
@@ -331,8 +332,10 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenActivi
                           </div>
                         </td>
                         <td>
-                          <div className="activity-meta-cell">
-                            <span><span className="badge badge-green">{h.status}</span></span>
+                          <div className="activity-meta-cell activity-details-cell">
+                            <span className="activity-details-badge-row">
+                              <span className={getDetailsBadgeClass(h.status)}>{h.status}</span>
+                            </span>
                             <span className="activity-meta-subtitle">{h.criadoem || "12/05/2026"}</span>
                           </div>
                         </td>

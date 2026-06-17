@@ -245,6 +245,8 @@ body {
 .badge-green  { background: var(--green-100); color: var(--green-700); }
 .badge-indigo { background: var(--indigo-100); color: var(--primary-color-dark); }
 .badge-zinc   { background: var(--zinc-100);   color: var(--zinc-600); }
+.badge-purple { background: var(--indigo-100); color: var(--accent); }
+.badge-yellow { background: #FEF3C7; color: #A16207; }
 
 /* ─── SEARCH INPUT ───────────────────────────────────────────────── */
 .search-wrap {
@@ -548,6 +550,8 @@ body {
   text-overflow: ellipsis; white-space: nowrap;
 }
 .activity-meta-cell { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.activity-details-cell { align-items: center; text-align: center; }
+.activity-details-badge-row { display: flex; justify-content: center; }
 .activity-meta-title {
   display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font-weight: 600; color: var(--text-1); font-size: 0.92rem;

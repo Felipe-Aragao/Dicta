@@ -61,6 +61,10 @@ class Attempt(Base):
         return self.activity.share_code if self.activity else None
 
     @property
+    def activity_status(self):
+        return self.activity.status if self.activity else None
+
+    @property
     def professor_name(self):
         if not self.activity or not self.activity.owner:
             return None

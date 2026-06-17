@@ -11,7 +11,7 @@ import { useActivityCreationFlow } from "../hooks/useActivityCreationFlow";
 import { ActivityPreviewDetailsModal } from "./activity/ActivityPreviewDetailsModal";
 import { ActivitySearchFilters } from "./activity/ActivitySearchFilters";
 import { buildActivityFilterOptions, matchesActivityFilters } from "../utils/activityFilters";
-import { normalizeProfessorActivity } from "../utils/activityFormatters";
+import { getDetailsBadgeClass, normalizeProfessorActivity } from "../utils/activityFormatters";
 
 // Menu lateral do professor
 function Sidebar({ username, onLogout }) {
@@ -339,8 +339,10 @@ export function ProfessorScreen({ username, onLogout, userId, onOpenAttempts }) 
                           </div>
                         </td>
                         <td>
-                          <div className="activity-meta-cell">
-                            <span><span className="badge badge-green">{q.status}</span></span>
+                          <div className="activity-meta-cell activity-details-cell">
+                            <span className="activity-details-badge-row">
+                              <span className={getDetailsBadgeClass(q.status)}>{q.status}</span>
+                            </span>
                             <span className="activity-meta-subtitle">{q.criadoEm}</span>
                           </div>
                         </td>

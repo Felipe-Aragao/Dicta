@@ -11,7 +11,6 @@ export const normalizeActivityStatus = (status) => {
   const statusMap = {
     ativo: "Ativo",
     encerrado: "Encerrado",
-    rascunho: "Rascunho",
   };
   return statusMap[status] || "Ativo";
 };
@@ -22,6 +21,17 @@ export const normalizeAttemptStatus = (status) => {
     "em progresso": "Em progresso",
   };
   return statusMap[status] || status || "Em progresso";
+};
+
+export const getDetailsBadgeClass = (status) => {
+  const statusMap = {
+    Ativo: "badge badge-green",
+    Encerrado: "badge badge-zinc",
+    Privado: "badge badge-purple",
+    Concluido: "badge badge-green",
+    "Em progresso": "badge badge-yellow",
+  };
+  return statusMap[status] || "badge badge-zinc";
 };
 
 export const getAttemptDateValue = (attempt) => {
@@ -54,7 +64,7 @@ export const normalizeStudentOwnedActivity = (activity, ownerName) => ({
   disciplina: activity.discipline || "Geral",
   criadoem: formatDate(activity.created_at),
   sortValue: activity.created_at ? new Date(activity.created_at).getTime() || 0 : 0,
-  status: normalizeActivityStatus(activity.status),
+  status: "Privado",
   rawStatus: activity.status,
   attemptsCount: 0,
 });
@@ -73,8 +83,11 @@ export const normalizeAttemptActivity = (attempts = []) => {
     disciplina: latestAttempt.activity_discipline || "Geral",
     criadoem: formatDate(latestAttempt.submitted_at || latestAttempt.started_at || latestAttempt.last_saved_at),
     sortValue: getAttemptDateValue(latestAttempt),
-    status: normalizeAttemptStatus(latestAttempt.status),
-    rawStatus: latestAttempt.status,
+    status: latestAttempt.activity_status === "encerrado"
+      ? normalizeActivityStatus(latestAttempt.activity_status)
+      : normalizeAttemptStatus(latestAttempt.status),
+    rawStatus: latestAttempt.activity_status || latestAttempt.status,
+    attemptStatus: latestAttempt.status,
     attemptsCount: attempts.length,
   };
 };

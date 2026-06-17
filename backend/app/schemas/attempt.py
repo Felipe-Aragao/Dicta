@@ -5,6 +5,7 @@ import uuid
 from pydantic import BaseModel, Field
 
 from app.models.attempts import AttemptStatus
+from app.models.activities import ActivityStatus
 
 try:
     from pydantic import ConfigDict
@@ -52,6 +53,7 @@ class AttemptRead(ORMBase):
     activity_name: Optional[str] = None
     activity_discipline: Optional[str] = None
     activity_share_code: Optional[str] = None
+    activity_status: Optional[ActivityStatus] = None
     professor_name: Optional[str] = None
     visitor_name: Optional[str] = None
     status: Optional[AttemptStatus] = None
