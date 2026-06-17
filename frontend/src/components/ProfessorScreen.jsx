@@ -263,33 +263,35 @@ export function ProfessorScreen({ username, onLogout, userId, onOpenAttempts }) 
                   </div>
                 </div>
 
-                <div className="section-header-right" style={{ flex: 1, justifyContent: "flex-end" }}>
-                  <div className="search-wrap" role="search">
-                    <span className="search-icon" aria-hidden="true">
-                      <MagnifyingGlass size={17} weight="regular" />
-                    </span>
-                    <input
-                      className="search-input"
-                      type="search"
-                      placeholder="Buscar atividade, professor..."
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      aria-label="Buscar atividades"
+                <div className="section-header-right activity-header-actions">
+                  <div className="activity-search-controls">
+                    <div className="search-wrap" role="search">
+                      <span className="search-icon" aria-hidden="true">
+                        <MagnifyingGlass size={17} weight="regular" />
+                      </span>
+                      <input
+                        className="search-input"
+                        type="search"
+                        placeholder="Buscar atividade, professor..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        aria-label="Buscar atividades"
+                      />
+                    </div>
+                    <ActivitySearchFilters
+                      idPrefix="professor-activity"
+                      filters={filters}
+                      options={filterOptions}
+                      open={filtersOpen}
+                      fields={["discipline", "status"]}
+                      onToggle={() => setFiltersOpen((current) => !current)}
+                      onClose={() => setFiltersOpen(false)}
+                      onChange={handleFilterChange}
+                      onClear={clearFilters}
                     />
                   </div>
-                  <ActivitySearchFilters
-                    idPrefix="professor-activity"
-                    filters={filters}
-                    options={filterOptions}
-                    open={filtersOpen}
-                    fields={["discipline", "status"]}
-                    onToggle={() => setFiltersOpen((current) => !current)}
-                    onClose={() => setFiltersOpen(false)}
-                    onChange={handleFilterChange}
-                    onClear={clearFilters}
-                  />
-                  
-                  <div style={{ display: "flex", marginLeft: "10px" }}>
+
+                  <div className="activity-primary-actions">
                     <button
                       className="btn btn-primary"
                       onClick={creation.handleOpenCreate}

@@ -545,12 +545,35 @@ body {
 /* ─── SECTION HEADER ─────────────────────────────────────────────── */
 .section-header {
   display: flex; justify-content: space-between; align-items: flex-start;
-  margin-bottom: 20px; gap: 16px; flex-wrap: wrap;
+  margin-bottom: 20px; gap: 16px;
 }
 .section-header-left  { display: flex; flex-direction: column; gap: 4px; }
 .section-header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .section-title { font-size: 1.3rem; font-weight: 700; color: var(--text-1); letter-spacing: -0.2px; }
 .section-sub   { font-size: 0.9rem; color: var(--text-3); }
+.activity-header-actions {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+.activity-search-controls {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+}
+.activity-primary-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.activity-search-controls .search-wrap {
+  width: 340px;
+  max-width: 100%;
+  flex-shrink: 0;
+}
 
 /* ─── DATA TABLE ─────────────────────────────────────────────────── */
 .table-card {
@@ -893,5 +916,23 @@ body {
   .login-card, .creds-card { padding: 44px 28px; }
   .sidebar         { display: none; }
   .sidebar-main    { margin-left: 0; }
+  .section-header  { flex-direction: column; }
+  .activity-header-actions {
+    width: 100%;
+    align-items: stretch;
+  }
+  .activity-search-controls {
+    width: 100%;
+  }
+  .activity-search-controls .search-wrap {
+    width: 100%;
+    flex: 1;
+  }
+  .activity-primary-actions {
+    flex-wrap: wrap;
+  }
+  .activity-primary-actions .btn {
+    flex: 1;
+  }
   .data-table { min-width: 760px; }
 }

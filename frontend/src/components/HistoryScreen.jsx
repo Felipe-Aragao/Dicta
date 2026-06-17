@@ -225,33 +225,34 @@ export function HistoryScreen({ username, onLogout, onOpenActivity, onOpenActivi
                 </div>
               </div>
 
-              <div className="section-header-right" style={{ flex: 1, justifyContent: "flex-end" }}>
-                <div className="search-wrap" role="search">
-                  <span className="search-icon" aria-hidden="true">
-                    <MagnifyingGlass size={17} weight="regular" />
-                  </span>
-                  <input
-                    className="search-input"
-                    type="search"
-                    placeholder="Buscar atividade..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    aria-label="Buscar no histórico"
+              <div className="section-header-right activity-header-actions">
+                <div className="activity-search-controls">
+                  <div className="search-wrap" role="search">
+                    <span className="search-icon" aria-hidden="true">
+                      <MagnifyingGlass size={17} weight="regular" />
+                    </span>
+                    <input
+                      className="search-input"
+                      type="search"
+                      placeholder="Buscar atividade..."
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      aria-label="Buscar no histórico"
+                    />
+                  </div>
+                  <ActivitySearchFilters
+                    idPrefix="student-history"
+                    filters={filters}
+                    options={filterOptions}
+                    open={filtersOpen}
+                    onToggle={() => setFiltersOpen((current) => !current)}
+                    onClose={() => setFiltersOpen(false)}
+                    onChange={handleFilterChange}
+                    onClear={clearFilters}
                   />
                 </div>
-                <ActivitySearchFilters
-                  idPrefix="student-history"
-                  filters={filters}
-                  options={filterOptions}
-                  open={filtersOpen}
-                  onToggle={() => setFiltersOpen((current) => !current)}
-                  onClose={() => setFiltersOpen(false)}
-                  onChange={handleFilterChange}
-                  onClear={clearFilters}
-                />
-                
-                <div style={{ display: "flex", gap: "10px", marginLeft: "10px" }}>
-                  
+
+                <div className="activity-primary-actions">
                   <button
                     className="btn btn-primary btn-sm"
                     onClick={creation.handleOpenCreate}
