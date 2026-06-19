@@ -376,7 +376,7 @@ export function QuestionScreen({
             speak(
               "Diga responder para visualizar as opções. " +
               "Diga ouvir alternativas para escutar os itens. " +
-              "E use os comandos letra A, letra B ou a alternativa desejada para marcar." +
+              "E use os comandos letra A, letra B ou a alternativa desejada para marcar. " +
               "Diga ouvir minha resposta para ouvir sua resposta. " +
               "Diga próxima para avançar o questionário. " + 
               "Diga anterior para uma voltar na questão anterior. "

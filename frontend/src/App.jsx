@@ -256,6 +256,11 @@ export default function App() {
 
   const page = getPageKeyFromPath(location.pathname);
 
+  useEffect(() => {
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+  }, [location.pathname]);
   const auth = useAuthFlow({
     role: selectedRole,
     navigate,

@@ -70,20 +70,16 @@ const SECTIONS = [
 ];
 
 function SectionCard({ section }) {
+  const { speak } = useSpeech(); 
+
   const lerSecao = () => {
-    if (!window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-
-    const tituloSection = new SpeechSynthesisUtterance(`Seção: ${section.title}`);
-    tituloSection.lang = "pt-BR";
-    window.speechSynthesis.speak(tituloSection);
-
+    let textoCompleto = `Seção: ${section.title}. `;
+    
     section.commands.forEach((cmd) => {
-      const msg = new SpeechSynthesisUtterance(`Comando: ${cmd.diga}. Função: ${cmd.faz}.`);
-      msg.lang = "pt-BR";
-      msg.rate = 0.95;
-      window.speechSynthesis.speak(msg);
+      textoCompleto += `Comando: ${cmd.diga}. Função: ${cmd.faz}. `;
     });
+
+    speak(textoCompleto);
   };
 
   return (
