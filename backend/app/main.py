@@ -14,7 +14,7 @@ app = FastAPI()
 # CORS para o frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["http://localhost:5173", "https://dicta-4c43.onrender.com/login"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
