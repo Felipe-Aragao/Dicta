@@ -6,8 +6,10 @@ import re
 
 from sqlalchemy.orm import Session
 
-from app.models.activities import Activity
+from app.core.activity_state import is_activity_closed, is_activity_expired
+from app.models.activities import Activity, ActivityStatus
 from app.models.activity_links import ActivityLink
+from app.models.attempts import Attempt
 from app.models.users import RoleEnum
 from app.schemas.activity import ActivityCreate, ActivityUpdate
 
@@ -69,6 +71,31 @@ class ActivityService:
             self.db.add(activity)
         return self.ensure_activity_code(activity)
 
+    def close_if_expired(self, activity: Activity, commit: bool = False) -> bool:
+        if is_activity_expired(activity) and activity.status != ActivityStatus.encerrado:
+            activity.status = ActivityStatus.encerrado
+            self.db.add(activity)
+            if commit:
+                self.db.commit()
+                self.db.refresh(activity)
+            return True
+        return False
+
+    def is_closed(self, activity: Activity) -> bool:
+        return is_activity_closed(activity)
+
+    def has_reached_attempt_limit(self, activity: Activity, aluno_id: uuid.UUID) -> bool:
+        max_attempts = activity.max_attempts_per_student
+        if max_attempts is None:
+            return False
+        total = (
+            self.db.query(Attempt.id)
+            .filter(Attempt.activity_id == activity.id)
+            .filter(Attempt.aluno_id == aluno_id)
+            .count()
+        )
+        return total >= max_attempts
+
     def set_shareable(self, activity: Activity, is_shareable: bool) -> Activity:
         activity.is_shareable = is_shareable
         self.db.add(activity)
@@ -111,11 +138,13 @@ class ActivityService:
             query = query.filter(Activity.owner_id == owner_id)
         activities = query.order_by(Activity.created_at.desc()).offset(skip).limit(limit).all()
         created_link = False
+        closed_expired = False
         for activity in activities:
+            closed_expired = self.close_if_expired(activity) or closed_expired
             if not activity.share_code:
                 self.ensure_share_link(activity)
                 created_link = True
-        if created_link:
+        if created_link or closed_expired:
             self.db.commit()
             for activity in activities:
                 self.db.refresh(activity)
@@ -124,8 +153,12 @@ class ActivityService:
     # Busca atividade por id
     def get(self, activity_id: uuid.UUID) -> Optional[Activity]:
         activity = self.db.query(Activity).filter(Activity.id == activity_id).first()
-        if activity and not activity.share_code:
-            self.ensure_share_link(activity)
+        if activity:
+            changed = self.close_if_expired(activity)
+            if not activity.share_code:
+                self.ensure_share_link(activity)
+                changed = True
+        if activity and changed:
             self.db.commit()
             self.db.refresh(activity)
         return activity
@@ -133,6 +166,8 @@ class ActivityService:
     # Atualiza atividade existente
     def update(self, activity: Activity, data: ActivityUpdate) -> Activity:
         updates = _model_dump(data, exclude_unset=True)
+        if updates.get("status") == "ativo" and "ends_at" not in updates:
+            updates["ends_at"] = None
         for field, value in updates.items():
             setattr(activity, field, value)
         self.db.add(activity)
@@ -149,7 +184,12 @@ class ActivityService:
             .filter(ActivityLink.is_active.is_(True))
             .first()
         )
-        return link.activity if link else None
+        if not link:
+            return None
+        activity = link.activity
+        if activity and self.close_if_expired(activity, commit=True):
+            return activity
+        return activity
 
     # Remove atividade
     def delete(self, activity: Activity) -> None:

@@ -54,6 +54,8 @@ class AttemptRead(ORMBase):
     activity_discipline: Optional[str] = None
     activity_share_code: Optional[str] = None
     activity_status: Optional[ActivityStatus] = None
+    activity_max_attempts_per_student: Optional[int] = None
+    activity_ends_at: Optional[datetime] = None
     professor_name: Optional[str] = None
     visitor_name: Optional[str] = None
     status: Optional[AttemptStatus] = None

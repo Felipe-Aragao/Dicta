@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Plus, ArrowRight, Article,
   Link, Check,
-  ArrowsClockwise, MagnifyingGlass, PlayCircle, StopCircle, Trash,
+  ArrowsClockwise, MagnifyingGlass, PencilSimple, PlayCircle, StopCircle, Trash,
 } from "@phosphor-icons/react";
 import { ActivityCreateModal, ActivityPdfModal, ActivityPreviewModal } from "./ActivityModals";
 import { deleteActivity, listActivitiesByOwner, regenerateShareCode, updateActivity } from "../services/activityService";
@@ -63,6 +63,169 @@ function ShareControls({ activity, onToggleStatus, onRegenerate, busy }) {
   );
 }
 
+const dateInputValue = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const timeInputValue = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toTimeString().slice(0, 5);
+};
+
+function ActivityEditModal({ activity, saving, onClose, onSave }) {
+  const [title, setTitle] = useState(activity?.nome || "");
+  const initialMaxAttempts = activity?.maxAttemptsPerStudent ?? "";
+  const initialEndsAtDate = dateInputValue(activity?.endsAt);
+  const initialEndsAtTime = timeInputValue(activity?.endsAt);
+  const [attemptLimitMode, setAttemptLimitMode] = useState(initialMaxAttempts ? "limited" : "unlimited");
+  const [maxAttempts, setMaxAttempts] = useState(initialMaxAttempts || 1);
+  const [endDateMode, setEndDateMode] = useState(initialEndsAtDate ? "limited" : "unlimited");
+  const [endsAtDate, setEndsAtDate] = useState(initialEndsAtDate);
+  const [endsAtTime, setEndsAtTime] = useState(initialEndsAtTime || "23:59");
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setCurrentTime(Date.now()), 30000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  if (!activity) return null;
+
+  const selectedEndsAt = endDateMode === "limited" && endsAtDate && endsAtTime
+    ? new Date(`${endsAtDate}T${endsAtTime}:00`)
+    : null;
+  const hasFutureEndDate = !selectedEndsAt || selectedEndsAt.getTime() > currentTime;
+  const hasValidAttemptLimit = attemptLimitMode === "unlimited" || (
+    Number.isInteger(Number(maxAttempts)) && Number(maxAttempts) > 0
+  );
+  const hasValidEndDate = endDateMode === "unlimited" || (
+    endsAtDate.length > 0 &&
+    endsAtTime.length > 0 &&
+    hasFutureEndDate
+  );
+  const canSave = title.trim().length > 0 && hasValidAttemptLimit && hasValidEndDate && !saving;
+
+  const handleSubmit = () => {
+    if (!canSave) return;
+    onSave({
+      name: title.trim(),
+      max_attempts_per_student: attemptLimitMode === "limited" ? Number(maxAttempts) : null,
+      ends_at: selectedEndsAt ? selectedEndsAt.toISOString() : null,
+    });
+  };
+
+  return (
+    <div className="modal-overlay" role="dialog" aria-modal="true" onClick={(e) => { if (e.target === e.currentTarget && !saving) onClose(); }}>
+      <div className="modal-card">
+        <h2 className="modal-title" style={{ marginBottom: 10 }}>Editar atividade</h2>
+        <div className="field-group" style={{ marginBottom: 8 }}>
+          <div className="field-wrap">
+            <label className="field-label" htmlFor="edit-activity-title">Título</label>
+            <input
+              id="edit-activity-title"
+              className="text-input"
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              disabled={saving}
+              autoFocus
+            />
+          </div>
+
+          <div className="field-wrap">
+            <label className="field-label" htmlFor="edit-limit-mode">Tentativas por aluno</label>
+            <select
+              id="edit-limit-mode"
+              className="text-input"
+              value={attemptLimitMode}
+              onChange={(e) => setAttemptLimitMode(e.target.value)}
+              disabled={saving}
+            >
+              <option value="unlimited">Ilimitadas</option>
+              <option value="limited">Definir limite</option>
+            </select>
+          </div>
+
+          {attemptLimitMode === "limited" && (
+            <div className="field-wrap">
+              <label className="field-label" htmlFor="edit-max-attempts">Número máximo de tentativas</label>
+              <input
+                id="edit-max-attempts"
+                className="text-input"
+                type="number"
+                min="1"
+                step="1"
+                value={maxAttempts}
+                onChange={(e) => setMaxAttempts(e.target.value)}
+                disabled={saving}
+              />
+            </div>
+          )}
+
+          <div className="field-wrap">
+            <label className="field-label" htmlFor="edit-end-mode">Prazo</label>
+            <select
+              id="edit-end-mode"
+              className="text-input"
+              value={endDateMode}
+              onChange={(e) => setEndDateMode(e.target.value)}
+              disabled={saving}
+            >
+              <option value="unlimited">Sem prazo</option>
+              <option value="limited">Definir prazo</option>
+            </select>
+          </div>
+
+          {endDateMode === "limited" && (
+            <>
+              <div className="field-wrap">
+                <label className="field-label" htmlFor="edit-ends-at">Data</label>
+                <input
+                  id="edit-ends-at"
+                  className="text-input"
+                  type="date"
+                  value={endsAtDate}
+                  onChange={(e) => setEndsAtDate(e.target.value)}
+                  disabled={saving}
+                />
+              </div>
+              <div className="field-wrap">
+                <label className="field-label" htmlFor="edit-ends-time">Horário</label>
+                <input
+                  id="edit-ends-time"
+                  className="text-input"
+                  type="time"
+                  value={endsAtTime}
+                  onChange={(e) => setEndsAtTime(e.target.value)}
+                  disabled={saving}
+                />
+                {endsAtDate && endsAtTime && !hasFutureEndDate && (
+                  <p className="field-error" role="status">Escolha uma data e horário futuros.</p>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="modal-actions">
+          <button className="btn btn-outline" onClick={onClose} disabled={saving}>Cancelar</button>
+          <button className="btn btn-primary" onClick={handleSubmit} disabled={!canSave}>
+            {saving ? "Salvando..." : "Salvar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Tela principal do professor
 export function ProfessorScreen({
   username,
@@ -88,6 +251,8 @@ export function ProfessorScreen({
   const [deleteMode, setDeleteMode] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [editTarget, setEditTarget] = useState(null);
+  const [editing, setEditing] = useState(false);
   const [shareBusyId, setShareBusyId] = useState(null);
   const creation = useActivityCreationFlow({
     userId,
@@ -194,6 +359,32 @@ export function ProfessorScreen({
     }
   };
 
+  const handleEditSave = async (payload) => {
+    if (!editTarget?.id) return;
+    setEditing(true);
+    setListError("");
+    const previousEndsAt = editTarget.endsAt || null;
+    const nextEndsAt = payload.ends_at || null;
+    const shouldReactivate = previousEndsAt !== nextEndsAt;
+    try {
+      const updated = await updateActivity(
+        editTarget.id,
+        {
+          ...payload,
+          ...(shouldReactivate ? { status: "ativo" } : {}),
+        },
+        "Falha ao editar atividade.",
+      );
+      updateActivityInList(updated);
+      setEditTarget(null);
+      setDeleteMode(false);
+    } catch (error) {
+      setListError(error?.message ?? "Falha ao editar atividade.");
+    } finally {
+      setEditing(false);
+    }
+  };
+
   const updateActivityInList = useCallback((activity) => {
     setQuestionarios((prev) => (
       prev.map((item) => (
@@ -216,6 +407,7 @@ export function ProfessorScreen({
         {
           status: shouldReactivate ? "ativo" : "encerrado",
           is_shareable: true,
+          ...(shouldReactivate ? { ends_at: null } : {}),
         },
         shouldReactivate ? "Falha ao reativar prova." : "Falha ao encerrar prova.",
       );
@@ -279,7 +471,7 @@ export function ProfessorScreen({
                       onClick={() => setDeleteMode((prev) => !prev)}
                       aria-pressed={deleteMode}
                     >
-                      Excluir atividades
+                      Editar atividades
                     </button>
                   </div>
                 </div>
@@ -336,6 +528,7 @@ export function ProfessorScreen({
                     <tr>
                       <th scope="col">Questionário</th>
                       <th scope="col">Detalhes</th>
+                      <th scope="col">Prazo e tentativas</th>
                       <th scope="col">Código</th>
                       <th scope="col">Tentativas</th>
                       <th scope="col" style={{ width: 56 }}></th>
@@ -361,6 +554,12 @@ export function ProfessorScreen({
                             <span className="activity-meta-subtitle">{q.criadoEm}</span>
                           </div>
                         </td>
+                        <td>
+                          <div className="activity-limits-cell" title={`${q.prazo} · ${q.limiteTentativas}`}>
+                            <span>{q.prazo}</span>
+                            <span>{q.limiteTentativas}</span>
+                          </div>
+                        </td>
                         <td onClick={(e) => e.stopPropagation()}>
                           <ShareControls
                             activity={q}
@@ -384,15 +583,26 @@ export function ProfessorScreen({
                         </td>
                         <td onClick={(e) => e.stopPropagation()} style={{ textAlign: "right" }}>
                           {deleteMode && canDeleteActivity(q) && (
-                            <button
-                              className="icon-btn icon-btn-danger"
-                              onClick={() => setDeleteTarget(q)}
-                              aria-label="Excluir atividade"
-                              title="Excluir atividade"
-                              disabled={deleting}
-                            >
-                              <Trash size={14} weight="bold" />
-                            </button>
+                            <div className="activity-row-actions">
+                              <button
+                                className="icon-btn"
+                                onClick={() => setEditTarget(q)}
+                                aria-label="Editar atividade"
+                                title="Editar atividade"
+                                disabled={editing}
+                              >
+                                <PencilSimple size={14} weight="bold" />
+                              </button>
+                              <button
+                                className="icon-btn icon-btn-danger"
+                                onClick={() => setDeleteTarget(q)}
+                                aria-label="Excluir atividade"
+                                title="Excluir atividade"
+                                disabled={deleting}
+                              >
+                                <Trash size={14} weight="bold" />
+                              </button>
+                            </div>
                           )}
                         </td>
                         <td style={{ textAlign: "right" }}>
@@ -427,6 +637,7 @@ export function ProfessorScreen({
           onPreview={creation.handlePreview}
           initialData={creation.previewData}
           showQuestionCount={false}
+          showActivityLimits
         />
       )}
 
@@ -469,6 +680,15 @@ export function ProfessorScreen({
         getProfessor={(activity) => activity.professor}
         getDiscipline={(activity) => activity.disciplina}
       />
+
+      {editTarget && (
+        <ActivityEditModal
+          activity={editTarget}
+          saving={editing}
+          onClose={() => setEditTarget(null)}
+          onSave={handleEditSave}
+        />
+      )}
 
       {deleteTarget && (
         <div className="modal-overlay" role="dialog" aria-modal="true">

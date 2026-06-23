@@ -5,6 +5,23 @@ import { UploadScreen } from "./UploadScreen";
 
 const OPTION_LETTERS = ["A", "B", "C", "D", "E", "F"];
 
+const dateInputValue = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const timeInputValue = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toTimeString().slice(0, 5);
+};
+
 const normalizeQuestions = (items = []) => (
   items.map((q) => ({
     ...q,
@@ -14,19 +31,67 @@ const normalizeQuestions = (items = []) => (
 );
 
 // Modal de criacao de atividade
-export function ActivityCreateModal({ ownerName, onClose, onPreview, loading = false, initialData, showQuestionCount = true }) {
+export function ActivityCreateModal({
+  ownerName,
+  onClose,
+  onPreview,
+  loading = false,
+  initialData,
+  showQuestionCount = true,
+  showActivityLimits = false,
+}) {
   const [name, setName] = useState(initialData?.name || "");
   const [discipline, setDiscipline] = useState(initialData?.discipline || "");
   const [numQuestions, setNumQuestions] = useState(initialData?.numQuestions || 5);
+  const initialMaxAttempts = initialData?.max_attempts_per_student ?? "";
+  const initialEndsAt = initialData?.ends_at ?? "";
+  const initialEndsAtDate = initialData?.ends_at_date || dateInputValue(initialEndsAt);
+  const initialEndsAtTime = initialData?.ends_at_time || timeInputValue(initialEndsAt);
+  const [attemptLimitMode, setAttemptLimitMode] = useState(initialMaxAttempts ? "limited" : "unlimited");
+  const [maxAttempts, setMaxAttempts] = useState(initialMaxAttempts || 1);
+  const [endDateMode, setEndDateMode] = useState(initialEndsAtDate ? "limited" : "unlimited");
+  const [endsAtDate, setEndsAtDate] = useState(initialEndsAtDate);
+  const [endsAtTime, setEndsAtTime] = useState(initialEndsAtTime || "23:59");
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
 
-  const canNext = name.trim().length > 0 && discipline.trim().length > 0 && (!showQuestionCount || numQuestions > 0);
+  useEffect(() => {
+    const interval = window.setInterval(() => setCurrentTime(Date.now()), 30000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  const selectedEndsAt = endDateMode === "limited" && endsAtDate && endsAtTime
+    ? new Date(`${endsAtDate}T${endsAtTime}:00`)
+    : null;
+  const hasFutureEndDate = !selectedEndsAt || selectedEndsAt.getTime() > currentTime;
+
+  const hasValidAttemptLimit = attemptLimitMode === "unlimited" || (
+    Number.isInteger(Number(maxAttempts)) && Number(maxAttempts) > 0
+  );
+  const hasValidEndDate = endDateMode === "unlimited" || (
+    endsAtDate.length > 0 &&
+    endsAtTime.length > 0 &&
+    hasFutureEndDate
+  );
+  const canNext = (
+    name.trim().length > 0 &&
+    discipline.trim().length > 0 &&
+    (!showQuestionCount || numQuestions > 0) &&
+    (!showActivityLimits || (hasValidAttemptLimit && hasValidEndDate))
+  );
 
   const handleNext = () => {
     if (!canNext || loading) return;
+    const endsAt = selectedEndsAt
+      ? selectedEndsAt.toISOString()
+      : null;
     onPreview({ 
       name: name.trim(), 
       discipline: discipline.trim(), 
       ownerName,
+      max_attempts_per_student: attemptLimitMode === "limited" ? Number(maxAttempts) : null,
+      ends_at: endsAt,
+      ends_at_date: endDateMode === "limited" ? endsAtDate : "",
+      ends_at_time: endDateMode === "limited" ? endsAtTime : "",
       ...(showQuestionCount ? { numQuestions } : {})
     });
   };
@@ -58,6 +123,84 @@ export function ActivityCreateModal({ ownerName, onClose, onPreview, loading = f
               <label className="field-label" htmlFor="ativ-qtd">Quantidade de questões</label>
               <input id="ativ-qtd" className="text-input" type="number" min="1" max="20" value={numQuestions} onChange={(e) => setNumQuestions(Number(e.target.value))} disabled={loading} />
             </div>
+          )}
+
+          {showActivityLimits && (
+            <>
+              <div className="field-wrap">
+                <label className="field-label" htmlFor="ativ-limit-mode">Tentativas por aluno</label>
+                <select
+                  id="ativ-limit-mode"
+                  className="text-input"
+                  value={attemptLimitMode}
+                  onChange={(e) => setAttemptLimitMode(e.target.value)}
+                  disabled={loading}
+                >
+                  <option value="unlimited">Ilimitadas</option>
+                  <option value="limited">Definir limite</option>
+                </select>
+              </div>
+
+              {attemptLimitMode === "limited" && (
+                <div className="field-wrap">
+                  <label className="field-label" htmlFor="ativ-max-attempts">Número máximo de tentativas</label>
+                  <input
+                    id="ativ-max-attempts"
+                    className="text-input"
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={maxAttempts}
+                    onChange={(e) => setMaxAttempts(e.target.value)}
+                    disabled={loading}
+                  />
+                </div>
+              )}
+
+              <div className="field-wrap">
+                <label className="field-label" htmlFor="ativ-end-mode">Encerramento</label>
+                <select
+                  id="ativ-end-mode"
+                  className="text-input"
+                  value={endDateMode}
+                  onChange={(e) => setEndDateMode(e.target.value)}
+                  disabled={loading}
+                >
+                  <option value="unlimited">Sem data limite</option>
+                  <option value="limited">Definir data</option>
+                </select>
+              </div>
+
+              {endDateMode === "limited" && (
+                <>
+                  <div className="field-wrap">
+                    <label className="field-label" htmlFor="ativ-ends-at">Data de encerramento</label>
+                    <input
+                      id="ativ-ends-at"
+                      className="text-input"
+                      type="date"
+                      value={endsAtDate}
+                      onChange={(e) => setEndsAtDate(e.target.value)}
+                      disabled={loading}
+                    />
+                  </div>
+                  <div className="field-wrap">
+                    <label className="field-label" htmlFor="ativ-ends-time">Horário de encerramento</label>
+                    <input
+                      id="ativ-ends-time"
+                      className="text-input"
+                      type="time"
+                      value={endsAtTime}
+                      onChange={(e) => setEndsAtTime(e.target.value)}
+                      disabled={loading}
+                    />
+                    {endsAtDate && endsAtTime && !hasFutureEndDate && (
+                      <p className="field-error" role="status">Escolha uma data e horário futuros.</p>
+                    )}
+                  </div>
+                </>
+              )}
+            </>
           )}
         </div>
 

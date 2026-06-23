@@ -308,8 +308,9 @@ export function HistoryScreen({
                   <thead>
                     <tr>
                       <th scope="col">Questionário</th>
-                      <th scope="col">Professor · Disciplina</th>
+                      <th scope="col">Professor</th>
                       <th scope="col">Detalhes</th>
+                      <th scope="col">Prazo e tentativas</th>
                       <th scope="col">Tentativas</th>
                       <th scope="col" style={{ width: 56 }}></th>
                       <th scope="col"></th>
@@ -342,6 +343,12 @@ export function HistoryScreen({
                               <span className={getDetailsBadgeClass(h.status)}>{h.status}</span>
                             </span>
                             <span className="activity-meta-subtitle">{h.criadoem || "12/05/2026"}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="activity-limits-cell" title={`${h.prazo} · ${h.limiteTentativas}`}>
+                            <span>{h.prazo}</span>
+                            <span>{h.limiteTentativas}</span>
                           </div>
                         </td>
                         <td onClick={(e) => e.stopPropagation()}>

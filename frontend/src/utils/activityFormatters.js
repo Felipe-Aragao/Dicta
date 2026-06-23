@@ -7,6 +7,23 @@ export const formatDate = (value) => {
   return date.toLocaleDateString("pt-BR");
 };
 
+export const formatDateTime = (value) => {
+  if (!value) return "Sem prazo";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Sem prazo";
+  return date.toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+export const formatAttemptLimit = (value) => (
+  value ? `${value} tentativa${value === 1 ? "" : "s"}` : "Tentativas ilimitadas"
+);
+
 export const normalizeActivityStatus = (status) => {
   const statusMap = {
     ativo: "Ativo",
@@ -45,12 +62,16 @@ export const normalizeProfessorActivity = (activity, ownerName) => ({
   ownerId: activity.owner_id,
   shareCode: activity.share_code || "",
   isShareable: Boolean(activity.is_shareable),
+  maxAttemptsPerStudent: activity.max_attempts_per_student ?? null,
+  endsAt: activity.ends_at ?? null,
   rawStatus: activity.status,
   nome: activity.name || "Atividade",
   professor: ownerName || "Professor",
   disciplina: activity.discipline || "Geral",
   status: normalizeActivityStatus(activity.status),
   criadoEm: formatDate(activity.created_at),
+  prazo: formatDateTime(activity.ends_at),
+  limiteTentativas: formatAttemptLimit(activity.max_attempts_per_student),
   alunos: activity.total_responses ?? 0,
   link: activity.share_code ? `${window.location.origin}/atividade/codigo/${activity.share_code}` : "",
 });
@@ -59,10 +80,14 @@ export const normalizeStudentOwnedActivity = (activity, ownerName) => ({
   id: activity.id,
   ownerId: activity.owner_id,
   shareCode: activity.share_code || "",
+  maxAttemptsPerStudent: activity.max_attempts_per_student ?? null,
+  endsAt: activity.ends_at ?? null,
   name: activity.name || "Atividade",
   professor: ownerName || "Aluno",
   disciplina: activity.discipline || "Geral",
   criadoem: formatDate(activity.created_at),
+  prazo: formatDateTime(activity.ends_at),
+  limiteTentativas: formatAttemptLimit(activity.max_attempts_per_student),
   sortValue: activity.created_at ? new Date(activity.created_at).getTime() || 0 : 0,
   status: "Privado",
   rawStatus: activity.status,
@@ -87,6 +112,8 @@ export const normalizeAttemptActivity = (attempts = []) => {
     professor: latestAttempt.professor_name || "Professor",
     disciplina: latestAttempt.activity_discipline || "Geral",
     criadoem: formatDate(latestAttempt.submitted_at || latestAttempt.started_at || latestAttempt.last_saved_at),
+    prazo: formatDateTime(latestAttempt.activity_ends_at),
+    limiteTentativas: formatAttemptLimit(latestAttempt.activity_max_attempts_per_student),
     sortValue: getAttemptDateValue(latestAttempt),
     status: latestAttempt.activity_status === "encerrado"
       ? normalizeActivityStatus(latestAttempt.activity_status)
@@ -94,6 +121,8 @@ export const normalizeAttemptActivity = (attempts = []) => {
     rawStatus: latestAttempt.activity_status || latestAttempt.status,
     activityStatus: latestAttempt.activity_status,
     attemptStatus: latestAttempt.status,
+    maxAttemptsPerStudent: latestAttempt.activity_max_attempts_per_student ?? null,
+    endsAt: latestAttempt.activity_ends_at ?? null,
     attemptsCount: attempts.length,
     resumeAttempt,
   };

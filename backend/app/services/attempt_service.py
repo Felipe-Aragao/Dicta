@@ -4,7 +4,8 @@ import uuid
 from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
 
-from app.models.activities import Activity
+from app.core.activity_state import is_activity_expired
+from app.models.activities import Activity, ActivityStatus
 from app.models.attempts import Attempt
 from app.schemas.attempt import AttemptCreate, AttemptUpdate
 
@@ -37,6 +38,17 @@ class AttemptService:
             activity.total_responses = int(total or 0)
             self.db.add(activity)
 
+    def _close_expired_activities(self, attempts: list[Attempt]) -> None:
+        changed = False
+        for attempt in attempts:
+            activity = attempt.activity
+            if activity and is_activity_expired(activity) and activity.status != ActivityStatus.encerrado:
+                activity.status = ActivityStatus.encerrado
+                self.db.add(activity)
+                changed = True
+        if changed:
+            self.db.commit()
+
     # Cria uma tentativa
     def create(self, data: AttemptCreate) -> Attempt:
         payload = _model_dump(data, exclude_none=True)
@@ -61,20 +73,25 @@ class AttemptService:
             query = query.filter(Attempt.activity_id == activity_id)
         if aluno_id:
             query = query.filter(Attempt.aluno_id == aluno_id)
-        return (
+        attempts = (
             query.order_by(Attempt.started_at.desc(), Attempt.submitted_at.desc())
             .offset(skip)
             .limit(limit)
             .all()
         )
+        self._close_expired_activities(attempts)
+        return attempts
 
     # Busca tentativa por id
     def get(self, attempt_id: uuid.UUID) -> Optional[Attempt]:
-        return (
+        attempt = (
             self._with_read_relations(self.db.query(Attempt))
             .filter(Attempt.id == attempt_id)
             .first()
         )
+        if attempt:
+            self._close_expired_activities([attempt])
+        return attempt
 
     # Atualiza tentativa existente
     def update(self, attempt: Attempt, data: AttemptUpdate) -> Attempt:

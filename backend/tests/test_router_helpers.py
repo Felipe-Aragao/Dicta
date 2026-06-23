@@ -9,6 +9,7 @@ os.environ.setdefault("JWT_SECRET_KEY", "test-secret-with-at-least-32-bytes")
 
 from app.services.attempt_pdf_service import (
     answer_text,
+    attempt_display_date,
     sanitize_filename,
 )
 from app.services.visitor_attempt_service import (
@@ -42,6 +43,16 @@ class RouterHelperTests(unittest.TestCase):
         )
 
         self.assertEqual(answer_text(answer, question), "B) Segunda")
+
+    def test_attempt_pdf_date_prefers_submitted_at(self):
+        fallback = datetime(2026, 1, 4, 12, 0, tzinfo=timezone.utc)
+        attempt = SimpleNamespace(
+            submitted_at=datetime(2026, 1, 3, 12, 0, tzinfo=timezone.utc),
+            last_saved_at=datetime(2026, 1, 2, 12, 0, tzinfo=timezone.utc),
+            started_at=datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc),
+        )
+
+        self.assertEqual(attempt_display_date(attempt, fallback), attempt.submitted_at)
 
     def test_ensure_aware_adds_utc_to_naive_datetime(self):
         value = datetime(2026, 1, 1, 12, 0, 0)

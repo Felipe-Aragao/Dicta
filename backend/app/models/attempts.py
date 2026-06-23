@@ -65,6 +65,14 @@ class Attempt(Base):
         return self.activity.status if self.activity else None
 
     @property
+    def activity_max_attempts_per_student(self):
+        return self.activity.max_attempts_per_student if self.activity else None
+
+    @property
+    def activity_ends_at(self):
+        return self.activity.ends_at if self.activity else None
+
+    @property
     def professor_name(self):
         if not self.activity or not self.activity.owner:
             return None

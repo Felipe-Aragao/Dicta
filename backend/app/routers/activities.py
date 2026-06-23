@@ -13,7 +13,6 @@ from app.core.authorization import (
 )
 from app.core.database import get_db
 from app.core.security import AuthContext, get_auth_context
-from app.models.activities import ActivityStatus
 from app.models.activity_links import ActivityLink
 from app.models.users import RoleEnum
 from app.schemas.activity import ActivityCreate, ActivityRead, ActivityUpdate
@@ -75,7 +74,12 @@ def create_activity(
         raise HTTPException(status_code=403, detail="Não é permitido criar atividades para este tipo de usuário.")
     data = _copy_model(data, owner_id=owner.id)
     if owner.role != RoleEnum.professor:
-        data = _copy_model(data, is_shareable=False)
+        data = _copy_model(
+            data,
+            is_shareable=False,
+            max_attempts_per_student=None,
+            ends_at=None,
+        )
     return ActivityService(db).create(data)
 
 
@@ -109,7 +113,8 @@ def resolve_activity_by_code(
 @router.get("/by-code/{code:path}", response_model=ActivityRead)
 def get_activity_by_code(code: str, db: Session = Depends(get_db)):
     normalized_code = _normalize_share_code(code)
-    activity = ActivityService(db).get_by_code(normalized_code)
+    service = ActivityService(db)
+    activity = service.get_by_code(normalized_code)
     if not activity:
         raise HTTPException(status_code=404, detail="Código não encontrado.")
     if not activity.owner or activity.owner.role != RoleEnum.professor:
@@ -119,7 +124,7 @@ def get_activity_by_code(code: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Código inativo.")
     if not activity.is_shareable:
         raise HTTPException(status_code=404, detail="Código inativo.")
-    if activity.status == ActivityStatus.encerrado:
+    if service.is_closed(activity):
         raise HTTPException(status_code=409, detail="Atividade encerrada.")
     return activity
 
@@ -129,7 +134,7 @@ def _regenerate_activity_share_code(activity_id: uuid.UUID, db: Session, context
     activity = _get_activity_or_404(service, activity_id)
     ensure_activity_owner(context, activity)
     _ensure_professor_owner(db, activity)
-    if activity.status == ActivityStatus.encerrado:
+    if ActivityService(db).is_closed(activity):
         raise HTTPException(status_code=409, detail="Prova encerrada não pode gerar novo código.")
     return service.regenerate_share_link(activity)
 
@@ -169,7 +174,12 @@ def update_activity(
     ensure_activity_owner(context, activity)
     owner = UserService(db).get(activity.owner_id)
     if owner and owner.role != RoleEnum.professor:
-        data = _copy_model(data, is_shareable=False)
+        data = _copy_model(
+            data,
+            is_shareable=False,
+            max_attempts_per_student=None,
+            ends_at=None,
+        )
     return service.update(activity, data)
 
 

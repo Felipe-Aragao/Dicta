@@ -66,6 +66,15 @@ def _safe_text(value) -> str:
         return value
 
 
+def attempt_display_date(attempt: Attempt, fallback: datetime) -> datetime:
+    return (
+        attempt.submitted_at
+        or attempt.last_saved_at
+        or attempt.started_at
+        or fallback
+    )
+
+
 def _build_attempt_pdf(
     file_path: Path,
     activity_name: str,
@@ -73,7 +82,7 @@ def _build_attempt_pdf(
     aluno_name: str,
     questions,
     answers_by_question,
-    generated_at: datetime,
+    attempt_date: datetime,
 ):
     try:
         from fpdf import FPDF
@@ -115,8 +124,8 @@ def _build_attempt_pdf(
 
     pdf.ln(2)
     pdf.set_font("Helvetica", size=10)
-    generated_label = generated_at.astimezone().strftime("%d/%m/%Y %H:%M")
-    pdf.cell(w, 6, txt=f"Gerado em: {generated_label}", new_x="LMARGIN", new_y="NEXT")
+    attempt_date_label = attempt_date.astimezone().strftime("%d/%m/%Y %H:%M")
+    pdf.cell(w, 6, txt=f"Enviado em: {attempt_date_label}", new_x="LMARGIN", new_y="NEXT")
 
     pdf.output(str(file_path))
 
@@ -144,6 +153,7 @@ class AttemptPdfService:
         file_path = GENERATED_DIR / file_name
 
         generated_at = datetime.now(timezone.utc)
+        attempt_date = attempt_display_date(attempt, generated_at)
         _build_attempt_pdf(
             file_path=file_path,
             activity_name=activity.name,
@@ -151,7 +161,7 @@ class AttemptPdfService:
             aluno_name=aluno_name,
             questions=questions,
             answers_by_question=answers_by_question,
-            generated_at=generated_at,
+            attempt_date=attempt_date,
         )
 
         attempt.pdf_url = f"/attempts/{attempt.id}/pdf"

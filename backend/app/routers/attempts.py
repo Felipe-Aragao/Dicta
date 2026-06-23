@@ -20,7 +20,7 @@ from app.schemas.attempt import (
     VisitorAttemptCreate,
     VisitorAttemptRead,
 )
-from app.models.activities import Activity, ActivityStatus
+from app.models.activities import Activity
 from app.models.attempts import Attempt
 from app.models.users import RoleEnum
 from app.services.activity_service import ActivityService
@@ -47,10 +47,11 @@ def create_attempt(
     context: AuthContext = Depends(get_auth_context),
 ):
     aluno = require_aluno(context)
-    activity = ActivityService(db).get(data.activity_id)
+    activity_service = ActivityService(db)
+    activity = activity_service.get(data.activity_id)
     if not activity:
         raise HTTPException(status_code=404, detail="Atividade não encontrada.")
-    if activity.status == ActivityStatus.encerrado:
+    if activity_service.is_closed(activity):
         raise HTTPException(status_code=409, detail="Atividade encerrada.")
     can_open_activity = (
         activity.owner_id == aluno.id
@@ -58,6 +59,8 @@ def create_attempt(
     )
     if not can_open_activity:
         raise HTTPException(status_code=403, detail="Atividade indisponível para este aluno.")
+    if activity_service.has_reached_attempt_limit(activity, aluno.id):
+        raise HTTPException(status_code=409, detail="Limite de tentativas atingido.")
 
     visitor_name = (data.visitor_name or "").strip()
     if data.visitor_name is not None and not visitor_name:

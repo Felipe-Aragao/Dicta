@@ -32,6 +32,10 @@ export function ActivityPreviewDetailsModal({
             <p style={{ fontSize: "0.88rem", color: "var(--text-3)" }}>
               {getProfessor(activity)} · {getDiscipline(activity)}
             </p>
+            <div className="activity-preview-meta">
+              <span>Prazo: {activity.prazo || "Sem prazo"}</span>
+              <span>{activity.limiteTentativas || "Tentativas ilimitadas"}</span>
+            </div>
           </div>
           <span className="badge badge-indigo">
             {loading ? "Carregando..." : `${questions.length} questões`}

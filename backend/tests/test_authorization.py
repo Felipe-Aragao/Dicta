@@ -1,5 +1,6 @@
 import os
 import unittest
+from datetime import datetime, timedelta, timezone
 import uuid
 from types import SimpleNamespace
 
@@ -42,12 +43,13 @@ def user(role, user_id=None):
     return SimpleNamespace(id=user_id or uuid.uuid4(), role=role)
 
 
-def activity(owner_id=None, status=ActivityStatus.ativo, is_shareable=False):
+def activity(owner_id=None, status=ActivityStatus.ativo, is_shareable=False, ends_at=None):
     return SimpleNamespace(
         id=uuid.uuid4(),
         owner_id=owner_id or uuid.uuid4(),
         status=status,
         is_shareable=is_shareable,
+        ends_at=ends_at,
     )
 
 
@@ -99,6 +101,21 @@ class AuthorizationTests(unittest.TestCase):
 
         self.assertEqual(raised.exception.status_code, 403)
 
+    def test_expired_shared_activity_is_not_readable_by_aluno(self):
+        aluno = user(RoleEnum.aluno)
+        shared_activity = activity(
+            is_shareable=True,
+            status=ActivityStatus.ativo,
+            ends_at=datetime.now(timezone.utc) - timedelta(minutes=1),
+        )
+        context = AuthContext(kind="user", user=aluno)
+
+        self.assertFalse(can_read_shared_activity(context, shared_activity))
+        with self.assertRaises(HTTPException) as raised:
+            ensure_activity_read_access(EmptyDb(), context, shared_activity)
+
+        self.assertEqual(raised.exception.status_code, 403)
+
     def test_visitor_can_write_only_matching_attempt(self):
         attempt_id = uuid.uuid4()
         context = AuthContext(kind="visitor", visitor_attempt_id=attempt_id)
@@ -124,6 +141,20 @@ class AuthorizationTests(unittest.TestCase):
         attempt = SimpleNamespace(
             status=AttemptStatus.em_progresso,
             activity=activity(status=ActivityStatus.encerrado),
+        )
+
+        with self.assertRaises(HTTPException) as raised:
+            ensure_attempt_is_writable(EmptyDb(), attempt)
+
+        self.assertEqual(raised.exception.status_code, 409)
+
+    def test_writable_attempt_rejects_expired_activity(self):
+        attempt = SimpleNamespace(
+            status=AttemptStatus.em_progresso,
+            activity=activity(
+                status=ActivityStatus.ativo,
+                ends_at=datetime.now(timezone.utc) - timedelta(minutes=1),
+            ),
         )
 
         with self.assertRaises(HTTPException) as raised:

@@ -1,5 +1,6 @@
 import os
 import unittest
+from datetime import datetime, timedelta, timezone
 import uuid
 
 
@@ -8,7 +9,7 @@ os.environ.setdefault("JWT_SECRET_KEY", "test-secret-with-at-least-32-bytes")
 
 from pydantic import ValidationError
 
-from app.schemas.activity import ActivityCreate
+from app.schemas.activity import ActivityCreate, ActivityUpdate
 from app.schemas.answer import AnswerCreate
 from app.schemas.attempt import VisitorAttemptCreate
 from app.schemas.question import QuestionCreate
@@ -20,6 +21,30 @@ class SchemaValidationTests(unittest.TestCase):
     def test_activity_requires_non_empty_name(self):
         with self.assertRaises(ValidationError):
             ActivityCreate(name="")
+
+    def test_activity_attempt_limit_allows_null_and_positive_values(self):
+        self.assertIsNone(ActivityCreate(name="Prova").max_attempts_per_student)
+        self.assertEqual(
+            ActivityCreate(name="Prova", max_attempts_per_student=2).max_attempts_per_student,
+            2,
+        )
+        self.assertIsNone(ActivityUpdate(max_attempts_per_student=None).max_attempts_per_student)
+
+    def test_activity_attempt_limit_rejects_non_positive_values(self):
+        with self.assertRaises(ValidationError):
+            ActivityCreate(name="Prova", max_attempts_per_student=0)
+        with self.assertRaises(ValidationError):
+            ActivityUpdate(max_attempts_per_student=-1)
+
+    def test_activity_end_date_must_be_future(self):
+        future = datetime.now(timezone.utc) + timedelta(hours=1)
+        past = datetime.now(timezone.utc) - timedelta(minutes=1)
+
+        self.assertEqual(ActivityCreate(name="Prova", ends_at=future).ends_at, future)
+        with self.assertRaises(ValidationError):
+            ActivityCreate(name="Prova", ends_at=past)
+        with self.assertRaises(ValidationError):
+            ActivityUpdate(ends_at=past)
 
     def test_user_requires_valid_email(self):
         with self.assertRaises(ValidationError):

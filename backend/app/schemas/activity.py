@@ -1,8 +1,8 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 import uuid
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 
 from app.models.activities import ActivityStatus
 
@@ -22,7 +22,19 @@ class ActivityBase(BaseModel):
     discipline: Optional[str] = Field(None, max_length=255)
     status: Optional[ActivityStatus] = None
     is_shareable: Optional[bool] = None
+    max_attempts_per_student: Optional[int] = Field(None, gt=0)
     published_at: Optional[datetime] = None
+    ends_at: Optional[datetime] = None
+
+    @validator("ends_at")
+    def ends_at_must_be_future(cls, value):
+        if value is None:
+            return value
+        current_time = datetime.now(timezone.utc)
+        normalized = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        if normalized <= current_time:
+            raise ValueError("A data de encerramento deve ser futura.")
+        return value
 
 
 class ActivityCreate(ActivityBase):
@@ -34,7 +46,19 @@ class ActivityUpdate(BaseModel):
     discipline: Optional[str] = Field(None, max_length=255)
     status: Optional[ActivityStatus] = None
     is_shareable: Optional[bool] = None
+    max_attempts_per_student: Optional[int] = Field(None, gt=0)
     published_at: Optional[datetime] = None
+    ends_at: Optional[datetime] = None
+
+    @validator("ends_at")
+    def ends_at_must_be_future(cls, value):
+        if value is None:
+            return value
+        current_time = datetime.now(timezone.utc)
+        normalized = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        if normalized <= current_time:
+            raise ValueError("A data de encerramento deve ser futura.")
+        return value
 
 
 class ActivityShareUpdate(BaseModel):
@@ -48,7 +72,9 @@ class ActivityRead(ORMBase):
     discipline: Optional[str] = None
     status: ActivityStatus
     is_shareable: bool
+    max_attempts_per_student: Optional[int] = None
     total_responses: int
     share_code: Optional[str] = None
     created_at: datetime
     published_at: Optional[datetime] = None
+    ends_at: Optional[datetime] = None

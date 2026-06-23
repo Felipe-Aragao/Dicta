@@ -115,6 +115,8 @@ export function useActivityCreationFlow({
         discipline: previewData.discipline,
         status: "ativo",
         is_shareable: isShareable,
+        max_attempts_per_student: isShareable ? previewData.max_attempts_per_student ?? null : null,
+        ends_at: isShareable ? previewData.ends_at ?? null : null,
       });
       await createQuestionsForActivity(createdActivity.id, editedQuestions ?? previewData.questions ?? []);
       onCreated(normalizeActivity(createdActivity, username));
