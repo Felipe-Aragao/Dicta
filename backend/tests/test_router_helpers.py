@@ -10,6 +10,7 @@ os.environ.setdefault("JWT_SECRET_KEY", "test-secret-with-at-least-32-bytes")
 from app.services.attempt_pdf_service import (
     answer_text,
     attempt_display_date,
+    format_attempt_date,
     sanitize_filename,
 )
 from app.services.visitor_attempt_service import (
@@ -53,6 +54,11 @@ class RouterHelperTests(unittest.TestCase):
         )
 
         self.assertEqual(attempt_display_date(attempt, fallback), attempt.submitted_at)
+
+    def test_format_attempt_date_uses_fortaleza_timezone(self):
+        value = datetime(2026, 6, 23, 17, 25, tzinfo=timezone.utc)
+
+        self.assertEqual(format_attempt_date(value), "23/06/2026 14:25")
 
     def test_ensure_aware_adds_utc_to_naive_datetime(self):
         value = datetime(2026, 1, 1, 12, 0, 0)

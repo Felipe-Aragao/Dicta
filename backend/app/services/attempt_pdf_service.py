@@ -1,7 +1,9 @@
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import os
 from pathlib import Path
 import re
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy.orm import Session
 
@@ -14,6 +16,7 @@ from app.services.user_service import UserService
 BASE_DIR = Path(__file__).resolve().parents[1]
 GENERATED_DIR = BASE_DIR / "storage" / "generated_pdfs"
 GENERATED_DIR.mkdir(parents=True, exist_ok=True)
+DEFAULT_DISPLAY_TIMEZONE = "America/Fortaleza"
 
 INVALID_FILENAME_RE = re.compile(r"[<>:\"/\\|?*\x00-\x1F]+")
 MAX_FILENAME_LENGTH = 150
@@ -75,6 +78,17 @@ def attempt_display_date(attempt: Attempt, fallback: datetime) -> datetime:
     )
 
 
+def format_attempt_date(value: datetime) -> str:
+    timezone_name = os.getenv("APP_TIMEZONE", DEFAULT_DISPLAY_TIMEZONE)
+    try:
+        display_timezone = ZoneInfo(timezone_name)
+    except ZoneInfoNotFoundError:
+        display_timezone = timezone.utc
+
+    aware_value = value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    return aware_value.astimezone(display_timezone).strftime("%d/%m/%Y %H:%M")
+
+
 def _build_attempt_pdf(
     file_path: Path,
     activity_name: str,
@@ -124,7 +138,7 @@ def _build_attempt_pdf(
 
     pdf.ln(2)
     pdf.set_font("Helvetica", size=10)
-    attempt_date_label = attempt_date.astimezone().strftime("%d/%m/%Y %H:%M")
+    attempt_date_label = format_attempt_date(attempt_date)
     pdf.cell(w, 6, txt=f"Enviado em: {attempt_date_label}", new_x="LMARGIN", new_y="NEXT")
 
     pdf.output(str(file_path))
