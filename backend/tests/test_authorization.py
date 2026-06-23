@@ -13,6 +13,7 @@ from app.core.authorization import (
     can_read_shared_activity,
     ensure_activity_owner,
     ensure_activity_read_access,
+    ensure_attempt_is_writable,
     ensure_attempt_write_access,
     require_aluno,
     require_professor,
@@ -20,6 +21,7 @@ from app.core.authorization import (
 )
 from app.core.security import AuthContext
 from app.models.activities import ActivityStatus
+from app.models.attempts import AttemptStatus
 from app.models.users import RoleEnum
 
 
@@ -106,6 +108,36 @@ class AuthorizationTests(unittest.TestCase):
 
         with self.assertRaises(HTTPException):
             ensure_attempt_write_access(context, SimpleNamespace(id=uuid.uuid4()))
+
+    def test_writable_attempt_rejects_concluded_attempt(self):
+        attempt = SimpleNamespace(
+            status=AttemptStatus.concluido,
+            activity=activity(status=ActivityStatus.ativo),
+        )
+
+        with self.assertRaises(HTTPException) as raised:
+            ensure_attempt_is_writable(EmptyDb(), attempt)
+
+        self.assertEqual(raised.exception.status_code, 409)
+
+    def test_writable_attempt_rejects_closed_activity(self):
+        attempt = SimpleNamespace(
+            status=AttemptStatus.em_progresso,
+            activity=activity(status=ActivityStatus.encerrado),
+        )
+
+        with self.assertRaises(HTTPException) as raised:
+            ensure_attempt_is_writable(EmptyDb(), attempt)
+
+        self.assertEqual(raised.exception.status_code, 409)
+
+    def test_writable_attempt_accepts_active_activity(self):
+        attempt = SimpleNamespace(
+            status=AttemptStatus.em_progresso,
+            activity=activity(status=ActivityStatus.ativo),
+        )
+
+        ensure_attempt_is_writable(EmptyDb(), attempt)
 
 
 if __name__ == "__main__":

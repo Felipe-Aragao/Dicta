@@ -15,7 +15,8 @@ export function ActivityPreviewDetailsModal({
 }) {
   if (!activity) return null;
 
-  const canResumeActivity = Boolean(onResume && activity?.resumeAttempt);
+  const isClosed = activity?.rawStatus === "encerrado" || activity?.activityStatus === "encerrado";
+  const canResumeActivity = Boolean(onResume && activity?.resumeAttempt && !isClosed);
 
   return (
     <div className="modal-overlay" role="dialog" aria-modal="true" onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>

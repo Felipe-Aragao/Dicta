@@ -77,6 +77,9 @@ export function useActivityAccess({ role, navigate, showToast, startActivityAtte
         id: activity.id,
         name: activity.name,
         discipline: activity.discipline,
+        status: activity.status,
+        rawStatus: activity.status,
+        shareCode: activity.share_code ?? null,
       };
       setAttemptsActivity(normalized);
       return normalized;

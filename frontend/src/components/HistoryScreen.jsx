@@ -348,7 +348,15 @@ export function HistoryScreen({
                           {onOpenAttempts && (
                             <button
                               className="attempts-icon-btn"
-                              onClick={() => { onOpenAttempts({ id: h.id, name: h.name, discipline: h.disciplina }); }}
+                              onClick={() => {
+                                onOpenAttempts({
+                                  id: h.id,
+                                  name: h.name,
+                                  discipline: h.disciplina,
+                                  status: h.activityStatus || h.rawStatus,
+                                  rawStatus: h.activityStatus || h.rawStatus,
+                                });
+                              }}
                               aria-label={`Ver ${h.attemptsCount || 0} tentativa${h.attemptsCount !== 1 ? "s" : ""}`}
                               title={`${h.attemptsCount || 0} tentativa${h.attemptsCount !== 1 ? "s" : ""}`}
                             >

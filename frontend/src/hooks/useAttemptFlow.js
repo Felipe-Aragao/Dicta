@@ -6,7 +6,7 @@ import { ROUTES } from "../routes";
 
 const isAttemptLockedError = (error) => {
   const message = String(error?.message ?? "").toLowerCase();
-  return error?.status === 409 || message.includes("conclu");
+  return error?.status === 409 || message.includes("conclu") || message.includes("encerrad");
 };
 
 export function useAttemptFlow({ role, page, currentUser, username, navigate, showToast }) {
@@ -28,10 +28,10 @@ export function useAttemptFlow({ role, page, currentUser, username, navigate, sh
     activeAttemptIdRef.current = activeAttemptId;
   }, [activeAttemptId]);
 
-  const handleLockedAttempt = useCallback(() => {
+  const handleLockedAttempt = useCallback((message = "Esta tentativa já foi concluida e não pode ser editada.") => {
     setAttemptConcluded(true);
     setActiveAttemptId(null);
-    setLockedAttemptNotice("Esta tentativa já foi concluida e não pode ser editada.");
+    setLockedAttemptNotice(message);
   }, []);
 
   const fetchQuestionsByActivity = useCallback(async (activityId) => {
@@ -297,6 +297,11 @@ export function useAttemptFlow({ role, page, currentUser, username, navigate, sh
 
   const handleResumeAttempt = useCallback(async (attempt) => {
     if (!attempt?.id || !attempt?.activity_id) return;
+    if (attempt.activity_status === "encerrado" || attempt.activityStatus === "encerrado") {
+      handleLockedAttempt("Esta atividade foi encerrada e não aceita novas respostas.");
+      showToast("Atividade encerrada.");
+      return;
+    }
 
     try {
       let existingAnswers = [];

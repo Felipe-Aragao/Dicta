@@ -5,7 +5,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
-from app.core.authorization import ensure_attempt_access, ensure_attempt_write_access, require_aluno
+from app.core.authorization import (
+    ensure_attempt_access,
+    ensure_attempt_is_writable,
+    ensure_attempt_write_access,
+    require_aluno,
+)
 from app.core.database import get_db
 from app.core.security import AuthContext, get_auth_context
 from app.schemas.attempt import (
@@ -16,7 +21,7 @@ from app.schemas.attempt import (
     VisitorAttemptRead,
 )
 from app.models.activities import Activity, ActivityStatus
-from app.models.attempts import Attempt, AttemptStatus
+from app.models.attempts import Attempt
 from app.models.users import RoleEnum
 from app.services.activity_service import ActivityService
 from app.services.attempt_service import AttemptService
@@ -45,9 +50,11 @@ def create_attempt(
     activity = ActivityService(db).get(data.activity_id)
     if not activity:
         raise HTTPException(status_code=404, detail="Atividade não encontrada.")
+    if activity.status == ActivityStatus.encerrado:
+        raise HTTPException(status_code=409, detail="Atividade encerrada.")
     can_open_activity = (
         activity.owner_id == aluno.id
-        or (activity.is_shareable and activity.status != ActivityStatus.encerrado)
+        or activity.is_shareable
     )
     if not can_open_activity:
         raise HTTPException(status_code=403, detail="Atividade indisponível para este aluno.")
@@ -120,8 +127,7 @@ def update_attempt(
     visitor_service = VisitorAttemptService(db)
     if context.kind == "visitor" and visitor_service.is_activity_expired(attempt.activity):
         raise HTTPException(status_code=410, detail="Tentativa expirada. Gere uma nova atividade.")
-    if attempt.status == AttemptStatus.concluido:
-        raise HTTPException(status_code=409, detail="Tentativa já concluída.")
+    ensure_attempt_is_writable(db, attempt)
     if context.kind == "user" and context.user and context.user.role == RoleEnum.aluno:
         data = data.model_copy(update={"aluno_id": context.user.id})
     elif context.kind == "visitor":

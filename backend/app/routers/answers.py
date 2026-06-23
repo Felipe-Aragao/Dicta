@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.authorization import (
     ensure_answer_write_access,
     ensure_attempt_access,
+    ensure_attempt_is_writable,
     ensure_attempt_write_access,
 )
 from app.core.database import get_db
@@ -14,7 +15,6 @@ from app.core.security import AuthContext, get_auth_context
 from app.schemas.answer import AnswerCreate, AnswerRead, AnswerUpdate
 from app.services.answer_service import AnswerService
 from app.services.attempt_service import AttemptService
-from app.models.attempts import AttemptStatus
 from app.services.question_service import QuestionService
 
 router = APIRouter(prefix="/answers", tags=["answers"])
@@ -40,8 +40,7 @@ def create_answer(
         raise HTTPException(status_code=404, detail="Tentativa não encontrada.")
     ensure_attempt_access(db, context, attempt)
     ensure_attempt_write_access(context, attempt)
-    if attempt.status == AttemptStatus.concluido:
-        raise HTTPException(status_code=409, detail="Tentativa já concluída.")
+    ensure_attempt_is_writable(db, attempt)
 
     question = QuestionService(db).get(data.question_id)
     if not question:
@@ -92,8 +91,9 @@ def update_answer(
     answer = _get_answer_or_404(service, answer_id)
     ensure_answer_write_access(db, context, answer)
     attempt = AttemptService(db).get(answer.attempt_id)
-    if attempt and attempt.status == AttemptStatus.concluido:
-        raise HTTPException(status_code=409, detail="Tentativa já concluída.")
+    if not attempt:
+        raise HTTPException(status_code=404, detail="Tentativa não encontrada.")
+    ensure_attempt_is_writable(db, attempt)
     return service.update(answer, data)
 
 

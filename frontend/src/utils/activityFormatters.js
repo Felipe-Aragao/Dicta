@@ -74,7 +74,7 @@ export const normalizeAttemptActivity = (attempts = []) => {
     getAttemptDateValue(attempt) > getAttemptDateValue(latest) ? attempt : latest
   ), attempts[0]);
   const resumeAttempt = attempts
-    .filter((attempt) => attempt?.status === "em progresso")
+    .filter((attempt) => attempt?.status === "em progresso" && attempt?.activity_status !== "encerrado")
     .reduce((latest, attempt) => (
       !latest || getAttemptDateValue(attempt) > getAttemptDateValue(latest) ? attempt : latest
     ), null);
@@ -92,6 +92,7 @@ export const normalizeAttemptActivity = (attempts = []) => {
       ? normalizeActivityStatus(latestAttempt.activity_status)
       : normalizeAttemptStatus(latestAttempt.status),
     rawStatus: latestAttempt.activity_status || latestAttempt.status,
+    activityStatus: latestAttempt.activity_status,
     attemptStatus: latestAttempt.status,
     attemptsCount: attempts.length,
     resumeAttempt,

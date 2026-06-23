@@ -35,6 +35,7 @@ export function AttemptsScreen({ activity, onBack, onResume, onCreateAttempt, al
   const [answersLoading, setAnswersLoading] = useState(false);
   const [answersError, setAnswersError] = useState("");
   const [downloadingId, setDownloadingId] = useState(null);
+  const activityClosed = activity?.status === "encerrado" || activity?.rawStatus === "encerrado";
 
   // Carrega tentativas da atividade
   const fetchAttempts = useCallback(async () => {
@@ -128,7 +129,7 @@ export function AttemptsScreen({ activity, onBack, onResume, onCreateAttempt, al
             <p className="section-sub">{activity.name} · {activity.discipline || "Geral"}</p>
           </div>
           <div className="section-header-right activity-primary-actions">
-            {onCreateAttempt && (
+            {onCreateAttempt && !activityClosed && (
               <button className="btn btn-primary" onClick={onCreateAttempt} disabled={loading}>
                 <Plus size={17} weight="bold" />
                 Criar nova tentativa
@@ -269,7 +270,12 @@ export function AttemptsScreen({ activity, onBack, onResume, onCreateAttempt, al
               <button className="btn btn-outline" onClick={() => setSelectedAttempt(null)}>Fechar</button>
               
               {/*Só aparece se estiver em progresso */}
-              {selectedAttempt.status === "em progresso" && onResume && alunoId && selectedAttempt.aluno_id === alunoId && (
+              {!activityClosed &&
+                selectedAttempt.activity_status !== "encerrado" &&
+                selectedAttempt.status === "em progresso" &&
+                onResume &&
+                alunoId &&
+                selectedAttempt.aluno_id === alunoId && (
                 <button 
                   className="btn btn-primary" 
                   onClick={() => {

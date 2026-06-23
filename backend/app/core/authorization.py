@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.security import AuthContext
 from app.models.activities import Activity, ActivityStatus
 from app.models.answers import Answer
-from app.models.attempts import Attempt
+from app.models.attempts import Attempt, AttemptStatus
 from app.models.question_options import QuestionOption
 from app.models.questions import Question
 from app.models.users import RoleEnum
@@ -112,6 +112,17 @@ def can_write_attempt(context: AuthContext, attempt: Attempt) -> bool:
 def ensure_attempt_write_access(context: AuthContext, attempt: Attempt) -> None:
     if not can_write_attempt(context, attempt):
         forbidden()
+
+
+def ensure_attempt_is_writable(db: Session, attempt: Attempt) -> None:
+    if attempt.status == AttemptStatus.concluido:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Tentativa já concluída.")
+
+    activity = attempt.activity or db.query(Activity).filter(Activity.id == attempt.activity_id).first()
+    if not activity:
+        raise HTTPException(status_code=404, detail="Atividade não encontrada.")
+    if activity.status == ActivityStatus.encerrado:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Atividade encerrada.")
 
 
 def ensure_question_read_access(db: Session, context: AuthContext, question: Question) -> None:
