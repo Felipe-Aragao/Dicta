@@ -8,7 +8,7 @@ import {
   Check,
   ArrowCounterClockwise,
   PencilSimple,
-  ListNumbers,
+  List,
   X,
 } from "@phosphor-icons/react";
 import { useSpeech } from "../hooks/useSpeech";
@@ -507,7 +507,7 @@ export function QuestionScreen({
         aria-label="Abrir lista de questões"
         title="Abrir lista de questões"
       >
-        <ListNumbers size={28} weight="bold" />
+        <List size={28} weight="bold" />
       </button>
 
       {questionNavOpen && (

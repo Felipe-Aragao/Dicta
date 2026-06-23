@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Plus, FilePdf, ArrowRight, Article,
+  Plus, ArrowRight, Article,
   Link, Check,
   ArrowsClockwise, MagnifyingGlass, PlayCircle, StopCircle, Trash,
 } from "@phosphor-icons/react";
@@ -350,7 +350,6 @@ export function ProfessorScreen({
                       >
                         <td>
                           <div className="activity-title-cell" title={q.nome}>
-                            <FilePdf size={16} color="var(--text-3)" weight="regular" />
                             <span className="activity-title-text">{q.nome}</span>
                           </div>
                         </td>

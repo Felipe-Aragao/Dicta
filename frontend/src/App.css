@@ -1076,14 +1076,14 @@ body {
   align-items: center;
   justify-content: center;
   color: #FFFFFF;
-  background: var(--zinc-800);
+  background: var(--accent);
   cursor: pointer;
   box-shadow: 0 14px 30px rgba(24, 24, 27, .18);
   transform: translateY(-50%);
   transition: transform .16s ease, box-shadow .16s ease, background .16s ease;
 }
 .question-nav-toggle:hover {
-  background: var(--zinc-900);
+  background: var(--accent-dk);
   transform: translateY(calc(-50% - 2px));
   box-shadow: 0 18px 36px rgba(24, 24, 27, .22);
 }

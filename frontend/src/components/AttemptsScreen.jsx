@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { DownloadSimple } from "@phosphor-icons/react";
+import { DownloadSimple, Plus } from "@phosphor-icons/react";
 import { getAttemptPdf, listAnswers, listAttempts } from "../services/attemptService";
 import { downloadBlob, getFilenameFromDisposition } from "../utils/download";
 
@@ -26,7 +26,7 @@ const getStatusMeta = (status) => {
 };
 
 // Tela de tentativas
-export function AttemptsScreen({ activity, onBack, onResume, alunoId }) {
+export function AttemptsScreen({ activity, onBack, onResume, onCreateAttempt, alunoId }) {
   const [attempts, setAttempts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -127,7 +127,13 @@ export function AttemptsScreen({ activity, onBack, onResume, alunoId }) {
             <h2 className="section-title">Tentativas</h2>
             <p className="section-sub">{activity.name} · {activity.discipline || "Geral"}</p>
           </div>
-          <div className="section-header-right">
+          <div className="section-header-right activity-primary-actions">
+            {onCreateAttempt && (
+              <button className="btn btn-primary" onClick={onCreateAttempt} disabled={loading}>
+                <Plus size={17} weight="bold" />
+                Criar nova tentativa
+              </button>
+            )}
             <button className="btn btn-outline" onClick={onBack}>Voltar</button>
           </div>
         </div>

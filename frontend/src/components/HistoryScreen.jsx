@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowRight, Article, ClockCounterClockwise, Plus, MagnifyingGlass, Trash } from "@phosphor-icons/react";
+import { ArrowRight, Article, Plus, MagnifyingGlass, Trash } from "@phosphor-icons/react";
 import { ActivityCreateModal, ActivityPdfModal, ActivityPreviewModal } from "./ActivityModals";
 import { deleteActivity, getActivity, listActivitiesByOwner } from "../services/activityService";
 import { listAttemptsByAluno } from "../services/attemptService";
@@ -323,7 +323,6 @@ export function HistoryScreen({
                       >
                         <td>
                           <div className="activity-title-cell" title={h.name}>
-                            <ClockCounterClockwise size={15} color="var(--text-3)" weight="regular" />
                             <span className="activity-title-text">{h.name}</span>
                           </div>
                         </td>

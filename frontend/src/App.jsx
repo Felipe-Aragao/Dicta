@@ -240,6 +240,9 @@ function AttemptsRoute({ auth, role, activityAccess, attempt, navigate }) {
           activity={attemptsActivity}
           onBack={() => navigate(role === "professor" ? ROUTES.professorHome : ROUTES.studentHome)}
           onResume={attempt.handleResumeAttempt}
+          onCreateAttempt={role === "aluno" && attemptsActivity?.id
+            ? () => activityAccess.handleOpenActivity(attemptsActivity.id)
+            : null}
           alunoId={role === "aluno" ? auth.currentUser?.id : null}
         />
       )}
