@@ -202,11 +202,12 @@ export function useAttemptFlow({ role, page, currentUser, username, navigate, sh
     }
   }, [activeActivityId, activeAttemptId, createAttempt, handleLockedAttempt, showToast]);
 
-  const handleReviewEdit = useCallback(() => {
-    setQuestionStartIndex(0);
+  const handleReviewEdit = useCallback((questionIndex = 0) => {
+    const safeIndex = Math.max(0, Math.min(Number(questionIndex) || 0, Math.max(questionSet.length - 1, 0)));
+    setQuestionStartIndex(safeIndex);
     setQuestionSessionId((prev) => prev + 1);
     navigate(ROUTES.activityResponder(activeActivityCode || activeActivityId || "local"));
-  }, [activeActivityCode, activeActivityId, navigate]);
+  }, [activeActivityCode, activeActivityId, navigate, questionSet.length]);
 
   const handleReviewConfirm = useCallback(async () => {
     let attemptId = activeAttemptId;

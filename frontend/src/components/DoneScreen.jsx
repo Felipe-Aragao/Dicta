@@ -1,12 +1,29 @@
 import { CheckCircle, DownloadSimple, ArrowLeft } from "@phosphor-icons/react";
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSpeech } from "../hooks/useSpeech"; 
+import { FloatingMicButton } from "./FloatingMicButton";
 // Tela de finalizacao
 export function DoneScreen({ role, onGenerate, onHome }) {
   const homeLabel = role === "aluno" ? "Ir para Minha Área" : "Responder outro questionário";
-  const { startRec, setCommands, speak, stopRec } = useSpeech();
+  const [micEnabled, setMicEnabled] = useState(true);
+  const { startRec, setCommands, speak, stopRec, recognitionError, clearRecognitionError } = useSpeech();
+
+  const toggleMicListening = useCallback(() => {
+    if (recognitionError) {
+      clearRecognitionError();
+      setMicEnabled(true);
+      return;
+    }
+
+    setMicEnabled((enabled) => !enabled);
+  }, [clearRecognitionError, recognitionError]);
   
   useEffect(() => {
+    if (!micEnabled || recognitionError) {
+      stopRec();
+      return undefined;
+    }
+
     const timer = setTimeout(() => {
       startRec(() => {}); 
       speak("Diga 'inicio' para retornar a tela do usuário ou 'gerar pdf' para gerar o pdf do questionário.");
@@ -16,7 +33,7 @@ export function DoneScreen({ role, onGenerate, onHome }) {
       clearTimeout(timer);
       stopRec(); // 
     };
-  }, [startRec, speak, stopRec]);
+  }, [micEnabled, recognitionError, startRec, speak, stopRec]);
   
   useEffect(() => {
     setCommands({
@@ -27,7 +44,11 @@ export function DoneScreen({ role, onGenerate, onHome }) {
     });
   }, [setCommands, onHome, onGenerate ]);
 
+  const micStatus = recognitionError ? "unavailable" : micEnabled ? "active" : "muted";
+
   return (
+    <>
+    <FloatingMicButton status={micStatus} onToggle={toggleMicListening} />
     <div className="page-center page-anim">
 
     <div className="done-icon-wrap" aria-hidden="true">
@@ -68,5 +89,6 @@ export function DoneScreen({ role, onGenerate, onHome }) {
     </div>
 
     </div>
+    </>
   );
 }

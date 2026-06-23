@@ -8,51 +8,60 @@ import { AudioSettings } from "./AudioSettings";
 const SECTIONS = [
   {
     icon: <SpeakerHigh size={22} weight="regular" />,
-    title: "Leitura e Navegação",
+    title: "Prova: Navegação",
     color: "#4F46E5",
     bg: "#EEF2FF",
     commands: [
       { diga: "próxima",            faz: "Avança para a próxima questão" },
       { diga: "anterior",           faz: "Volta para a questão anterior" },
+      { diga: "questão 3",          faz: "Vai direto para a questão informada" },
       { diga: "repetir",            faz: "Lê a questão atual novamente em voz alta" },
       { diga: "ouvir alternativas",   faz: "Lê todas as alternativas da questão atual" },
+      { diga: "ouvir resposta",     faz: "Lê a resposta marcada ou gravada" },
+      { diga: "ouvir minha resposta", faz: "Lê a resposta marcada ou gravada" },
+      { diga: "finalizar",          faz: "Salva a resposta atual e vai para a revisão" },
+      { diga: "ajuda",              faz: "Lê os comandos disponíveis na prova" },
     ],
   },
   {
     icon: <Microphone size={22} weight="regular" />,
-    title: "Responder Questões",
+    title: "Prova: Responder",
     color: "#16A34A",
     bg: "#F0FDF4",
     commands: [
       { diga: "responder",            faz: "Abre o painel de gravação de voz" },
       { diga: "gravar",               faz: "Inicia a gravação da sua resposta" },
       { diga: "parar",                faz: "Para a gravação e exibe a transcrição" },
-      { diga: "letra A",              faz: "Seleciona a alternativa A (funciona com B, C, D)" },
+      { diga: "letra A",              faz: "Seleciona uma alternativa (funciona de A a F)" },
       { diga: "refazer",              faz: "Descarta a gravação e permite gravar novamente" },
     ],
   },
   {
     icon: <MagnifyingGlass size={22} weight="regular" />,
-    title: "Busca e Filtros",
+    title: "Revisão",
     color: "#D97706",
     bg: "#FFFBEB",
     commands: [
-      { diga: "buscar provas",        faz: "Filtra o histórico mostrando apenas provas" },
-      { diga: "buscar atividades",    faz: "Filtra o histórico mostrando apenas atividades" },
-      { diga: "limpar filtro",        faz: "Remove o filtro e exibe todos os questionários" },
-      { diga: "meus questionários",   faz: "Vai para a página de histórico" },
+      { diga: "próxima",              faz: "Move o foco para a próxima questão da revisão" },
+      { diga: "anterior",             faz: "Move o foco para a questão anterior" },
+      { diga: "questão 3",            faz: "Vai direto para a questão informada" },
+      { diga: "repetir",              faz: "Lê o resumo da questão focada" },
+      { diga: "ouvir questão",        faz: "Lê o enunciado da questão focada" },
+      { diga: "ouvir resposta",       faz: "Lê a resposta da questão focada" },
+      { diga: "alterar",              faz: "Volta para editar a questão focada" },
+      { diga: "confirmar",            faz: "Entrega o questionário" },
+      { diga: "finalizar",            faz: "Entrega o questionário" },
     ],
   },
   {
     icon: <DownloadSimple size={22} weight="regular" />,
-    title: "Finalizar e Exportar",
+    title: "Finalização",
     color: "#0891B2",
     bg: "#ECFEFF",
     commands: [
-      { diga: "finalizar",            faz: "Conclui o questionário e vai para a tela final" },
+      { diga: "início",               faz: "Volta para a área inicial do usuário" },
       { diga: "gerar PDF",            faz: "Gera o arquivo PDF com todas as suas respostas" },
-      { diga: "enviar por email",     faz: "Abre a opção de envio do PDF por e-mail" },
-      { diga: "revisar respostas",    faz: "Volta para revisar as respostas antes de gerar o PDF" },
+      { diga: "gerar o PDF",          faz: "Gera o arquivo PDF com todas as suas respostas" },
     ],
   },
   {
@@ -61,10 +70,10 @@ const SECTIONS = [
     color: "#7C3AED",
     bg: "#F5F3FF",
     commands: [
-      { diga: "voltar",               faz: "Volta para a tela anterior" },
-      { diga: "início",               faz: "Vai para a página inicial do Dicta" },
-      { diga: "nova atividade",       faz: "Inicia o envio de um novo arquivo PDF" },
-      { diga: "ajuda",                faz: "Abre esta página de comandos de voz" },
+      { diga: "ajuda",                faz: "Na prova ou revisão, lê os comandos disponíveis" },
+      { diga: "voltar",               faz: "Na revisão, volta para editar a questão focada" },
+      { diga: "confirmar e finalizar", faz: "Na revisão, entrega o questionário" },
+      { diga: "ouvir minha resposta", faz: "Na prova ou revisão, lê a resposta atual" },
     ],
   },
 ];
@@ -140,7 +149,7 @@ export function VoiceCommandsScreen({ onClose, isIntro, onContinue }) {
     const welcome = "Página de comandos de voz. " +
                        "O sistema é totalmente operável por comandos falados. " +
                        "Para ouvir a lista completa, consulte os cards na tela," +
-                       "como navegação, leitura, e responder questões.";
+                       "como prova, revisão e finalização.";
 
     setTimeout(() => speak(welcome), 500);
   }, [speak]);

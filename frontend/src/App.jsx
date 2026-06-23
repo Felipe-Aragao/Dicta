@@ -403,6 +403,7 @@ export default function App() {
                 onOpenActivity={activityAccess.handleOpenActivity}
                 onOpenActivityCode={activityAccess.handleOpenActivityCode}
                 onOpenAttempts={activityAccess.handleOpenAttempts}
+                onResume={attempt.handleResumeAttempt}
                 userId={auth.currentUser?.id}
               />
             </RequireAuth>
@@ -491,7 +492,7 @@ export default function App() {
               <ReviewScreen
                 questions={attempt.questionSet}
                 answers={attempt.answers}
-                onEdit={attempt.handleReviewEdit}
+                onEdit={(index) => attempt.handleReviewEdit(index)}
                 onConfirm={attempt.handleReviewConfirm}
               />
             </RequireAttemptState>

@@ -28,6 +28,7 @@ export function HistoryScreen({
   onOpenActivity,
   onOpenActivityCode,
   onOpenAttempts,
+  onResume,
   userId,
 }) {
   const { stopRec } = useSpeech();
@@ -400,6 +401,7 @@ export function HistoryScreen({
         error={viewingQuestionsError}
         onClose={() => setViewingActivity(null)}
         onOpenActivity={onOpenActivity}
+        onResume={onResume}
         canOpenActivity={Boolean(
           onOpenActivity &&
           viewingActivity?.rawStatus !== "encerrado" &&

@@ -3,7 +3,7 @@ import { useRef, useCallback, useState, useEffect } from "react";
 export function useSpeech() {
   const recRef = useRef(null);
   const shouldListenRef = useRef(false);
-  const commandsRef = useRef({});
+  const commandsRef = useRef([]);
   const onResultRef = useRef(null);
   const lastCommandTimeRef = useRef(0);
 
@@ -74,7 +74,15 @@ export function useSpeech() {
   };
 
   const setCommands = useCallback((commands) => {
-    commandsRef.current = commands;
+    if (Array.isArray(commands)) {
+      commandsRef.current = commands;
+      return;
+    }
+
+    commandsRef.current = Object.entries(commands || {}).map(([phrase, action]) => ({
+      phrase,
+      action,
+    }));
   }, []);
 
   const clearRecognitionError = useCallback(() => {
@@ -126,14 +134,18 @@ export function useSpeech() {
           let comandoExecutado = false;
 
           // Verifica se a frase dita é um comando
-          Object.keys(commandsRef.current).forEach((cmdKey) => {
+          commandsRef.current.forEach((command) => {
             if (comandoExecutado) return; // Se já achou um comando, ignora o resto
 
-            if (cleanText.includes(sanitizeText(cmdKey))) {
+            const matches = command.matcher
+              ? command.matcher(cleanText)
+              : cleanText.includes(sanitizeText(command.phrase));
+
+            if (matches) {
               const now = Date.now();
               // Trava de segurança de 1 segundo
               if (now - lastCommandTimeRef.current > 1000) {
-                commandsRef.current[cmdKey]();
+                command.action(cleanText);
                 lastCommandTimeRef.current = now;
                 comandoExecutado = true;
               }

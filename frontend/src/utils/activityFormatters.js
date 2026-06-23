@@ -73,6 +73,11 @@ export const normalizeAttemptActivity = (attempts = []) => {
   const latestAttempt = attempts.reduce((latest, attempt) => (
     getAttemptDateValue(attempt) > getAttemptDateValue(latest) ? attempt : latest
   ), attempts[0]);
+  const resumeAttempt = attempts
+    .filter((attempt) => attempt?.status === "em progresso")
+    .reduce((latest, attempt) => (
+      !latest || getAttemptDateValue(attempt) > getAttemptDateValue(latest) ? attempt : latest
+    ), null);
 
   return {
     id: latestAttempt.activity_id,
@@ -89,6 +94,7 @@ export const normalizeAttemptActivity = (attempts = []) => {
     rawStatus: latestAttempt.activity_status || latestAttempt.status,
     attemptStatus: latestAttempt.status,
     attemptsCount: attempts.length,
+    resumeAttempt,
   };
 };
 

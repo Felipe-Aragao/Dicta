@@ -7,12 +7,15 @@ export function ActivityPreviewDetailsModal({
   error,
   onClose,
   onOpenActivity,
+  onResume,
   canOpenActivity = false,
   getTitle = (item) => item?.name,
   getProfessor = (item) => item?.professor,
   getDiscipline = (item) => item?.disciplina,
 }) {
   if (!activity) return null;
+
+  const canResumeActivity = Boolean(onResume && activity?.resumeAttempt);
 
   return (
     <div className="modal-overlay" role="dialog" aria-modal="true" onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
@@ -68,7 +71,18 @@ export function ActivityPreviewDetailsModal({
         </div>
 
         <div className="modal-actions" style={{ marginTop: 0 }}>
-          {canOpenActivity && (
+          {canResumeActivity ? (
+            <button
+              className="btn btn-primary"
+              onClick={() => {
+                onResume(activity.resumeAttempt);
+                onClose();
+              }}
+              disabled={loading}
+            >
+              Retomar tentativa
+            </button>
+          ) : canOpenActivity && (
             <button
               className="btn btn-primary"
               onClick={() => {

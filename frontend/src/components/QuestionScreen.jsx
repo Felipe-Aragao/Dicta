@@ -1,22 +1,56 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   SpeakerHigh,
   Microphone,
-  MicrophoneSlash,
-  WarningCircle,
   StopCircle,
   ArrowLeft,
   ArrowRight,
   Check,
   ArrowCounterClockwise,
   PencilSimple,
+  ListNumbers,
+  X,
 } from "@phosphor-icons/react";
 import { useSpeech } from "../hooks/useSpeech";
-import { VoiceCommandsScreen } from "./VoiceCommandsScreen";
 import { SlidersHorizontal } from "@phosphor-icons/react";
 import { AudioSettings } from "./AudioSettings"; 
+import { FloatingMicButton } from "./FloatingMicButton";
 
 const LETTERS = ["A", "B", "C", "D", "E", "F"];
+const NUMBER_WORDS = {
+  um: 1,
+  uma: 1,
+  dois: 2,
+  duas: 2,
+  tres: 3,
+  quatro: 4,
+  cinco: 5,
+  seis: 6,
+  sete: 7,
+  oito: 8,
+  nove: 9,
+  dez: 10,
+  onze: 11,
+  doze: 12,
+  treze: 13,
+  quatorze: 14,
+  catorze: 14,
+  quinze: 15,
+  dezesseis: 16,
+  dezassete: 17,
+  dezessete: 17,
+  dezoito: 18,
+  dezenove: 19,
+  vinte: 20,
+};
+
+const parseQuestionNumber = (text) => {
+  const digitMatch = text.match(/questao(?:\s+numero)?\s+(\d+)/);
+  if (digitMatch) return Number(digitMatch[1]);
+
+  const wordMatch = text.match(/questao(?:\s+numero)?\s+([a-z]+)/);
+  return NUMBER_WORDS[wordMatch?.[1]] ?? null;
+};
 
 // ─── Alternativas ────────────────────────────────────────────────
 function Alternatives({ options, selectedAlt, onSelect }) {
@@ -80,35 +114,6 @@ function VoicePanel({ recording, transcription, interimText, onToggle }) {
   );
 }
 
-function FloatingMicButton({ status, onToggle }) {
-  const isActive = status === "active";
-  const isUnavailable = status === "unavailable";
-  const label = isUnavailable
-    ? "Microfone sem acesso"
-    : isActive
-    ? "Mutar microfone"
-    : "Ativar microfone";
-
-  return (
-    <button
-      type="button"
-      className={`floating-mic-btn ${status}`}
-      onClick={onToggle}
-      aria-label={label}
-      aria-pressed={isActive}
-      title={label}
-    >
-      {isUnavailable ? (
-        <WarningCircle size={28} weight="bold" />
-      ) : isActive ? (
-        <Microphone size={28} weight="bold" />
-      ) : (
-        <MicrophoneSlash size={28} weight="bold" />
-      )}
-    </button>
-  );
-}
-
 // ─── Tela principal ──────────────────────────────────────────────
 export function QuestionScreen({
   questions,
@@ -131,6 +136,7 @@ export function QuestionScreen({
   const [showHelp, setShowHelp]           = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [micEnabled, setMicEnabled] = useState(true);
+  const [questionNavOpen, setQuestionNavOpen] = useState(false);
 
   const { speak, startRec, stopRec, setCommands, recognitionError, clearRecognitionError } = useSpeech();
 
@@ -200,10 +206,19 @@ export function QuestionScreen({
     setAnswers(Array.isArray(initialAnswers) ? [...initialAnswers] : []);
   }, [initialAnswers]);
 
-  const getStoredAnswer = (questionId, questionIndex) => (
+  const getStoredAnswer = useCallback((questionId, questionIndex) => (
     answers.find((item) => item?.questionId === questionId) ||
     answers.find((item) => item?.qIdx === questionIndex)
-  );
+  ), [answers]);
+
+  const isQuestionAnswered = useCallback((question, questionIndex) => {
+    const answer = getStoredAnswer(question?.id, questionIndex);
+    if (!answer) return false;
+    if (answer?.chosenLetter) return true;
+
+    const responseText = String(answer?.responseText ?? "").trim();
+    return Boolean(responseText && responseText !== "(sem resposta)");
+  }, [getStoredAnswer]);
 
   const initialWarning = useRef(false);
 
@@ -244,7 +259,7 @@ export function QuestionScreen({
     }
     setRecording(false);
     setInterimText("");
-  }, [answers, idx, q]);
+  }, [getStoredAnswer, idx, q]);
 
   const toggleRec = () => {
     if (!micEnabled || recognitionError) return;
@@ -268,42 +283,59 @@ export function QuestionScreen({
     });
   };
 
-  const handleSelectAlt = (i) => {
+  const handleSelectAlt = useCallback((i) => {
     setSelectedAlt(i);
     speak(q.options[i]);
-  };
+  }, [q, speak]);
 
-  const saveAndNext = async () => {
+  const buildCurrentAnswer = useCallback(() => {
+    if (!q) return null;
+
+    const chosenLetter = isMultiple && selectedAlt !== null ? LETTERS[selectedAlt] ?? null : null;
+    const responseText = isMultiple
+      ? q.options?.[selectedAlt] ?? "(sem resposta)"
+      : transcription || "(sem resposta)";
+
+    return {
+      qIdx: idx,
+      questionId: q?.id ?? null,
+      type: isMultiple ? "multiple" : "open",
+      responseText,
+      chosenLetter,
+    };
+  }, [idx, isMultiple, q, selectedAlt, transcription]);
+
+  const mergeAnswer = useCallback((currentAnswers, answer) => {
+    const nextAnswers = [...currentAnswers];
+    const existingIndex = nextAnswers.findIndex((item) => (
+      item?.questionId && answer.questionId
+        ? item.questionId === answer.questionId
+        : item?.qIdx === answer.qIdx
+    ));
+
+    if (existingIndex >= 0) nextAnswers[existingIndex] = answer;
+    else nextAnswers.push(answer);
+    return nextAnswers;
+  }, []);
+
+  const resetQuestionDraft = useCallback(() => {
+    setTranscription("");
+    setInterimText("");
+    setSelectedAlt(null);
+    setRecording(false);
+  }, []);
+
+  const saveCurrentAnswer = useCallback(async ({ complete = false, targetIndex = null } = {}) => {
     if (savingAnswerRef.current || !q) return;
     savingAnswerRef.current = true;
     setSavingAnswer(true);
 
     try {
-      const chosenLetter = isMultiple && selectedAlt !== null ? LETTERS[selectedAlt] ?? null : null;
-      const responseText = isMultiple
-        ? q.options[selectedAlt] ?? "(sem resposta)"
-        : transcription || "(sem resposta)";
-
-      const ans = {
-        qIdx: idx,
-        questionId: q?.id ?? null,
-        type: isMultiple ? "multiple" : "open",
-        responseText,
-        chosenLetter,
-      };
-
-      const nextAnswers = [...answers];
-      const existingIndex = nextAnswers.findIndex((item) => (
-        item?.questionId && ans.questionId
-          ? item.questionId === ans.questionId
-          : item?.qIdx === ans.qIdx
-      ));
-
-      if (existingIndex >= 0) nextAnswers[existingIndex] = ans;
-      else nextAnswers.push(ans);
+      const ans = buildCurrentAnswer();
+      const nextAnswers = mergeAnswer(answers, ans);
       setAnswers(nextAnswers);
 
-      if (isLast) {
+      if (complete) {
         await onComplete(nextAnswers);
         return;
       }
@@ -312,55 +344,87 @@ export function QuestionScreen({
         await onProgress(nextAnswers);
       }
 
-      setIdx((i) => i + 1);
-      setTranscription("");
-      setInterimText("");
-      setSelectedAlt(null);
-      setRecording(false);
+      const shouldMove = typeof targetIndex === "number" && targetIndex !== idx;
+      if (shouldMove) {
+        setIdx(targetIndex);
+        resetQuestionDraft();
+      }
     } catch {
       return;
     } finally {
       savingAnswerRef.current = false;
       setSavingAnswer(false);
     }
-  };
+  }, [answers, buildCurrentAnswer, idx, mergeAnswer, onComplete, onProgress, q, resetQuestionDraft]);
 
-  const goBack = () => {
+  const saveAndNext = useCallback(async () => {
+    await saveCurrentAnswer({
+      complete: isLast,
+      targetIndex: isLast ? null : idx + 1,
+    });
+  }, [idx, isLast, saveCurrentAnswer]);
+
+  const goToQuestionIndex = useCallback(async (targetIndex) => {
+    if (targetIndex < 0 || targetIndex >= (questions?.length ?? 0)) {
+      speak("Essa questão não existe.");
+      return;
+    }
+
+    await saveCurrentAnswer({ targetIndex });
+    setQuestionNavOpen(false);
+  }, [questions?.length, saveCurrentAnswer, speak]);
+
+  const goToSpokenQuestion = useCallback(async (spokenText) => {
+    const questionNumber = parseQuestionNumber(spokenText);
+    if (!questionNumber) {
+      speak("Essa questão não existe.");
+      return;
+    }
+
+    await goToQuestionIndex(questionNumber - 1);
+  }, [goToQuestionIndex, speak]);
+
+  const finishFromVoice = useCallback(async () => {
+    await saveCurrentAnswer({ complete: true });
+  }, [saveCurrentAnswer]);
+
+  const goBack = useCallback(() => {
     if (idx <= 0) return;
     setIdx((i) => i - 1);
-    setTranscription("");
-    setInterimText("");
-    setSelectedAlt(null);
-    setRecording(false);
-  };
+    resetQuestionDraft();
+  }, [idx, resetQuestionDraft]);
+
+  const hasQuestionNumberCommand = useCallback((cleanText) => (
+    parseQuestionNumber(cleanText) !== null
+  ), []);
 
   //  Bloqueia ações de navegação se "recording" for verdadeiro
   useEffect(() => {
-    setCommands({
-      "proxima": () => { if (!recording && !savingAnswerRef.current) saveAndNext(); },
-      "proxima questao": () => { if (!recording && !savingAnswerRef.current) saveAndNext(); },
-      "anterior": () => { if (!recording) goBack(); },
-      "repetir": () => { if (!recording && q) speak(q.text); },
-      "repet": () => { if (!recording && q) speak(q.text); }, 
-      "ouvir alternativas": () => {
+    setCommands([
+      { phrase: "proxima", action: () => { if (!recording && !savingAnswerRef.current) saveAndNext(); } },
+      { phrase: "proxima questao", action: () => { if (!recording && !savingAnswerRef.current) saveAndNext(); } },
+      { phrase: "anterior", action: () => { if (!recording) goBack(); } },
+      { phrase: "repetir", action: () => { if (!recording && q) speak(q.text); } },
+      { phrase: "repet", action: () => { if (!recording && q) speak(q.text); } }, 
+      { phrase: "ouvir alternativas", action: () => {
         if (!recording && isMultiple && q?.options) {
           const textoOpcoes = q.options.map((opt, i) => `Letra ${LETTERS[i]}, ${opt}`).join(". ");
           speak(`As alternativas são: ${textoOpcoes}`);
         }
-      },
-      "ouvir minha resposta": () => {
+      } },
+      { phrase: "ouvir minha resposta", action: () => {
         if (!recording) {
           if (isMultiple && selectedAlt !== null) speak(q.options[selectedAlt]);
           else if (!isMultiple && transcription) speak(transcription);
         }
-      },
-      "ouvir resposta": () => {
+      } },
+      { phrase: "ouvir resposta", action: () => {
         if (!recording) {
           if (isMultiple && selectedAlt !== null) speak(q.options[selectedAlt]);
           else if (!isMultiple && transcription) speak(transcription);
         }
-      },
-      "ajuda": () => { 
+      } },
+      { phrase: "ajuda", action: () => { 
         if (!recording) {
           if (!isMultiple) {
             speak(
@@ -383,25 +447,29 @@ export function QuestionScreen({
             );
           }
         }
-      },
-      "voltar": () => { 
+      } },
+      { phrase: "voltar", action: () => { 
         if (showHelp) { 
           setShowHelp(false); 
         } 
+      } },
+      { phrase: "responder", action: () => { if (!recording) setAnswerMode(true); } },
+      { phrase: "gravar", action: () => { if (micEnabled && !recognitionError) setRecording(true); } }, 
+      { phrase: "parar", action: () => setRecording(false) }, 
+      { phrase: "refazer", action: () => { setTranscription(""); setInterimText(""); setRecording(false); } },
+      { phrase: "finalizar", action: () => { if (!recording && !savingAnswerRef.current) finishFromVoice(); } },
+      { phrase: "letra a", action: () => { if (!recording && isMultiple) handleSelectAlt(0); } },
+      { phrase: "letra b", action: () => { if (!recording && isMultiple) handleSelectAlt(1); } },
+      { phrase: "letra c", action: () => { if (!recording && isMultiple) handleSelectAlt(2); } },
+      { phrase: "letra d", action: () => { if (!recording && isMultiple) handleSelectAlt(3); } },
+      { phrase: "letra e", action: () => { if (!recording && isMultiple) handleSelectAlt(4); } },
+      { phrase: "letra f", action: () => { if (!recording && isMultiple) handleSelectAlt(5); } },
+      {
+        matcher: hasQuestionNumberCommand,
+        action: (cleanText) => { if (!recording && !savingAnswerRef.current) goToSpokenQuestion(cleanText); },
       },
-      "responder": () => { if (!recording) setAnswerMode(true); },
-      "gravar": () => { if (micEnabled && !recognitionError) setRecording(true); }, 
-      "parar": () => setRecording(false), 
-      "refazer": () => { setTranscription(""); setInterimText(""); setRecording(false); },
-      "finalizar": () => { if (!recording && !savingAnswerRef.current && isLast) saveAndNext(); },
-      "letra a": () => { if (!recording && isMultiple) handleSelectAlt(0); },
-      "letra b": () => { if (!recording && isMultiple) handleSelectAlt(1); },
-      "letra c": () => { if (!recording && isMultiple) handleSelectAlt(2); },
-      "letra d": () => { if (!recording && isMultiple) handleSelectAlt(3); },
-      "letra e": () => { if (!recording && isMultiple) handleSelectAlt(4); },
-      "letra f": () => { if (!recording && isMultiple) handleSelectAlt(5); },
-    });
-  }, [idx, answerMode, isMultiple, selectedAlt, q, answers, transcription, recording, micEnabled, recognitionError, setCommands, showHelp]);
+    ]);
+  }, [answerMode, finishFromVoice, goBack, goToSpokenQuestion, handleSelectAlt, hasQuestionNumberCommand, isMultiple, micEnabled, recognitionError, recording, saveAndNext, selectedAlt, setCommands, showHelp, speak, transcription, q]);
 
   const micStatus = recognitionError ? "unavailable" : micEnabled ? "active" : "muted";
 
@@ -432,6 +500,64 @@ export function QuestionScreen({
   return (
     <>
       <FloatingMicButton status={micStatus} onToggle={toggleMicListening} />
+      <button
+        type="button"
+        className="question-nav-toggle"
+        onClick={() => setQuestionNavOpen(true)}
+        aria-label="Abrir lista de questões"
+        title="Abrir lista de questões"
+      >
+        <ListNumbers size={28} weight="bold" />
+      </button>
+
+      {questionNavOpen && (
+        <div
+          className="question-nav-overlay"
+          role="presentation"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setQuestionNavOpen(false);
+          }}
+        >
+          <aside className="question-nav-panel" aria-label="Selecionar questão">
+            <div className="question-nav-head">
+              <div>
+                <p className="question-nav-kicker">Prova</p>
+                <h2>Questões</h2>
+              </div>
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={() => setQuestionNavOpen(false)}
+                aria-label="Fechar lista de questões"
+              >
+                <X size={16} weight="bold" />
+              </button>
+            </div>
+            <div className="question-nav-list">
+              {questions.map((question, questionIndex) => {
+                const isCurrent = questionIndex === idx;
+                const answered = isQuestionAnswered(question, questionIndex);
+
+                return (
+                  <button
+                    key={question?.id ?? questionIndex}
+                    type="button"
+                    className={`question-nav-item${isCurrent ? " current" : ""}`}
+                    onClick={() => goToQuestionIndex(questionIndex)}
+                    disabled={savingAnswer}
+                    aria-current={isCurrent ? "step" : undefined}
+                  >
+                    <span>Questão {questionIndex + 1}</span>
+                    <span className={`badge ${answered ? "badge-green" : "badge-yellow"}`}>
+                      {answered ? "Respondida" : "Sem resposta"}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </aside>
+        </div>
+      )}
 
       <div className="prog-bar-wrap">
         <div className="prog-bar-inner" style={{ maxWidth: "var(--shell-max)" }}>
